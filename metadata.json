@@ -1,0 +1,7 @@
+{
+  "name": "NaijaConnect - Data & Airtime",
+  "description": "The ultimate platform for purchasing data and airtime across all Nigerian networks (MTN, Airtel, Glo, 9mobile) with an integrated AI assistant for plan recommendations.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
