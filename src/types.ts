@@ -29,7 +29,7 @@ export interface Transaction {
   id: string;
   date: string;
   carrier: string;
-  type: 'Airtime' | 'Data' | 'Deposit' | 'Withdrawal';
+  type: 'Airtime' | 'Data' | 'Deposit' | 'Withdrawal' | 'System';
   amount: number;
   phoneNumber: string;
   status: 'Success' | 'Failed' | 'Pending';
@@ -40,7 +40,7 @@ export interface ChatMessage {
   text: string;
 }
 
-// 3. API Responses
+// 3. API Responses & Payloads
 export interface ApiResponse<T = any> {
   status?: string;
   message?: string;
