@@ -1,58 +1,44 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { airtimeService } from '../services/airtimeService';
 import { DataPlan } from '../types';
 
-export const useDataPlans = (selectedNetworkId: number | null) => {
+export const useDataPlans = (networkId: number | null) => {
   const [plans, setPlans] = useState<DataPlan[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // If no network is selected, don't attempt to fetch/filter
+    if (!networkId) {
+      setPlans([]);
+      return;
+    }
+
     const fetchPlans = async () => {
+      setLoading(true);
+      setError(null);
       try {
-        setLoading(true);
-        // Assuming the API returns the array directly or inside a 'data' property
-        // Adjust this line based on the actual raw response structure
-        const response: any = await airtimeService.getDataPlans(); 
+        // 1. Fetch ALL plans from the new Affatech API service
+        const allPlans = await airtimeService.getAllDataPlans();
         
-        // Safety check: Ensure we have an array
-        const allPlans = Array.isArray(response) ? response : (response.data || []);
-        setPlans(allPlans);
+        // 2. Filter locally for the selected network (e.g., MTN=1, GLO=2, etc.)
+        // We use Number() to ensure type safety during comparison
+        const networkSpecificPlans = allPlans.filter(
+          (p) => Number(p.network) === networkId
+        );
+        
+        setPlans(networkSpecificPlans);
       } catch (err) {
-        console.error(err);
-        setError('Failed to load data plans');
+        console.error("Failed to load plans:", err);
+        setError("Could not retrieve data plans. Please try again.");
+        setPlans([]);
       } finally {
         setLoading(false);
       }
     };
 
     fetchPlans();
-  }, []);
+  }, [networkId]); // Re-runs whenever the user switches networks
 
-  // Filter plans automatically when the selectedNetworkId changes
-  const filteredPlans = useMemo(() => {
-    if (!selectedNetworkId) return [];
-    return plans.filter(plan => plan.network === selectedNetworkId);
-  }, [plans, selectedNetworkId]);
-
-  // Optional: Group by Plan Type (SME, Gifting, Corporate)
-  const groupedPlans = useMemo(() => {
-    return {
-      SME: filteredPlans.filter(p => p.plan_type.toUpperCase().includes('SME')),
-      Gifting: filteredPlans.filter(p => p.plan_type.toUpperCase().includes('GIFTING')),
-      Corporate: filteredPlans.filter(p => p.plan_type.toUpperCase().includes('CORPORATE')),
-      Others: filteredPlans.filter(p => 
-        !p.plan_type.toUpperCase().includes('SME') && 
-        !p.plan_type.toUpperCase().includes('GIFTING') &&
-        !p.plan_type.toUpperCase().includes('CORPORATE')
-      )
-    };
-  }, [filteredPlans]);
-
-  return { 
-    plans: filteredPlans, // The simple list for the current network
-    groupedPlans,         // The categorized list (great for tabs)
-    loading, 
-    error 
-  };
+  return { plans, loading, error };
 };

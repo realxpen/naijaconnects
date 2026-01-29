@@ -1,52 +1,81 @@
+// src/services/geminiService.ts
 
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { MOCK_DATA_PLANS } from "../constants";
 import { Language } from "../types";
 
-export const getGeminiRecommendation = async (userQuery: string, language: Language = 'en'): Promise<string> => {
-  // Correctly initialize GoogleGenAI with the API key from environment variables as per guidelines
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Initialize Gemini (Ensure VITE_GEMINI_API_KEY is in your .env.local)
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
+const genAI = new GoogleGenerativeAI(API_KEY);
+
+export const geminiService = {
   
-  const languageNames: Record<Language, string> = {
-    en: 'English',
-    yo: 'Yoruba',
-    ig: 'Igbo',
-    ha: 'Hausa',
-    fr: 'French'
-  };
-
-  const systemPrompt = `
-    You are an expert Nigerian Telecom assistant called "NaijaConnect AI".
-    Your job is to recommend data plans or airtime advice based on the provided plans.
+  // Main entry point for the Assistant
+  generateResponse: async (text: string, userContext: { name: string, balance: number }, language: Language = 'en') => {
     
-    Current available data plans (JSON):
-    ${JSON.stringify(MOCK_DATA_PLANS)}
+    // Simulate a small "thinking" delay for realism
+    await new Promise(r => setTimeout(r, 1000));
     
-    IMPORTANT: You must respond in the ${languageNames[language]} language.
+    const lowerText = text.toLowerCase();
+
+    // --- 1. LOCAL LOGIC (Instant Answers) ---
+
+    // BALANCE
+    if (lowerText.includes('balance') || lowerText.includes('how much')) {
+      return `Your current wallet balance is ₦${userContext.balance.toLocaleString()}.`;
+    }
+
+    // FUNDING
+    if (lowerText.includes('fund') || lowerText.includes('deposit') || lowerText.includes('add money')) {
+      return `To fund your wallet, go to the Dashboard and click the white "Deposit" button. You can pay via Bank Transfer or Card.`;
+    }
+
+    // AIRTIME/DATA HELP
+    if (lowerText.includes('airtime') || lowerText.includes('data')) {
+      return "You can buy Airtime and Data directly from the Dashboard. Select your network (MTN, Glo, etc.), enter the phone number, and choose your plan.";
+    }
+
+    // GREETINGS (Local fallback if API is slow or offline)
+    if ((lowerText.includes('hello') || lowerText.includes('hi')) && !API_KEY) {
+      return `Hello ${userContext.name}! I am your NaijaConnect assistant. How can I help you today?`;
+    }
+
+    // --- 2. GOOGLE GEMINI API (Smart Fallback) ---
     
-    Rules:
-    1. Be friendly and helpful. 
-    2. If language is English, you can use mild Nigerian slang like "Beta" or "Oshey", but NEVER use the word "abeg".
-    3. Always mention the price (₦) and the specific carrier.
-    4. If the user asks for a budget (e.g., "I have 500 Naira"), suggest 2-3 of the best options if multiple exist.
-    5. Try to use the EXACT name of the plans (e.g., "Monthly 10GB") so the system can identify them.
-    6. Keep responses concise. If recommending multiple, list them clearly.
-  `;
+    if (API_KEY) {
+      try {
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: userQuery,
-      config: {
-        systemInstruction: systemPrompt,
-        temperature: 0.7,
-      },
-    });
+        const languageNames: Record<Language, string> = {
+          en: 'English', yo: 'Yoruba', ig: 'Igbo', ha: 'Hausa', fr: 'French'
+        };
 
-    // Use .text property directly as per GenAI SDK guidelines
-    return response.text || "Error processing request.";
-  } catch (error) {
-    console.error("Gemini Error:", error);
-    return "Something went wrong with the connection.";
+        const systemPrompt = `
+          You are "NaijaConnect AI", a helpful Nigerian Telecom assistant.
+          User Name: ${userContext.name}
+          User Balance: ₦${userContext.balance}
+          Current Language: ${languageNames[language]}
+          
+          Task: Answer the user's question based on the data plans below.
+          Data Plans: ${JSON.stringify(MOCK_DATA_PLANS)}
+          
+          Rules:
+          1. Be concise and friendly.
+          2. Use mild Nigerian slang (e.g., "No wahala", "Oshey") if speaking English.
+          3. If recommending a plan, state the Network, Price, and Validity clearly.
+        `;
+
+        const result = await model.generateContent([systemPrompt, text]);
+        const response = result.response;
+        return response.text();
+
+      } catch (error) {
+        console.error("Gemini API Error:", error);
+        // Fall through to default default if API fails
+      }
+    }
+
+    // --- 3. FINAL FALLBACK ---
+    return "I can help you check your balance, fund your wallet, or recommend the best data plans. What would you like to know?";
   }
 };

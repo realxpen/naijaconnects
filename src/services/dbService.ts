@@ -1,83 +1,131 @@
-// src/services/dbService.ts
-
-const DB_KEY = 'naija_connect_database_v3';
-
-const getDb = () => {
-  const stored = localStorage.getItem(DB_KEY);
-  if (!stored) return { profiles: [], transactions: [] };
-  return JSON.parse(stored);
-};
-
-const saveDb = (data: any) => {
-  localStorage.setItem(DB_KEY, JSON.stringify(data));
-};
+import { supabase } from '../supabaseClient';
 
 export const dbService = {
-  // ... (Login/Register/Auth functions remain the same - abbreviated here for brevity) ...
-  async loginUser(email: string, password: string) { 
-    await new Promise(r => setTimeout(r, 800)); 
-    const db = getDb();
-    const user = db.profiles.find((p: any) => p.email.toLowerCase() === email.toLowerCase());
-    if (!user) throw new Error("User not found.");
-    if (user.password !== password) throw new Error("Incorrect password.");
-    return user;
+  // --- 1. AUTHENTICATION ---
+
+  async loginUser(email: string, pass: string) {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password: pass,
+    });
+    if (error) throw error;
+    return data.user;
   },
 
-  async registerUser(email: string, name: string, password: string) {
-    await new Promise(r => setTimeout(r, 800));
-    const db = getDb();
-    if (db.profiles.find((p: any) => p.email.toLowerCase() === email.toLowerCase())) throw new Error("User already exists.");
-    const newUser = { id: 'user_' + Date.now(), email: email.toLowerCase(), full_name: name, password: password, wallet_balance: 0, created_at: new Date().toISOString() };
-    db.profiles.push(newUser);
-    saveDb(db);
-    return newUser;
+  async registerUser(email: string, name: string, pass: string) {
+    // 1. Sign up the user in Supabase Auth
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password: pass,
+      options: { data: { full_name: name } }
+    });
+    if (error) throw error;
+
+    // 2. Create the profile row in your 'profiles' table
+    if (data.user) {
+      await this.createProfile({ 
+        id: data.user.id, 
+        email, 
+        name 
+      });
+    }
+    return data.user;
   },
 
-  async getUserProfile(email: string, nameFallback?: string) {
-    const db = getDb();
-    let user = db.profiles.find((p: any) => p.email.toLowerCase() === email.toLowerCase());
-    if (!user && nameFallback) user = await this.registerUser(email, nameFallback, 'password123');
-    return user;
+  async resetPasswordEmail(email: string) {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + '/reset-password',
+    });
+    if (error) throw error;
+    return true;
   },
 
-  // --- 🆕 TRANSACTION HANDLERS (Fixing Deposit/Withdraw) ---
+  // --- 2. PROFILE & WALLET ---
+
+  async getUserProfile(email: string) {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('email', email)
+      .single();
+
+    if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows found"
+      console.error("Error fetching profile:", error);
+      return null;
+    }
+    return data;
+  },
+
+  async createProfile(user: { email: string, name: string, id: string }) {
+    const { data, error } = await supabase
+      .from('profiles')
+      .insert([{ 
+        id: user.id, 
+        email: user.email, 
+        full_name: user.name, 
+        wallet_balance: 0 
+      }])
+      .select()
+      .single();
+        
+    if (error) throw error;
+    return data;
+  },
+
+  async getBalance(email: string) {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('wallet_balance')
+      .eq('email', email)
+      .single();
+      
+    if (error) throw new Error(error.message);
+    return data.wallet_balance;
+  },
 
   async updateBalance(email: string, newBalance: number) {
-    const db = getDb();
-    const idx = db.profiles.findIndex((p: any) => p.email.toLowerCase() === email.toLowerCase());
-    if (idx !== -1) { 
-        db.profiles[idx].wallet_balance = newBalance; 
-        saveDb(db); 
-    }
+    const { error } = await supabase
+      .from('profiles')
+      .update({ wallet_balance: newBalance })
+      .eq('email', email);
+
+    if (error) throw new Error("Failed to update ledger: " + error.message);
   },
 
-  // Helper to record a transaction
-  async addTransaction(tx: { user_email: string; type: string; amount: number; phoneNumber?: string; status: string; carrier?: string }) {
-    const db = getDb();
-    db.transactions.push({ 
-        ...tx, 
-        id: 'tx_' + Date.now(), 
-        created_at: new Date().toISOString() 
-    });
-    saveDb(db);
+  // --- 3. HISTORY ---
+
+  async addTransaction(tx: any) {
+    const { error } = await supabase
+      .from('transactions')
+      .insert([{
+        user_email: tx.user_email,
+        type: tx.type,
+        amount: tx.amount,
+        status: tx.status,
+        reference: tx.ref || 'TX-' + Date.now(),
+        metadata: tx 
+      }]);
+
+    if (error) console.error("Failed to log transaction:", error);
   },
 
-  // Get History
   async getHistory(email: string) {
-    await new Promise(r => setTimeout(r, 500));
-    const db = getDb();
-    const userTx = db.transactions
-      .filter((t: any) => t.user_email.toLowerCase() === email.toLowerCase())
-      .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('user_email', email)
+      .order('created_at', { ascending: false });
+
+    if (error) return [];
     
-    return userTx.map((t: any) => ({
+    return data.map((t: any) => ({
       id: t.id,
       date: new Date(t.created_at).toLocaleString(),
-      carrier: t.carrier || (t.type === 'Deposit' ? 'Wallet' : 'System'),
       type: t.type,
-      amount: Number(t.amount),
-      phoneNumber: t.phoneNumber || t.user_email,
-      status: t.status || 'Success'
+      amount: t.amount,
+      status: t.status,
+      carrier: t.metadata?.carrier || 'System',
+      phoneNumber: t.metadata?.phoneNumber || 'N/A'
     }));
   }
 };

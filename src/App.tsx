@@ -1,33 +1,36 @@
 import React, { useState, useEffect } from 'react';
-import { Loader2, Zap } from 'lucide-react';
+import { Zap } from 'lucide-react';
 import { dbService } from './services/dbService';
 import DashboardLayout from './layouts/DashboardLayout';
 import Auth from './pages/Auth';
-import Dashboard from './pages/Dashboard'; // <--- IMPORTED DASHBOARD
-
-// Placeholder components for tabs we haven't built yet
-// You can create files for these later in src/pages/
-const History = () => <div className="text-center p-10 opacity-50 font-bold uppercase">History Page Coming Soon</div>;
-const Assistant = () => <div className="text-center p-10 opacity-50 font-bold uppercase">AI Assistant Coming Soon</div>;
-const Profile = () => <div className="text-center p-10 opacity-50 font-bold uppercase">Profile Page Coming Soon</div>;
+import Dashboard from './pages/Dashboard';
+import History from './pages/History';
+import Profile from './pages/Profile';
+import Assistant from './pages/Assistant';
 
 const App: React.FC = () => {
   const [isSplashScreen, setIsSplashScreen] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeTab, setActiveTab] = useState<'buy' | 'history' | 'assistant' | 'profile'>('buy');
   
-  // User Data State
-  const [user, setUser] = useState<{name: string, email: string, balance: number}>({ 
-    name: '', 
-    email: '', 
-    balance: 0 
-  });
+  // ✅ FIX: Ensured state starts with empty strings to prevent charAt(0) crashes
+  const [user, setUser] = useState<{name: string, email: string, balance: number} | null>(null);
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [language, setLanguage] = useState('en');
 
-  // Splash Screen Timer
-  useEffect(() => { setTimeout(() => setIsSplashScreen(false), 2000); }, []);
+  // Initialization Effect
+  useEffect(() => { 
+    // Splash Screen Timer
+    const timer = setTimeout(() => setIsSplashScreen(false), 2000); 
+    
+    // Check for saved theme preference
+    if (localStorage.getItem('theme') === 'dark') {
+      document.documentElement.classList.add('dark');
+    }
+
+    return () => clearTimeout(timer);
+  }, []);
 
   // --- ACTIONS ---
 
@@ -35,20 +38,19 @@ const App: React.FC = () => {
     setIsProcessing(true);
     try {
       const u = await dbService.loginUser(email, pass);
-      
-      // Fetch latest balance from DB
       const profile = await dbService.getUserProfile(email, u.full_name);
       
       setUser({ 
-        name: u.full_name, 
-        email: u.email, 
+        name: u.full_name || '', 
+        email: u.email || '', 
         balance: Number(profile?.wallet_balance || 0) 
       });
       setIsAuthenticated(true);
-    } catch (e: any) {
-      alert(e.message || "Login Failed");
-    } finally {
-      setIsProcessing(false);
+    } catch (e: any) { 
+      // Handle "Email not confirmed" or incorrect credentials
+      alert(e.message || "Login Failed"); 
+    } finally { 
+      setIsProcessing(false); 
     }
   };
 
@@ -56,18 +58,27 @@ const App: React.FC = () => {
     setIsProcessing(true);
     try {
       await dbService.registerUser(email, name, pass);
-      setUser({ name, email, balance: 0 }); // New users start with 0
-      setIsAuthenticated(true);
-    } catch (e: any) {
-      alert(e.message || "Signup Failed");
-    } finally {
-      setIsProcessing(false);
+      // ✅ SUCCESS: User is registered but unverified. 
+      // We do NOT set isAuthenticated(true) here because they must click the email link first.
+      setUser({ name: '', email: '', balance: 0 }); 
+    } catch (e: any) { 
+      alert(e.message || "Signup Failed"); 
+      throw e; // Pass to Auth.tsx to handle UI reset
+    } finally { 
+      setIsProcessing(false); 
     }
   };
 
-  // Function to update local balance immediately after purchase
-  const handleUpdateBalance = (newBalance: number) => {
-    setUser(prev => ({ ...prev, balance: newBalance }));
+  const handleLogout = () => {
+    if (confirm("Are you sure you want to logout?")) {
+      setIsAuthenticated(false);
+      setUser({ name: '', email: '', balance: 0 });
+      setActiveTab('buy');
+    }
+  };
+
+  const onUpdateBalance = (newBalance: number) => {
+    setUser(prev => prev ? { ...prev, balance: newBalance } : prev);
   };
 
   // --- RENDER ---
@@ -80,24 +91,36 @@ const App: React.FC = () => {
   );
 
   if (!isAuthenticated) {
-    return <Auth onLogin={handleLogin} onSignup={handleSignup} isProcessing={isProcessing} />;
+    return (
+      <Auth 
+        onLogin={handleLogin} 
+        onSignup={handleSignup} 
+        isProcessing={isProcessing} 
+      />
+    );
   }
 
   return (
     <DashboardLayout 
       activeTab={activeTab} 
       setActiveTab={setActiveTab} 
-      userName={user.name} 
+      userName={user?.name || ''} 
       language={language} 
       setLanguage={setLanguage}
     >
-      {activeTab === 'buy' && (
-        <Dashboard user={user} onUpdateBalance={handleUpdateBalance} />
+      {activeTab === 'buy' && user && (
+        <Dashboard user={user} onUpdateBalance={onUpdateBalance} />
       )}
       
       {activeTab === 'history' && <History />}
-      {activeTab === 'assistant' && <Assistant />}
-      {activeTab === 'profile' && <Profile />}
+      
+      {activeTab === 'assistant' && (
+        <Assistant user={user} />
+      )}
+      
+      {activeTab === 'profile' && (
+        <Profile user={user} onLogout={handleLogout} />
+      )}
     </DashboardLayout>
   );
 };

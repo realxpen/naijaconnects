@@ -1,12 +1,6 @@
-// services/supabaseClient.ts
+import { createClient } from '@supabase/supabase-js';
 
-// ⚠️ MAGIC TRICK: Importing from a URL avoids needing 'npm install'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
 
-// 1. PROJECT URL
-const SUPABASE_URL = "https://xsidcywceipiyybqeouc.supabase.co";
-
-// 2. ANON KEY
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzaWRjeXdjZWlwaXl5YnFlb3VjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkwOTY4NzYsImV4cCI6MjA4NDY3Mjg3Nn0.YNrt-8UtWBrPyf74qODywmj1XbkxzjqfNQ0EMyQ_eQo";
-
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);

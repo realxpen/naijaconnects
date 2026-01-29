@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import './index.css';
 // If you create a global CSS file later, import it here:
 // import './index.css'; 
 
