@@ -10,7 +10,21 @@ export const buyElectricity = async (payload: any) => {
 };
 
 export const verifyMeter = async (payload: any) => {
-    // Endpoint: /api/validatemeter?meternumber=meter&disconame=id&mtype=metertype
-    const endpoint = `/validatemeter?meternumber=${payload.number}&disconame=${payload.provider}&mtype=${payload.meter_type || 1}`;
+    // 1. Force Meter Type to be "1" (Prepaid) or "2" (Postpaid)
+    // If frontend sends anything else, default to "1"
+    const mType = String(payload.meter_type) === "2" ? "2" : "1";
+    
+    // 2. Clean the Meter Number (Remove spaces, dashes, or non-numbers)
+    const cleanMeter = String(payload.number).replace(/[^0-9]/g, '');
+    
+    // 3. Get Disco ID
+    const discoID = payload.provider;
+
+    // Docs: /api/validatemeter?meternumber=meter&disconame=id&mtype=metertype
+    const endpoint = `/validatemeter?meternumber=${cleanMeter}&disconame=${discoID}&mtype=${mType}`;
+    
+    // DEBUG LOG: Check your Supabase Dashboard Logs to see this URL!
+    console.log(`[Electricity] Verifying: ${endpoint}`);
+
     return await makeApiRequest(endpoint, {}, 'GET');
 };

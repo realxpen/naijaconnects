@@ -242,24 +242,49 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
     return Number(serviceAmount);
   };
 
-  // --- VERIFY UTILITY ---
+  /// --- VERIFY UTILITY (Updated Debug Version) ---
+ // --- VERIFY UTILITY (DEBUG VERSION) ---
   const verifyCustomer = async (number: string, serviceType: 'cable' | 'electricity', providerId: number | null, mType: number = 1) => {
-    if(number.length < 10 || !providerId) return;
+    if (number.length < 10 || !providerId) return;
+    
     setCustomerName("Verifying...");
+    
     try {
         const payload: any = { type: serviceType, number, provider: providerId };
-        if(serviceType === 'electricity') payload.meter_type = mType;
+        if (serviceType === 'electricity') payload.meter_type = mType;
 
-        const { data } = await supabase.functions.invoke('affatech-proxy', {
+        const { data, error } = await supabase.functions.invoke('affatech-proxy', {
             body: { action: 'verify_customer', payload }
         });
-        
-        if(data && (data.name || data.customer_name || data.description)) {
-             setCustomerName(data.name || data.customer_name || data.description);
+
+        if (error) throw error;
+
+        // --- DEBUGGING LOGIC ---
+        console.log("API Response:", data); // Check Console (F12)
+
+        if (data) {
+            // 1. Try to find the name automatically
+            const name = data.name || 
+                         data.customer_name || 
+                         data.customerName ||
+                         (data.content && data.content.Customer_Name) || 
+                         (data.content && data.content.name) ||
+                         (data.details && data.details.name);
+
+            if (name) {
+                setCustomerName(name);
+            } else {
+                // 2. IF NAME NOT FOUND: Show the RAW JSON on screen so we can see it
+                // We truncate it to 60 chars to fit the screen
+                setCustomerName("RAW: " + JSON.stringify(data).slice(0, 60) + "...");
+            }
         } else {
              setCustomerName("Invalid Number");
         }
-    } catch(e) { setCustomerName("Verification Failed"); }
+    } catch (e: any) { 
+        console.error(e);
+        setCustomerName("Verification Failed"); 
+    }
   };
 
   // --- VERIFY ACCOUNT (WITHDRAWAL) ---
@@ -279,46 +304,61 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
     verifyAccount();
   }, [accountNumber, bankCode]);
 
-  // --- DEPOSIT FLOW ---
-  useEffect(() => {
-      if(isDepositModalOpen && !pendingDepositRef) setCurrentTxRef(`txn_${Date.now()}`);
-  }, [isDepositModalOpen, pendingDepositRef]);
+ //  PAYSTACK DEPOSIT FLOW
+  // ============================================
+  useEffect(() => {
+      if(isDepositModalOpen && !pendingDepositRef) {
+          setCurrentTxRef(`txn_${Date.now()}`);
+      }
+  }, [isDepositModalOpen, pendingDepositRef]);
 
-  const paystackConfig = {
-    email: user?.email,
-    amount: (Number(depositAmount) || 0) * 100, 
-    publicKey: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || '',
-    reference: currentTxRef 
-  };
-  const initializePayment = usePaystackPayment(paystackConfig);
+  const paystackConfig = {
+    email: user?.email,
+    amount: (Number(depositAmount) || 0) * 100, 
+    publicKey: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || '',
+    reference: currentTxRef 
+  };
 
-  const handleStartDeposit = () => {
-      if (!depositAmount || Number(depositAmount) < 100) return alert("Min: ₦100");
-      initializePayment(
-          (response: any) => { 
-              if (response.status === 'success') setPendingDepositRef(response.reference); 
-          }, 
-          () => console.log("Closed")
-      );
-  };
+  const initializePayment = usePaystackPayment(paystackConfig);
 
-  const handleVerifyDeposit = async () => {
-    if (!pendingDepositRef) return;
-    setIsProcessing(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('verify-deposit', { body: { reference: pendingDepositRef } });
-      if (error || !data.success) throw new Error(data?.message || "Verification Failed");
-      
-      onUpdateBalance(data.balance);
-      await fetchUser();
-      setPendingDepositRef(null);
-      setDepositAmount("");
-      setIsDepositModalOpen(false);
-      fetchHistory();
-      alert(`Success! Wallet funded.`);
-    } catch (err: any) { alert(err.message); } 
-    finally { setIsProcessing(false); }
-  };
+  const handleStartDeposit = () => {
+      if (!depositAmount || Number(depositAmount) < 100) {
+        alert("Minimum deposit amount is ₦100");
+        return;
+      }
+      setPendingDepositRef(currentTxRef);
+      initializePayment(
+          (response: any) => { console.log("Paystack closed/success"); }, 
+          () => { console.log("Paystack closed"); }
+      );
+  };
+
+  const handleVerifyDeposit = async () => {
+    if (!pendingDepositRef) return;
+    setIsProcessing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('verify-deposit', {
+        body: { reference: pendingDepositRef },
+      });
+      if (error) throw new Error(error.message);
+      if (data.error) throw new Error(data.error);
+
+      if (data.success) {
+        onUpdateBalance(data.balance);
+        await fetchUser();
+        setPendingDepositRef(null);
+        setDepositAmount("");
+        setIsDepositModalOpen(false);
+        fetchHistory();
+        alert(`Success! Wallet funded.`);
+      } 
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Verification failed. If you were debited, please contact support.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   // --- CORE PURCHASE LOGIC ---
   const handlePurchase = async () => {

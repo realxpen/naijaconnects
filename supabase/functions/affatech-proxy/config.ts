@@ -1,10 +1,10 @@
 export const API_CONFIG = {
     // Replace this with your Live Key from Affatech Dashboard
-    API_KEY: "Token 66f2e5c39ac8640f13cd888f161385b12f7e5e92", 
+    API_KEY: "Token 6a732e1262fd1733551773b0549d8bfb52a19e20", 
     BASE_URL: "https://www.affatech.com.ng/api",
     
     getHeaders: () => ({
-        'Authorization': "Token 66f2e5c39ac8640f13cd888f161385b12f7e5e92", // Ensure this matches API_KEY
+        'Authorization': "Token 6a732e1262fd1733551773b0549d8bfb52a19e20", // Ensure this matches API_KEY
         'Content-Type': 'application/json'
     })
 };
