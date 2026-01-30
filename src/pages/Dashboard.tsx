@@ -242,50 +242,25 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
     return Number(serviceAmount);
   };
 
-  /// --- VERIFY UTILITY (Updated Debug Version) ---
- // --- VERIFY UTILITY (DEBUG VERSION) ---
+  // --- VERIFY UTILITY (Smart Routing) ---
   const verifyCustomer = async (number: string, serviceType: 'cable' | 'electricity', providerId: number | null, mType: number = 1) => {
     if (number.length < 10 || !providerId) return;
-    
     setCustomerName("Verifying...");
     
     try {
-        const payload: any = { type: serviceType, number, provider: providerId };
-        if (serviceType === 'electricity') payload.meter_type = mType;
-
-        const { data, error } = await supabase.functions.invoke('affatech-proxy', {
-            body: { action: 'verify_customer', payload }
-        });
-
-        if (error) throw error;
-
-        // --- DEBUGGING LOGIC ---
-        console.log("API Response:", data); // Check Console (F12)
-
-        if (data) {
-            // 1. Try to find the name automatically
-            const name = data.name || 
-                         data.customer_name || 
-                         data.customerName ||
-                         (data.content && data.content.Customer_Name) || 
-                         (data.content && data.content.name) ||
-                         (data.details && data.details.name);
-
-            if (name) {
-                setCustomerName(name);
-            } else {
-                // 2. IF NAME NOT FOUND: Show the RAW JSON on screen so we can see it
-                // We truncate it to 60 chars to fit the screen
-                setCustomerName("RAW: " + JSON.stringify(data).slice(0, 60) + "...");
-            }
-        } else {
-             setCustomerName("Invalid Number");
+        let responseData;
+        
+        // 1. ROUTE TO STROWALLET FOR ELECTRICITY
+        if (serviceType === 'electricity') {
+            const { data, error } = await supabase.functions.invoke('strowallet-proxy', {
+                body: { 
+                    action: 'verify_meter', 
+                    payload: { number, provider: providerId, meter_type: mType } 
+                }
+            });
+            if (error) throw error;
+            responseData = data;
         }
-    } catch (e: any) { 
-        console.error(e);
-        setCustomerName("Verification Failed"); 
-    }
-  };
 
   // --- VERIFY ACCOUNT (WITHDRAWAL) ---
   useEffect(() => {
