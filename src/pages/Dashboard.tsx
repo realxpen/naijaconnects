@@ -260,7 +260,36 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
             });
             if (error) throw error;
             responseData = data;
+        } 
+        // 2. ROUTE TO AFFATECH FOR CABLE
+        else {
+            const { data, error } = await supabase.functions.invoke('affatech-proxy', {
+                body: { 
+                    action: 'verify_customer', 
+                    payload: { type: 'cable', number, provider: providerId } 
+                }
+            });
+            if (error) throw error;
+            responseData = data;
         }
+
+        // 3. UNIFIED RESPONSE HANDLING
+        if (responseData) {
+            const name = responseData.customer_name || 
+                         responseData.name || 
+                         (responseData.content && responseData.content.Customer_Name) ||
+                         (responseData.data && responseData.data.customer_name); 
+
+            if (name) setCustomerName(name);
+            else setCustomerName("Invalid Number / Not Found");
+        } else {
+             setCustomerName("Invalid Number");
+        }
+    } catch (e: any) { 
+        console.error(e);
+        setCustomerName("Verification Failed"); 
+    }
+  };
 
   // --- VERIFY ACCOUNT (WITHDRAWAL) ---
   useEffect(() => {
@@ -279,115 +308,154 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
     verifyAccount();
   }, [accountNumber, bankCode]);
 
- //  PAYSTACK DEPOSIT FLOW
-  // ============================================
-  useEffect(() => {
-      if(isDepositModalOpen && !pendingDepositRef) {
-          setCurrentTxRef(`txn_${Date.now()}`);
-      }
-  }, [isDepositModalOpen, pendingDepositRef]);
+ //  PAYSTACK DEPOSIT FLOW
+  // ============================================
+  useEffect(() => {
+      if(isDepositModalOpen && !pendingDepositRef) {
+          setCurrentTxRef(`txn_${Date.now()}`);
+      }
+  }, [isDepositModalOpen, pendingDepositRef]);
 
-  const paystackConfig = {
-    email: user?.email,
-    amount: (Number(depositAmount) || 0) * 100, 
-    publicKey: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || '',
-    reference: currentTxRef 
-  };
+  const paystackConfig = {
+    email: user?.email,
+    amount: (Number(depositAmount) || 0) * 100, 
+    publicKey: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || '',
+    reference: currentTxRef 
+  };
 
-  const initializePayment = usePaystackPayment(paystackConfig);
+  const initializePayment = usePaystackPayment(paystackConfig);
 
-  const handleStartDeposit = () => {
-      if (!depositAmount || Number(depositAmount) < 100) {
-        alert("Minimum deposit amount is ₦100");
-        return;
-      }
-      setPendingDepositRef(currentTxRef);
-      initializePayment(
-          (response: any) => { console.log("Paystack closed/success"); }, 
-          () => { console.log("Paystack closed"); }
-      );
-  };
+  const handleStartDeposit = () => {
+      if (!depositAmount || Number(depositAmount) < 100) {
+        alert("Minimum deposit amount is ₦100");
+        return;
+      }
+      setPendingDepositRef(currentTxRef);
+      initializePayment(
+          (response: any) => { console.log("Paystack closed/success"); }, 
+          () => { console.log("Paystack closed"); }
+      );
+  };
 
-  const handleVerifyDeposit = async () => {
-    if (!pendingDepositRef) return;
-    setIsProcessing(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('verify-deposit', {
-        body: { reference: pendingDepositRef },
-      });
-      if (error) throw new Error(error.message);
-      if (data.error) throw new Error(data.error);
+  const handleVerifyDeposit = async () => {
+    if (!pendingDepositRef) return;
+    setIsProcessing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('verify-deposit', {
+        body: { reference: pendingDepositRef },
+      });
+      if (error) throw new Error(error.message);
+      if (data.error) throw new Error(data.error);
 
-      if (data.success) {
-        onUpdateBalance(data.balance);
-        await fetchUser();
-        setPendingDepositRef(null);
-        setDepositAmount("");
-        setIsDepositModalOpen(false);
-        fetchHistory();
-        alert(`Success! Wallet funded.`);
-      } 
-    } catch (err: any) {
-      console.error(err);
-      alert(err.message || "Verification failed. If you were debited, please contact support.");
-    } finally {
-      setIsProcessing(false);
-    }
-  };
+      if (data.success) {
+        onUpdateBalance(data.balance);
+        await fetchUser();
+        setPendingDepositRef(null);
+        setDepositAmount("");
+        setIsDepositModalOpen(false);
+        fetchHistory();
+        alert(`Success! Wallet funded.`);
+      } 
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Verification failed. If you were debited, please contact support.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
-  // --- CORE PURCHASE LOGIC ---
+  // --- PURCHASE EXECUTION (Smart Routing) ---
   const handlePurchase = async () => {
     setIsProcessing(true);
     try {
         const cost = calculateTotalCost();
-        // Skip balance check for AirtimeToCash
         if (productType !== 'AirtimeToCash' && cost > user.balance) throw new Error("Insufficient Wallet Balance");
 
         const cleanPhone = phoneNumber.replace(/\D/g, '');
+        let proxyFunction = 'affatech-proxy'; // Default
         let action = '';
         let payload: any = {};
 
-        if(productType === 'Airtime') { action = 'buy_airtime'; payload = { network: selectedNetworkId, phone: cleanPhone, amount: cost }; }
-        else if (productType === 'Data') { action = 'buy_data'; payload = { network: selectedNetworkId, phone: cleanPhone, plan_id: selectedPlan?.id || selectedPlan?.plan_id }; }
-        else if (productType === 'Cable') { action = 'buy_cable'; payload = { provider: selectedCableProvider, iuc: smartCardNumber, plan_id: selectedCablePlan.id }; }
-        else if (productType === 'Electricity') { action = 'buy_electricity'; payload = { disco: selectedDisco, meter: meterNumber, amount: cost, meter_type: meterType }; }
-        else if (productType === 'Exam') { action = 'buy_epin'; payload = { exam_name: selectedExam.id, quantity: quantity }; }
-        else if (productType === 'RechargePin') { action = 'buy_recharge_pin'; payload = { network: selectedNetworkId, amount: serviceAmount, quantity: quantity, name_on_card: nameOnCard }; }
+        // --- A. STROWALLET ROUTING ---
+        if (productType === 'Electricity') {
+            proxyFunction = 'strowallet-proxy';
+            action = 'buy_electricity';
+            payload = { 
+                disco: selectedDisco, 
+                meter: meterNumber, 
+                amount: cost, 
+                meter_type: meterType,
+                phone: phoneNumber || "08000000000"
+            };
+        }
+        
+        // --- B. AFFATECH ROUTING ---
+        else if(productType === 'Airtime') { 
+            action = 'buy_airtime'; 
+            payload = { network: selectedNetworkId, phone: cleanPhone, amount: cost }; 
+        }
+        else if (productType === 'Data') { 
+            action = 'buy_data'; 
+            payload = { network: selectedNetworkId, phone: cleanPhone, plan_id: selectedPlan?.id || selectedPlan?.plan_id }; 
+        }
+        else if (productType === 'Cable') { 
+            action = 'buy_cable'; 
+            payload = { provider: selectedCableProvider, iuc: smartCardNumber, plan_id: selectedCablePlan.id }; 
+        }
+        else if (productType === 'Exam') { 
+            action = 'buy_epin'; 
+            payload = { exam_name: selectedExam.id, quantity: quantity }; 
+        }
+        else if (productType === 'RechargePin') { 
+            action = 'buy_recharge_pin'; 
+            payload = { network: selectedNetworkId, amount: serviceAmount, quantity: quantity, name_on_card: nameOnCard }; 
+        }
         else if (productType === 'AirtimeToCash') { 
             action = 'airtime_to_cash'; 
             payload = { network: selectedNetworkId, phone: cleanPhone, amount: serviceAmount }; 
         }
 
-        const { data, error } = await supabase.functions.invoke('affatech-proxy', { body: { action, payload } });
+        // --- EXECUTE ---
+        const { data, error } = await supabase.functions.invoke(proxyFunction, { body: { action, payload } });
         if (error) throw new Error(error.message);
 
-        // 1. HANDLE AIRTIME TO CASH SUCCESS
+        // --- HANDLE RESPONSE ---
+        
+        // Airtime to Cash Instruction
         if (productType === 'AirtimeToCash') {
-             // Show instruction from API response
              const instruction = data.message || data.api_response || "Proceed to transfer airtime manually.";
              setAirtimeToCashInfo({ message: instruction, amount: serviceAmount });
-             setIsConfirming(false); // Close confirm modal
-             // Don't deduct balance or log success yet, user has to transfer manually
+             setIsConfirming(false); 
              return; 
         }
 
-        // 2. HANDLE STANDARD SUCCESS
-        if (data && (data.status === 'success' || data.success === 'true' || data.Status === 'successful')) {
+        // Success Logic (Checks both Affatech 'status' and Strowallet 'success' flags)
+        const isSuccess = data.status === 'success' || 
+                          data.success === 'true' || 
+                          data.success === true || 
+                          data.Status === 'successful';
+
+        if (data && isSuccess) {
             const newBal = user.balance - cost;
             await dbService.updateBalance(user.email, newBal);
             onUpdateBalance(newBal);
             
             await dbService.addTransaction({
-                user_email: user.email, type: productType, amount: cost, status: 'Success', ref: `TRX-${Date.now()}`
+                user_email: user.email, 
+                type: productType, 
+                amount: cost, 
+                status: 'Success', 
+                ref: `TRX-${Date.now()}` 
             });
 
             fetchHistory();
             alert(`Transaction Successful!`);
             setIsConfirming(false);
-            // Reset
+            // Reset...
             setPhoneNumber(''); setServiceAmount(''); setSmartCardNumber(''); setMeterNumber(''); setQuantity(1); setSelectedPlan(null); setSelectedCablePlan(null);
         } else {
-            throw new Error(data?.message || "Transaction Failed from Provider");
+            // Error Message Handling
+            throw new Error(data?.message || data?.error || "Transaction Failed from Provider");
         }
     } catch (e: any) { alert(e.message || "System Error"); } 
     finally { setIsProcessing(false); }
@@ -423,21 +491,21 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
                     </div>
                     <input type="tel" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 11))} className="w-full p-4 bg-slate-50 rounded-2xl font-black outline-none mb-4" placeholder="Phone Number (080...)" />
                     {productType === 'Data' ? (
-                         <>
-                            <div className="flex gap-2 mb-4 overflow-x-auto pb-2 custom-scrollbar">
-                                {['ALL', 'SME', 'CG', 'GIFTING'].map(t => <button key={t} onClick={()=>setSelectedPlanType(t)} className={`px-3 py-1 rounded-lg text-[10px] font-bold border ${selectedPlanType===t?'bg-emerald-600 text-white':'bg-slate-100'}`}>{t}</button>)}
-                                <div className="w-[1px] bg-slate-300 h-4 self-center mx-1"></div>
-                                {['ALL', '30', '7', '1'].map(v => <button key={v} onClick={()=>setSelectedValidity(v)} className={`px-3 py-1 rounded-lg text-[10px] font-bold border ${selectedValidity===v?'bg-orange-500 text-white':'bg-slate-100'}`}>{v} D</button>)}
-                            </div>
-                            <div className="max-h-[300px] overflow-y-auto space-y-2 custom-scrollbar">
-                                {filteredPlans.length === 0 ? <p className="text-center text-xs text-slate-400 py-4">{isLoadingPlans ? <Loader2 className="animate-spin mx-auto"/> : "No plans found."}</p> : 
-                                filteredPlans.map((p: any) => (
-                                    <button key={p.id || p.plan_id} onClick={() => setSelectedPlan(p)} className={`w-full p-4 flex justify-between rounded-2xl border-2 transition-all ${selectedPlan?.id === p.id ? 'border-emerald-600 bg-emerald-50' : 'border-slate-100'}`}>
-                                        <div className="text-left"><span className="block font-bold text-xs">{p.plan_name || p.name}</span><span className="text-[10px] text-slate-400 font-bold">{p.validity}</span></div><span className="font-black text-emerald-600 text-sm">₦{p.amount || p.price}</span>
-                                    </button>
-                                ))}
-                            </div>
-                         </>
+                          <>
+                             <div className="flex gap-2 mb-4 overflow-x-auto pb-2 custom-scrollbar">
+                                 {['ALL', 'SME', 'CG', 'GIFTING'].map(t => <button key={t} onClick={()=>setSelectedPlanType(t)} className={`px-3 py-1 rounded-lg text-[10px] font-bold border ${selectedPlanType===t?'bg-emerald-600 text-white':'bg-slate-100'}`}>{t}</button>)}
+                                 <div className="w-[1px] bg-slate-300 h-4 self-center mx-1"></div>
+                                 {['ALL', '30', '7', '1'].map(v => <button key={v} onClick={()=>setSelectedValidity(v)} className={`px-3 py-1 rounded-lg text-[10px] font-bold border ${selectedValidity===v?'bg-orange-500 text-white':'bg-slate-100'}`}>{v} D</button>)}
+                             </div>
+                             <div className="max-h-[300px] overflow-y-auto space-y-2 custom-scrollbar">
+                                 {filteredPlans.length === 0 ? <p className="text-center text-xs text-slate-400 py-4">{isLoadingPlans ? <Loader2 className="animate-spin mx-auto"/> : "No plans found."}</p> : 
+                                 filteredPlans.map((p: any) => (
+                                     <button key={p.id || p.plan_id} onClick={() => setSelectedPlan(p)} className={`w-full p-4 flex justify-between rounded-2xl border-2 transition-all ${selectedPlan?.id === p.id ? 'border-emerald-600 bg-emerald-50' : 'border-slate-100'}`}>
+                                         <div className="text-left"><span className="block font-bold text-xs">{p.plan_name || p.name}</span><span className="text-[10px] text-slate-400 font-bold">{p.validity}</span></div><span className="font-black text-emerald-600 text-sm">₦{p.amount || p.price}</span>
+                                     </button>
+                                 ))}
+                             </div>
+                          </>
                     ) : (
                         <>
                             <div className="flex gap-2 mb-2 overflow-x-auto pb-2">{PREFILLED_AMOUNTS.map(amt => <button key={amt} onClick={() => setServiceAmount(amt.toString())} className="px-3 py-2 bg-slate-100 rounded-xl text-xs font-bold hover:bg-emerald-100 text-slate-600 border border-slate-200">₦{amt.toLocaleString()}</button>)}</div>
@@ -499,7 +567,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
         case 'RechargePin':
             return (
                 <div className="space-y-4">
-                     <div className="grid grid-cols-4 gap-3 mb-4">
+                      <div className="grid grid-cols-4 gap-3 mb-4">
                         {CARRIERS.map(c => <button key={c.id} onClick={() => { setSelectedCarrier(c.id); setSelectedNetworkId(Number(Object.keys(NETWORK_ID_MAP).find(k => NETWORK_ID_MAP[Number(k)] === c.id))); }} className={`aspect-square rounded-2xl flex items-center justify-center border-2 transition-all ${selectedCarrier === c.id ? 'border-emerald-600 bg-emerald-50' : 'border-slate-100'}`}><img src={c.logo} className="w-8 h-8 object-contain rounded-full" /></button>)}
                     </div>
                     <div className="flex gap-2 mb-2 overflow-x-auto pb-2">{RECHARGE_AMOUNTS.map(amt => <button key={amt} onClick={() => setServiceAmount(amt.toString())} className={`px-3 py-2 rounded-xl text-xs font-bold border ${serviceAmount === amt.toString() ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'}`}>₦{amt}</button>)}</div>
