@@ -1,6 +1,5 @@
-import { makeStroRequest } from "../../config.ts";
+import { makeStroRequest } from "../config.ts";
 
-// Mapping Helper
 const getDiscoTag = (id: number | string) => {
     const map: Record<string, string> = {
         "1": "ikeja-electric",      "2": "eko-electric",
@@ -17,10 +16,9 @@ const getMeterType = (type: number | string) => {
     return String(type) === "2" ? "postpaid" : "prepaid";
 };
 
-// --- ACTIONS ---
-
 export const verifyMeter = async (payload: any) => {
-    return await makeStroRequest('/verify-merchant/', {
+    // Added /electricity prefix because BASE_URL is now just /api
+    return await makeStroRequest('/electricity/verify-merchant/', {
         service_name: getDiscoTag(payload.provider),
         meter_number: payload.number,
         meter_type: getMeterType(payload.meter_type)
@@ -28,7 +26,7 @@ export const verifyMeter = async (payload: any) => {
 };
 
 export const buyElectricity = async (payload: any) => {
-    return await makeStroRequest('/request/', {
+    return await makeStroRequest('/electricity/request/', {
         service_name: getDiscoTag(payload.disco),
         meter_number: payload.meter,
         meter_type: getMeterType(payload.meter_type),

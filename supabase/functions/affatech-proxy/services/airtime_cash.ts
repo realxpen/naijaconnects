@@ -1,11 +1,10 @@
-import { makeApiRequest } from "../config.ts";
+import { makeAffatechRequest } from "../config.ts";
 
 export const airtimeToCash = async (payload: any) => {
-    // Endpoint: /api/Airtime_funding/
-    // Payload: { network, mobile_number, amount }
-    return await makeApiRequest('/Airtime_funding/', { 
-        network: payload.network, 
-        mobile_number: payload.phone, 
-        amount: payload.amount
+    // DOCUMENTATION: https://www.affatech.com.ng/api/airtimetocash/
+    return await makeAffatechRequest('/airtimetocash/', {
+        network: payload.network,
+        amount: payload.amount,
+        mobile_number: payload.phone
     });
 };

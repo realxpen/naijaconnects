@@ -5,9 +5,28 @@ import {
 } from 'lucide-react';
 import { usePaystackPayment } from 'react-paystack';
 import { dbService } from '../services/dbService';
-import { CARRIERS, NETWORK_ID_MAP } from '../constants'; 
-import { Carrier } from '../types';
 import { supabase } from "../supabaseClient";
+
+// --- CONSTANTS ---
+export const CARRIERS = [
+  { id: 1, name: 'MTN', logo: 'https://ckdonline.com.ng/assets/images/mtn.jpg' },
+  { id: 2, name: 'GLO', logo: 'https://ckdonline.com.ng/assets/images/glo.jpg' },
+  { id: 3, name: 'AIRTEL', logo: 'https://ckdonline.com.ng/assets/images/airtel.jpg' },
+  { id: 4, name: '9MOBILE', logo: 'https://ckdonline.com.ng/assets/images/9mobile.jpg' },
+  { id: 5, name: 'SMILE', logo: 'https://upload.wikimedia.org/wikipedia/commons/e/e0/Smile_Communications_Logo.jpg' }
+];
+
+export const NETWORK_ID_MAP: Record<number, number> = { 
+  1: 1, 2: 2, 3: 3, 4: 4, 5: 5 
+};
+
+enum Carrier {
+  MTN = 'MTN',
+  GLO = 'GLO',
+  AIRTEL = 'AIRTEL',
+  ETISALAT = '9MOBILE',
+  SMILE = 'SMILE'
+}
 
 interface DashboardProps {
   user: { name: string; email: string; balance: number };
@@ -19,76 +38,43 @@ type ProductType = 'Airtime' | 'Data' | 'Cable' | 'Electricity' | 'Exam' | 'Rech
 const PREFILLED_AMOUNTS = [1000, 2000, 5000, 10000];
 const RECHARGE_AMOUNTS = [100, 200, 500, 1000];
 
-// --- CONSTANTS ---
-const CABLE_PROVIDERS = [
-    { id: 1, name: 'GOTV' }, { id: 2, name: 'DSTV' }, { id: 3, name: 'STARTIMES' }
-];
-
-// Fallback plans if API fails (Affatech IDs)
-const CABLE_PLANS: any = {
-    1: [
-        { id: 34, name: "GOtv Smallie - Monthly", amount: 1900 },
-        { id: 16, name: "GOtv Jinja - Monthly", amount: 3900 },
-        { id: 17, name: "GOtv Jolli - Monthly", amount: 5800 },
-        { id: 2,  name: "GOtv Max - Monthly", amount: 8500 },
-        { id: 47, name: "GOtv Supa - Monthly", amount: 11400 },
-        { id: 49, name: "GOtv Super Plus - Monthly", amount: 16800 },
-    ],
-    2: [
-        { id: 20, name: "DStv Padi - Monthly", amount: 4400 },
-        { id: 6,  name: "DStv Yanga - Monthly", amount: 6000 },
-        { id: 19, name: "DStv Confam - Monthly", amount: 11000 },
-        { id: 7,  name: "DStv Compact - Monthly", amount: 19000 },
-        { id: 8,  name: "DStv Compact Plus - Monthly", amount: 30000 },
-        { id: 9,  name: "DStv Premium - Monthly", amount: 44500 },
-    ],
-    3: [
-        { id: 37, name: "Nova - 1 Week", amount: 600 },
-        { id: 14, name: "Nova - 1 Month", amount: 1900 },
-        { id: 38, name: "Basic - 1 Week", amount: 1250 },
-        { id: 50, name: "Basic - 1 Month", amount: 3700 },
-        { id: 11, name: "Classic - 1 Month", amount: 6200 },
-    ]
+const PIN_PRICING: Record<number, number> = {
+  1: 98, 2: 97, 3: 97, 4: 95, 5: 95
 };
 
+const CABLE_PROVIDERS = [
+  { id: 1, name: 'GOTV' }, { id: 2, name: 'DSTV' }, { id: 3, name: 'STARTIMES' }, { id: 4, name: 'SHOWMAX' }
+];
+
 const DISCOS = [
-    { id: 1, name: 'Ikeja', short: 'IKEDC' }, { id: 2, name: 'Eko', short: 'EKEDC' },
-    { id: 3, name: 'Abuja', short: 'AEDC' }, { id: 4, name: 'Kano', short: 'KEDCO' },
-    { id: 5, name: 'Enugu', short: 'EEDC' }, { id: 6, name: 'P.Harcourt', short: 'PHED' },
-    { id: 7, name: 'Ibadan', short: 'IBEDC' }, { id: 8, name: 'Kaduna', short: 'KAEDCO' },
-    { id: 9, name: 'Jos', short: 'JED' }, { id: 10, name: 'Benin', short: 'BEDC' },
-    { id: 11, name: 'Yola', short: 'YEDC' },
+  { id: 1, name: 'Ikeja', short: 'IKEDC' }, { id: 2, name: 'Eko', short: 'EKEDC' },
+  { id: 3, name: 'Abuja', short: 'AEDC' }, { id: 4, name: 'Kano', short: 'KEDCO' },
+  { id: 5, name: 'Enugu', short: 'EEDC' }, { id: 6, name: 'P.Harcourt', short: 'PHED' },
+  { id: 7, name: 'Ibadan', short: 'IBEDC' }, { id: 8, name: 'Kaduna', short: 'KAEDCO' },
+  { id: 9, name: 'Jos', short: 'JED' }, { id: 10, name: 'Benin', short: 'BEDC' },
+  { id: 11, name: 'Yola', short: 'YEDC' },
 ];
 
 const EXAM_TYPES = [
-    { id: 'WAEC', name: 'WAEC Result Checker', price: 3800 },
-    { id: 'NECO', name: 'NECO Result Checker', price: 1500 },
-    { id: 'NABTEB', name: 'NABTEB Result Checker', price: 1200 },
+  { id: 'WAEC', name: 'WAEC Result Checker', price: 3500 }, 
+  { id: 'NECO', name: 'NECO Result Checker', price: 1350 },
 ];
 
-// --- AUTO DETECT NETWORK ---
 const detectNetwork = (phone: string) => {
   const p = phone.replace(/\D/g, '').slice(0, 4);
-  
   const MTN = ['0803','0806','0703','0706','0813','0816','0810','0814','0903','0906','0913','0916'];
   const GLO = ['0805','0807','0705','0815','0811','0905','0915'];
   const AIRTEL = ['0802','0808','0708','0812','0902','0907','0901','0904'];
-  
-  // FIXED: Renamed from '9MOBILE' to 'T2_MOBILE' (Variables can't start with numbers)
   const T2_MOBILE = ['0809','0818','0817','0909','0908'];
 
   if (MTN.includes(p)) return { id: 1, carrier: Carrier.MTN };
   if (GLO.includes(p)) return { id: 2, carrier: Carrier.GLO };
   if (AIRTEL.includes(p)) return { id: 3, carrier: Carrier.AIRTEL };
-  
-  // Updated check using the new variable name
   if (T2_MOBILE.includes(p)) return { id: 4, carrier: Carrier.ETISALAT }; 
-  
   return null;
 };
 
 const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
-  // --- STATES ---
   const [isBalanceVisible, setIsBalanceVisible] = useState(true);
   const [productType, setProductType] = useState<ProductType>('Airtime');
   const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
@@ -98,8 +84,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
   const [isRefreshingBalance, setIsRefreshingBalance] = useState(false);
   const [history, setHistory] = useState<any[]>([]);
 
-  // Service States
   const [availablePlans, setAvailablePlans] = useState<any[]>([]);
+  const [currentCablePlans, setCurrentCablePlans] = useState<any[]>([]); 
   const [isLoadingPlans, setIsLoadingPlans] = useState(false);
   const [selectedPlanType, setSelectedPlanType] = useState<string>('ALL');
   const [selectedValidity, setSelectedValidity] = useState<string>('ALL');
@@ -107,7 +93,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
   const [selectedCarrier, setSelectedCarrier] = useState<Carrier>(Carrier.MTN);
   const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
   
-  // Inputs
   const [depositAmount, setDepositAmount] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [serviceAmount, setServiceAmount] = useState(''); 
@@ -123,20 +108,15 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
   const [quantity, setQuantity] = useState<number>(1);
   const [nameOnCard, setNameOnCard] = useState('');
 
-  // Airtime to Cash specific
-  const [airtimeToCashInfo, setAirtimeToCashInfo] = useState<any>(null); // To store response instructions
-
-  // Bank Withdrawal
+  const [airtimeToCashInfo, setAirtimeToCashInfo] = useState<any>(null);
   const [bankList, setBankList] = useState<any[]>([]);
   const [bankCode, setBankCode] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [accountName, setAccountName] = useState('');
 
-  // Paystack
   const [pendingDepositRef, setPendingDepositRef] = useState<string | null>(null);
   const [currentTxRef, setCurrentTxRef] = useState<string>(`txn_${Date.now()}`);
 
-  // --- INITIAL DATA ---
   const fetchUser = async () => {
     try {
       const { data } = await supabase.from("profiles").select("balance").eq("email", user.email).single();
@@ -164,7 +144,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
     }
   }, [phoneNumber]);
 
-  // --- FETCH DATA PLANS (DYNAMIC) ---
   const fetchDataPlans = async () => {
       setIsLoadingPlans(true);
       try {
@@ -172,36 +151,58 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
               body: { action: 'fetch_data_plans' }
           });
           if(error) throw error;
-          // Flatten data if it comes as { "1": [...], "2": [...] } or keep as array
           if(data) setAvailablePlans(data);
-      } catch(e) { console.error("Fetch Plan Error", e); }
+      } catch(e) { console.error("Fetch Data Plan Error", e); }
       finally { setIsLoadingPlans(false); }
   };
 
-  useEffect(() => {
-      if(productType === 'Data' && availablePlans.length === 0) {
-          fetchDataPlans();
+  const fetchCablePlans = async () => {
+    if (!selectedCableProvider) return;
+    setIsLoadingPlans(true);
+    setCurrentCablePlans([]); 
+    try {
+      const { data, error } = await supabase.functions.invoke('strowallet-proxy', {
+        body: { action: 'fetch_cable_plans', payload: { provider: selectedCableProvider } }
+      });
+      if (error) throw error;
+      let rawPlans: any[] = [];
+      if (data.data && Array.isArray(data.data.varations)) { rawPlans = data.data.varations; }
+      else if (data.data && Array.isArray(data.data.variations)) { rawPlans = data.data.variations; }
+      else if (data.data && Array.isArray(data.data.plans)) { rawPlans = data.data.plans; }
+      else if (Array.isArray(data.varations)) { rawPlans = data.varations; }
+      else if (Array.isArray(data.variations)) { rawPlans = data.variations; }
+      
+      if (rawPlans.length > 0) {
+        const formattedPlans = rawPlans.map((p: any) => {
+          let rawName = p.name || p.variation_name || "Unknown Plan";
+          const cleanName = rawName.replace(/ N[\d,.]+$/, "").trim();
+          return { id: p.variation_code || p.plan_id, name: cleanName, amount: Number(p.variation_amount || p.amount) };
+        });
+        formattedPlans.sort((a: any, b: any) => a.amount - b.amount);
+        setCurrentCablePlans(formattedPlans);
       }
-  }, [productType]);
+    } catch (e: any) { console.error("Cable Plan Error", e); } 
+    finally { setIsLoadingPlans(false); }
+  };
+
+  useEffect(() => {
+      if(productType === 'Data' && availablePlans.length === 0) fetchDataPlans();
+      if(productType === 'Cable') fetchCablePlans();
+  }, [productType, selectedCableProvider]);
 
   const filteredPlans = useMemo(() => {
-      // Logic to parse different API response structures
       let plansForNetwork: any[] = [];
       if (Array.isArray(availablePlans)) {
           plansForNetwork = availablePlans.filter(p => p.network == selectedNetworkId || p.network_id == selectedNetworkId);
       } else {
-          // If object structure { "1": [...], ... }
           plansForNetwork = availablePlans[selectedNetworkId] || [];
       }
-
       return plansForNetwork.filter((plan: any) => {
           const name = (plan.plan_name || plan.name || "").toUpperCase();
-          // Filter Types
           const typeMatch = selectedPlanType === 'ALL' 
               || (selectedPlanType === 'SME' && name.includes('SME'))
               || (selectedPlanType === 'CG' && (name.includes('CG') || name.includes('CORPORATE')))
               || (selectedPlanType === 'GIFTING' && (name.includes('GIFT') || !name.includes('SME') && !name.includes('CG')));
-          // Filter Validity
           const validityMatch = selectedValidity === 'ALL'
               || (selectedValidity === '30' && (name.includes('30') || name.includes('MONTH')))
               || (selectedValidity === '7' && (name.includes('7') || name.includes('WEEK')))
@@ -210,7 +211,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
       });
   }, [availablePlans, selectedNetworkId, selectedPlanType, selectedValidity]);
 
-  // --- BANKS ---
   useEffect(() => {
     const fetchBanks = async () => {
       try {
@@ -221,12 +221,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
     fetchBanks();
   }, []);
 
-  // --- VALIDATION & COST ---
   const isFormValid = () => {
     const cleanPhone = phoneNumber.replace(/\D/g, '');
     if (productType === 'Airtime') return cleanPhone.length === 11 && Number(serviceAmount) > 0;
     if (productType === 'Data') return cleanPhone.length === 11 && selectedPlan !== null;
-    if (productType === 'Cable') return smartCardNumber.length >= 10 && selectedCablePlan !== null && !customerName.includes("Invalid");
+    if (productType === 'Cable') return smartCardNumber.length >= 10 && selectedCablePlan !== null && !customerName.includes("Invalid") && !customerName.includes("Verifying");
     if (productType === 'Electricity') return meterNumber.length >= 10 && Number(serviceAmount) > 0 && selectedDisco !== null && !customerName.includes("Invalid");
     if (productType === 'Exam') return selectedExam !== null && quantity > 0;
     if (productType === 'RechargePin') return Number(serviceAmount) > 0 && quantity > 0 && nameOnCard.length > 2;
@@ -238,60 +237,46 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
     if (productType === 'Data') return Number(selectedPlan?.amount || selectedPlan?.price);
     if (productType === 'Cable') return Number(selectedCablePlan?.amount);
     if (productType === 'Exam') return (selectedExam?.price || 0) * quantity;
-    if (productType === 'RechargePin') return Number(serviceAmount) * quantity;
+    if (productType === 'RechargePin') {
+        const unitPrice = PIN_PRICING[selectedNetworkId] || 100;
+        const multiplier = Number(serviceAmount) / 100;
+        return (unitPrice * multiplier) * quantity;
+    }
     return Number(serviceAmount);
   };
 
-  // --- VERIFY UTILITY (Smart Routing) ---
   const verifyCustomer = async (number: string, serviceType: 'cable' | 'electricity', providerId: number | null, mType: number = 1) => {
     if (number.length < 10 || !providerId) return;
     setCustomerName("Verifying...");
-    
     try {
         let responseData;
-        
-        // 1. ROUTE TO STROWALLET FOR ELECTRICITY
         if (serviceType === 'electricity') {
             const { data, error } = await supabase.functions.invoke('strowallet-proxy', {
-                body: { 
-                    action: 'verify_meter', 
-                    payload: { number, provider: providerId, meter_type: mType } 
-                }
+                body: { action: 'verify_meter', payload: { number, provider: providerId, meter_type: mType } }
             });
             if (error) throw error;
             responseData = data;
-        } 
-        // 2. ROUTE TO AFFATECH FOR CABLE
-        else {
-            const { data, error } = await supabase.functions.invoke('affatech-proxy', {
-                body: { 
-                    action: 'verify_customer', 
-                    payload: { type: 'cable', number, provider: providerId } 
-                }
+        } else if (serviceType === 'cable') {
+            const { data, error } = await supabase.functions.invoke('strowallet-proxy', {
+                body: { action: 'verify_smartcard', payload: { number, provider: providerId } }
             });
             if (error) throw error;
             responseData = data;
         }
 
-        // 3. UNIFIED RESPONSE HANDLING
         if (responseData) {
-            const name = responseData.customer_name || 
-                         responseData.name || 
-                         (responseData.content && responseData.content.Customer_Name) ||
-                         (responseData.data && responseData.data.customer_name); 
-
+            const name = responseData.customer_name || responseData.name || (responseData.content && responseData.content.Customer_Name) || (responseData.data && responseData.data.customer_name);
             if (name) setCustomerName(name);
             else setCustomerName("Invalid Number / Not Found");
         } else {
              setCustomerName("Invalid Number");
         }
     } catch (e: any) { 
-        console.error(e);
+        console.error("Verify Error:", e);
         setCustomerName("Verification Failed"); 
     }
   };
 
-  // --- VERIFY ACCOUNT (WITHDRAWAL) ---
   useEffect(() => {
     const verifyAccount = async () => {
       if (accountNumber.length === 10 && bankCode) {
@@ -307,14 +292,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
     };
     verifyAccount();
   }, [accountNumber, bankCode]);
-
- //  PAYSTACK DEPOSIT FLOW
-  // ============================================
-  useEffect(() => {
-      if(isDepositModalOpen && !pendingDepositRef) {
-          setCurrentTxRef(`txn_${Date.now()}`);
-      }
-  }, [isDepositModalOpen, pendingDepositRef]);
 
   const paystackConfig = {
     email: user?.email,
@@ -332,7 +309,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
       }
       setPendingDepositRef(currentTxRef);
       initializePayment(
-          (response: any) => { console.log("Paystack closed/success"); }, 
+          (response: any) => { console.log("Paystack success"); }, 
           () => { console.log("Paystack closed"); }
       );
   };
@@ -345,8 +322,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
         body: { reference: pendingDepositRef },
       });
       if (error) throw new Error(error.message);
-      if (data.error) throw new Error(data.error);
-
       if (data.success) {
         onUpdateBalance(data.balance);
         await fetchUser();
@@ -357,14 +332,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
         alert(`Success! Wallet funded.`);
       } 
     } catch (err: any) {
-      console.error(err);
-      alert(err.message || "Verification failed. If you were debited, please contact support.");
+      alert(err.message || "Verification failed.");
     } finally {
       setIsProcessing(false);
     }
   };
 
-  // --- PURCHASE EXECUTION (Smart Routing) ---
   const handlePurchase = async () => {
     setIsProcessing(true);
     try {
@@ -372,24 +345,30 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
         if (productType !== 'AirtimeToCash' && cost > user.balance) throw new Error("Insufficient Wallet Balance");
 
         const cleanPhone = phoneNumber.replace(/\D/g, '');
-        let proxyFunction = 'affatech-proxy'; // Default
+        let proxyFunction = 'affatech-proxy'; 
         let action = '';
         let payload: any = {};
 
-        // --- A. STROWALLET ROUTING ---
         if (productType === 'Electricity') {
             proxyFunction = 'strowallet-proxy';
             action = 'buy_electricity';
+            payload = { disco: selectedDisco, meter: meterNumber, amount: cost, meter_type: meterType, phone: phoneNumber || "08000000000" };
+        }
+        else if (productType === 'Cable') { 
+            proxyFunction = 'strowallet-proxy';
+            action = 'buy_cable'; 
+            payload = { provider: selectedCableProvider, iuc: smartCardNumber, plan_id: selectedCablePlan.id, amount: cost, plan_name: selectedCablePlan.name, phone: phoneNumber || "08000000000" }; 
+        }
+        else if (productType === 'RechargePin') {
+            proxyFunction = 'affatech-proxy';   
+            action = 'buy_recharge_pin';        
             payload = { 
-                disco: selectedDisco, 
-                meter: meterNumber, 
-                amount: cost, 
-                meter_type: meterType,
-                phone: phoneNumber || "08000000000"
+                network: selectedNetworkId,     
+                amount: serviceAmount,          
+                quantity: quantity,
+                name_on_card: nameOnCard        
             };
         }
-        
-        // --- B. AFFATECH ROUTING ---
         else if(productType === 'Airtime') { 
             action = 'buy_airtime'; 
             payload = { network: selectedNetworkId, phone: cleanPhone, amount: cost }; 
@@ -398,30 +377,18 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
             action = 'buy_data'; 
             payload = { network: selectedNetworkId, phone: cleanPhone, plan_id: selectedPlan?.id || selectedPlan?.plan_id }; 
         }
-        else if (productType === 'Cable') { 
-            action = 'buy_cable'; 
-            payload = { provider: selectedCableProvider, iuc: smartCardNumber, plan_id: selectedCablePlan.id }; 
-        }
         else if (productType === 'Exam') { 
             action = 'buy_epin'; 
             payload = { exam_name: selectedExam.id, quantity: quantity }; 
-        }
-        else if (productType === 'RechargePin') { 
-            action = 'buy_recharge_pin'; 
-            payload = { network: selectedNetworkId, amount: serviceAmount, quantity: quantity, name_on_card: nameOnCard }; 
         }
         else if (productType === 'AirtimeToCash') { 
             action = 'airtime_to_cash'; 
             payload = { network: selectedNetworkId, phone: cleanPhone, amount: serviceAmount }; 
         }
 
-        // --- EXECUTE ---
         const { data, error } = await supabase.functions.invoke(proxyFunction, { body: { action, payload } });
         if (error) throw new Error(error.message);
 
-        // --- HANDLE RESPONSE ---
-        
-        // Airtime to Cash Instruction
         if (productType === 'AirtimeToCash') {
              const instruction = data.message || data.api_response || "Proceed to transfer airtime manually.";
              setAirtimeToCashInfo({ message: instruction, amount: serviceAmount });
@@ -429,11 +396,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
              return; 
         }
 
-        // Success Logic (Checks both Affatech 'status' and Strowallet 'success' flags)
-        const isSuccess = data.status === 'success' || 
-                          data.success === 'true' || 
-                          data.success === true || 
-                          data.Status === 'successful';
+        const isSuccess = data.status === 'success' || data.success === true || data.success === 'true' || data.Status === 'successful';
 
         if (data && isSuccess) {
             const newBal = user.balance - cost;
@@ -449,13 +412,18 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
             });
 
             fetchHistory();
-            alert(`Transaction Successful!`);
+            
+            if (productType === 'RechargePin') {
+                console.log("RECHARGE PINS GENERATED:", data);
+                alert(`Success! Generated ${quantity} Pins. Check Console/DB.`);
+            } else {
+                alert(`Transaction Successful!`);
+            }
+
             setIsConfirming(false);
-            // Reset...
-            setPhoneNumber(''); setServiceAmount(''); setSmartCardNumber(''); setMeterNumber(''); setQuantity(1); setSelectedPlan(null); setSelectedCablePlan(null);
+            setPhoneNumber(''); setServiceAmount(''); setSmartCardNumber(''); setMeterNumber(''); setQuantity(1); setSelectedPlan(null); setSelectedCablePlan(null); setCustomerName('');
         } else {
-            // Error Message Handling
-            throw new Error(data?.message || data?.error || "Transaction Failed from Provider");
+            throw new Error(data?.message || data?.error || "Transaction Failed");
         }
     } catch (e: any) { alert(e.message || "System Error"); } 
     finally { setIsProcessing(false); }
@@ -482,16 +450,16 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
         case 'Data':
             return (
                 <>
-                    <div className="grid grid-cols-4 gap-3 mb-4">
+                    <div className="grid grid-cols-5 gap-3 mb-4">
                         {CARRIERS.map(c => (
-                            <button key={c.id} onClick={() => { setSelectedCarrier(c.id); setSelectedNetworkId(Number(Object.keys(NETWORK_ID_MAP).find(k => NETWORK_ID_MAP[Number(k)] === c.id))); }} className={`aspect-square rounded-2xl flex items-center justify-center border-2 transition-all ${selectedCarrier === c.id ? 'border-emerald-600 bg-emerald-50' : 'border-transparent bg-slate-50'}`}>
+                            <button key={c.id} onClick={() => { setSelectedCarrier(c.name as Carrier); setSelectedNetworkId(c.id); }} className={`aspect-square rounded-2xl flex items-center justify-center border-2 transition-all ${selectedNetworkId === c.id ? 'border-emerald-600 bg-emerald-50' : 'border-transparent bg-slate-50'}`}>
                                 <img src={c.logo} className="w-8 h-8 object-contain rounded-full" />
                             </button>
                         ))}
                     </div>
                     <input type="tel" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 11))} className="w-full p-4 bg-slate-50 rounded-2xl font-black outline-none mb-4" placeholder="Phone Number (080...)" />
                     {productType === 'Data' ? (
-                          <>
+                         <>
                              <div className="flex gap-2 mb-4 overflow-x-auto pb-2 custom-scrollbar">
                                  {['ALL', 'SME', 'CG', 'GIFTING'].map(t => <button key={t} onClick={()=>setSelectedPlanType(t)} className={`px-3 py-1 rounded-lg text-[10px] font-bold border ${selectedPlanType===t?'bg-emerald-600 text-white':'bg-slate-100'}`}>{t}</button>)}
                                  <div className="w-[1px] bg-slate-300 h-4 self-center mx-1"></div>
@@ -505,7 +473,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
                                      </button>
                                  ))}
                              </div>
-                          </>
+                         </>
                     ) : (
                         <>
                             <div className="flex gap-2 mb-2 overflow-x-auto pb-2">{PREFILLED_AMOUNTS.map(amt => <button key={amt} onClick={() => setServiceAmount(amt.toString())} className="px-3 py-2 bg-slate-100 rounded-xl text-xs font-bold hover:bg-emerald-100 text-slate-600 border border-slate-200">₦{amt.toLocaleString()}</button>)}</div>
@@ -518,14 +486,22 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
             return (
                 <div className="space-y-4">
                     <div className="flex gap-2 overflow-x-auto">
-                        {CABLE_PROVIDERS.map(p => <button key={p.id} onClick={() => { setSelectedCableProvider(p.id); setSelectedCablePlan(null); }} className={`flex-1 py-3 px-4 rounded-xl font-bold text-xs border-2 ${selectedCableProvider === p.id ? 'border-emerald-600 bg-emerald-50' : 'border-slate-100'}`}>{p.name}</button>)}
+                        {CABLE_PROVIDERS.map(p => (
+                          <button key={p.id} onClick={() => { setSelectedCableProvider(p.id); setSelectedCablePlan(null); setCustomerName(''); }} className={`flex-1 py-3 px-4 rounded-xl font-bold text-xs border-2 ${selectedCableProvider === p.id ? 'border-emerald-600 bg-emerald-50' : 'border-slate-100'}`}>
+                            {p.name}
+                          </button>
+                        ))}
                     </div>
-                    <input type="text" value={smartCardNumber} onChange={e => { setSmartCardNumber(e.target.value); if(e.target.value.length >= 10) verifyCustomer(e.target.value, 'cable', selectedCableProvider); }} className="w-full p-4 bg-slate-50 rounded-2xl font-black outline-none" placeholder="IUC Number" />
+                    <input type="text" value={smartCardNumber} onChange={e => { const val = e.target.value; setSmartCardNumber(val); if(val.length >= 10) verifyCustomer(val, 'cable', selectedCableProvider); }} className="w-full p-4 bg-slate-50 rounded-2xl font-black outline-none" placeholder="IUC Number" />
                     {customerName && <p className={`text-[10px] font-bold px-2 ${customerName.includes("Invalid") ? "text-red-500" : "text-emerald-500"}`}>{customerName}</p>}
                     <div className="relative">
-                        <select className="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none appearance-none" onChange={(e) => setSelectedCablePlan(JSON.parse(e.target.value))}>
-                            <option value="">Select Plan</option>
-                            {CABLE_PLANS[selectedCableProvider]?.map((p: any) => <option key={p.id} value={JSON.stringify(p)}>{p.name} - ₦{p.amount.toLocaleString()}</option>)}
+                        <select className="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none appearance-none" onChange={(e) => setSelectedCablePlan(e.target.value ? JSON.parse(e.target.value) : null)}>
+                            <option value="">{isLoadingPlans ? "Loading Plans..." : "Select Plan"}</option>
+                            {currentCablePlans.map((p: any) => (
+                              <option key={p.id} value={JSON.stringify(p)}>
+                                {p.name} - ₦{p.amount.toLocaleString()}
+                              </option>
+                            ))}
                         </select>
                         <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
                     </div>
@@ -557,9 +533,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
                     <div className="flex gap-2 overflow-x-auto">{EXAM_TYPES.map(e => <button key={e.id} onClick={() => setSelectedExam(e)} className={`flex-1 py-3 px-4 rounded-xl font-bold text-xs whitespace-nowrap border-2 ${selectedExam?.id === e.id ? 'border-emerald-600 bg-emerald-50' : 'border-slate-100'}`}>{e.id}</button>)}</div>
                     <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl">
                         <span className="text-xs font-bold text-slate-500">Qty:</span>
-                        <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-8 h-8 bg-white rounded-full shadow font-black">-</button>
+                        <button onClick={() => setQuantity(Math.max(1, quantity - 1))} disabled={quantity <= 1} className="w-8 h-8 bg-white rounded-full shadow font-black disabled:opacity-50">-</button>
                         <span className="font-black text-xl">{quantity}</span>
-                        <button onClick={() => setQuantity(quantity + 1)} className="w-8 h-8 bg-white rounded-full shadow font-black">+</button>
+                        <button onClick={() => setQuantity(Math.min(5, quantity + 1))} disabled={quantity >= 5} className="w-8 h-8 bg-white rounded-full shadow font-black disabled:opacity-50">+</button>
                     </div>
                     {selectedExam && <p className="text-center font-black text-emerald-600 text-xl">Total: ₦{(selectedExam.price * quantity).toLocaleString()}</p>}
                 </div>
@@ -567,18 +543,60 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
         case 'RechargePin':
             return (
                 <div className="space-y-4">
-                      <div className="grid grid-cols-4 gap-3 mb-4">
-                        {CARRIERS.map(c => <button key={c.id} onClick={() => { setSelectedCarrier(c.id); setSelectedNetworkId(Number(Object.keys(NETWORK_ID_MAP).find(k => NETWORK_ID_MAP[Number(k)] === c.id))); }} className={`aspect-square rounded-2xl flex items-center justify-center border-2 transition-all ${selectedCarrier === c.id ? 'border-emerald-600 bg-emerald-50' : 'border-slate-100'}`}><img src={c.logo} className="w-8 h-8 object-contain rounded-full" /></button>)}
-                    </div>
-                    <div className="flex gap-2 mb-2 overflow-x-auto pb-2">{RECHARGE_AMOUNTS.map(amt => <button key={amt} onClick={() => setServiceAmount(amt.toString())} className={`px-3 py-2 rounded-xl text-xs font-bold border ${serviceAmount === amt.toString() ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'}`}>₦{amt}</button>)}</div>
+                  <p className="text-[10px] font-black uppercase text-slate-400 ml-1">Select Network</p>
+                  <div className="grid grid-cols-5 gap-3 mb-4">
+                    {[
+                      { id: 1, name: 'MTN', price: 98, logo: 'https://ckdonline.com.ng/assets/images/mtn.jpg' },
+                      { id: 2, name: 'GLO', price: 97, logo: 'https://ckdonline.com.ng/assets/images/glo.jpg' },
+                      { id: 3, name: 'AIRTEL', price: 97, logo: 'https://ckdonline.com.ng/assets/images/airtel.jpg' },
+                      { id: 4, name: '9MOBILE', price: 95, logo: 'https://ckdonline.com.ng/assets/images/9mobile.jpg' },
+                      { id: 5, name: 'SMILE', price: 95, logo: 'https://upload.wikimedia.org/wikipedia/commons/e/e0/Smile_Communications_Logo.jpg' }
+                    ].map(net => (
+                      <button 
+                        key={net.id} 
+                        onClick={() => { setSelectedNetworkId(net.id); setSelectedCarrier(net.name as Carrier); }} 
+                        className={`p-3 rounded-2xl flex flex-col items-center border-2 transition-all ${selectedNetworkId === net.id ? 'border-emerald-600 bg-emerald-50' : 'border-slate-100 bg-white'}`}
+                      >
+                        <img src={net.logo} className="w-8 h-8 object-contain rounded-full mb-1" />
+                        <span className="text-[10px] font-black">{net.name}</span>
+                        <span className="text-[9px] text-emerald-600 font-bold">₦{net.price}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  <p className="text-[10px] font-black uppercase text-slate-400 ml-1">Select Pin Denomination</p>
+                  <div className="flex gap-2 mb-2 overflow-x-auto pb-2">
+                    {RECHARGE_AMOUNTS.map(amt => (
+                      <button 
+                        key={amt} 
+                        onClick={() => setServiceAmount(amt.toString())} 
+                        className={`px-4 py-3 rounded-xl text-sm font-bold border transition-all ${serviceAmount === amt.toString() ? 'bg-emerald-600 text-white shadow-lg' : 'bg-slate-100 text-slate-600'}`}
+                      >
+                        ₦{amt}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-black uppercase text-slate-400 ml-1">Pin Quantity (68 pins per A4 Paper)</p>
                     <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl">
-                        <span className="text-xs font-bold text-slate-500">Qty:</span>
-                        <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-8 h-8 bg-white rounded-full shadow font-black">-</button>
-                        <span className="font-black text-xl">{quantity}</span>
-                        <button onClick={() => setQuantity(quantity + 1)} className="w-8 h-8 bg-white rounded-full shadow font-black">+</button>
+                      <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-10 h-10 bg-white rounded-full shadow-md font-black text-emerald-600">-</button>
+                      <div className="flex-1 text-center">
+                        <span className="font-black text-2xl">{quantity}</span>
+                        <p className="text-[9px] text-slate-400 font-bold">Total Pins</p>
+                      </div>
+                      <button onClick={() => setQuantity(quantity + 1)} className="w-10 h-10 bg-white rounded-full shadow-md font-black text-emerald-600">+</button>
                     </div>
-                    <input type="text" value={nameOnCard} onChange={e => setNameOnCard(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl font-black outline-none" placeholder="Name on Card" />
-                    {Number(serviceAmount) > 0 && <p className="text-center font-black text-emerald-600 text-xl">Total: ₦{(Number(serviceAmount) * quantity).toLocaleString()}</p>}
+                  </div>
+
+                  <input type="text" value={nameOnCard} onChange={e => setNameOnCard(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl font-black outline-none border-2 border-transparent focus:border-emerald-500" placeholder="Business Name on Card" />
+                  
+                  {Number(serviceAmount) > 0 && (
+                    <div className="bg-emerald-600 p-4 rounded-2xl text-white text-center shadow-lg animate-in zoom-in-95">
+                      <p className="text-[10px] font-bold uppercase opacity-80">Total Payment</p>
+                      <p className="text-2xl font-black">₦{calculateTotalCost().toLocaleString()}</p>
+                    </div>
+                  )}
                 </div>
             );
         default: return null;
@@ -587,7 +605,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
 
   return (
     <div className="space-y-6 pb-24 animate-in fade-in">
-      {/* 1. WALLET */}
+      {/* 1. WALLET CARD */}
       <section className="bg-emerald-600 p-6 rounded-[35px] text-white shadow-xl relative">
          <div className="flex justify-between items-start mb-1">
             <p className="text-[10px] font-black uppercase tracking-widest opacity-80">Available Balance</p>
@@ -600,7 +618,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
          </div>
       </section>
 
-      {/* 2. SERVICES */}
+      {/* 2. SERVICES GRID */}
       <div className="grid grid-cols-3 gap-2 bg-slate-100 dark:bg-slate-800 p-2 rounded-2xl">
         {[
             { id: 'Airtime', icon: <Smartphone size={18}/> }, { id: 'Data', icon: <Zap size={18}/> }, { id: 'Cable', icon: <Tv size={18}/> }, 
@@ -625,7 +643,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
          
          {productType === 'AirtimeToCash' ? (
              <div className="space-y-4">
-                <div className="grid grid-cols-4 gap-3">{CARRIERS.map(c => <button key={c.id} onClick={() => setSelectedNetworkId(Number(Object.keys(NETWORK_ID_MAP).find(k => NETWORK_ID_MAP[Number(k)] === c.id)))} className={`p-2 rounded-xl border-2 ${selectedNetworkId === Number(Object.keys(NETWORK_ID_MAP).find(k => NETWORK_ID_MAP[Number(k)] === c.id)) ? 'border-orange-500 bg-orange-50' : 'border-slate-100'}`}><img src={c.logo} className="w-6 h-6 mx-auto rounded-full"/></button>)}</div>
+                <div className="grid grid-cols-4 gap-3">{CARRIERS.map(c => <button key={c.id} onClick={() => setSelectedNetworkId(c.id)} className={`p-2 rounded-xl border-2 ${selectedNetworkId === c.id ? 'border-orange-500 bg-orange-50' : 'border-slate-100'}`}><img src={c.logo} className="w-6 h-6 mx-auto rounded-full"/></button>)}</div>
                 <input type="tel" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl font-black outline-none" placeholder="Sender Phone Number" />
                 <input type="number" value={serviceAmount} onChange={e => setServiceAmount(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl font-black outline-none" placeholder="Amount to Sell (₦)" />
                 {Number(serviceAmount) > 0 && <div className="bg-emerald-50 text-emerald-700 p-4 rounded-2xl flex justify-between items-center"><span className="text-xs font-bold">You Receive:</span><span className="text-xl font-black">₦{(Number(serviceAmount) * 0.85).toFixed(0)}</span></div>}
@@ -653,7 +671,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
 
       {/* --- MODALS --- */}
       
-      {/* 1. DEPOSIT MODAL */}
+      {/* DEPOSIT MODAL */}
       {isDepositModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
             <div className="bg-white dark:bg-slate-800 w-full max-w-sm rounded-[35px] p-8 shadow-2xl relative">
@@ -675,7 +693,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
         </div>
       )}
 
-      {/* 2. CONFIRMATION MODAL */}
+      {/* CONFIRM MODAL */}
       {isConfirming && (
          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-6">
             <div className="bg-white dark:bg-slate-800 w-full max-w-sm rounded-[35px] p-8 text-center shadow-2xl">
@@ -688,7 +706,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
          </div>
       )}
 
-      {/* 3. AIRTIME TO CASH INSTRUCTION MODAL */}
+      {/* AIRTIME TO CASH INFO */}
       {airtimeToCashInfo && (
          <div className="fixed inset-0 bg-emerald-900/80 backdrop-blur-md z-50 flex items-center justify-center p-6">
             <div className="bg-white dark:bg-slate-800 w-full max-w-sm rounded-[35px] p-8 text-center shadow-2xl relative">
@@ -706,7 +724,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
          </div>
       )}
 
-      {/* 4. WITHDRAW MODAL */}
+      {/* WITHDRAW MODAL */}
       {isWithdrawModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
            <div className="bg-white dark:bg-slate-800 w-full max-w-sm rounded-[35px] p-8 shadow-2xl relative space-y-4">
