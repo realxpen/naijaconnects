@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Smartphone, Tv, Zap, ArrowRight, ArrowLeftRight, X, Loader2, RotateCcw,
   TrendingUp, TrendingDown, CreditCard, GraduationCap, Printer, Building2, ChevronDown, CheckCircle
@@ -7,26 +7,77 @@ import { usePaystackPayment } from 'react-paystack';
 import { dbService } from '../services/dbService';
 import { supabase } from "../supabaseClient";
 
+// --- LOGO IMPORTS ---
+// Network Carriers
+import mtnLogo from '../assets/logos/mtn.png';
+import gloLogo from '../assets/logos/glo.png';
+import airtelLogo from '../assets/logos/airtel.png';
+import t2mobileLogo from '../assets/logos/t2mobile.png'; // Formerly 9mobile
+import smileLogo from '../assets/logos/smile.png';
+
+// Exams
+import waecLogo from '../assets/logos/waec.png';
+import necoLogo from '../assets/logos/neco.png';
+
+// Cable Providers
+import dstvLogo from '../assets/logos/dstv.png';
+import gotvLogo from '../assets/logos/gotv.png';
+import startimesLogo from '../assets/logos/startimescable.png';
+import showmaxLogo from '../assets/logos/showmax.png';
+
+// Electricity DISCOs
+import ikejaLogo from '../assets/logos/ikedc.png';
+import ekoLogo from '../assets/logos/eko.png';
+import abujaLogo from '../assets/logos/abuja.png';
+import kanoLogo from '../assets/logos/kano.png';
+import enuguLogo from '../assets/logos/enugu.png';
+import phLogo from '../assets/logos/portharcourt.png';
+import ibadanLogo from '../assets/logos/ibedc.png';
+import kadunaLogo from '../assets/logos/kaduna.png';
+import josLogo from '../assets/logos/jos_jed.png';
+import beninLogo from '../assets/logos/benin.png';
+import yolaLogo from '../assets/logos/yola.png';
+import abaLogo from '../assets/logos/aba.png';
+
 // --- CONSTANTS ---
 export const CARRIERS = [
-  { id: 1, name: 'MTN', logo: 'https://ckdonline.com.ng/assets/images/mtn.jpg' },
-  { id: 2, name: 'GLO', logo: 'https://ckdonline.com.ng/assets/images/glo.jpg' },
-  { id: 3, name: 'AIRTEL', logo: 'https://ckdonline.com.ng/assets/images/airtel.jpg' },
-  { id: 4, name: '9MOBILE', logo: 'https://ckdonline.com.ng/assets/images/9mobile.jpg' },
-  { id: 5, name: 'SMILE', logo: 'https://upload.wikimedia.org/wikipedia/commons/e/e0/Smile_Communications_Logo.jpg' }
+  { id: 1, name: 'MTN', logo: mtnLogo },
+  { id: 2, name: 'GLO', logo: gloLogo },
+  { id: 3, name: 'AIRTEL', logo: airtelLogo },
+  { id: 4, name: 'T2MOBILE', logo: t2mobileLogo, subText: '(Formerly 9Mobile)' },
+  { id: 5, name: 'SMILE', logo: smileLogo }
 ];
 
-export const NETWORK_ID_MAP: Record<number, number> = { 
-  1: 1, 2: 2, 3: 3, 4: 4, 5: 5 
-};
+const CABLE_PROVIDERS = [
+  { id: 1, name: 'GOTV', logo: gotvLogo }, 
+  { id: 2, name: 'DSTV', logo: dstvLogo }, 
+  { id: 3, name: 'STARTIMES', logo: startimesLogo }, 
+  { id: 4, name: 'SHOWMAX', logo: showmaxLogo }
+];
 
-enum Carrier {
-  MTN = 'MTN',
-  GLO = 'GLO',
-  AIRTEL = 'AIRTEL',
-  ETISALAT = '9MOBILE',
-  SMILE = 'SMILE'
-}
+const DISCOS = [
+  { id: 1, name: 'Ikeja', short: 'IKEDC', logo: ikejaLogo }, 
+  { id: 2, name: 'Eko', short: 'EKEDC', logo: ekoLogo },
+  { id: 3, name: 'Abuja', short: 'AEDC', logo: abujaLogo }, 
+  { id: 4, name: 'Kano', short: 'KEDCO', logo: kanoLogo },
+  { id: 5, name: 'Enugu', short: 'EEDC', logo: enuguLogo }, 
+  { id: 6, name: 'P.Harcourt', short: 'PHED', logo: phLogo },
+  { id: 7, name: 'Ibadan', short: 'IBEDC', logo: ibadanLogo }, 
+  { id: 8, name: 'Kaduna', short: 'KAEDCO', logo: kadunaLogo },
+  { id: 9, name: 'Jos', short: 'JED', logo: josLogo }, 
+  { id: 10, name: 'Benin', short: 'BEDC', logo: beninLogo },
+  { id: 11, name: 'Yola', short: 'YEDC', logo: yolaLogo },
+  { id: 12, name: 'Aba', short: 'APLE', logo: abaLogo },
+];
+
+const EXAM_TYPES = [
+  { id: 'WAEC', name: 'WAEC Result Checker', price: 3500, logo: waecLogo }, 
+  { id: 'NECO', name: 'NECO Result Checker', price: 1350, logo: necoLogo },
+];
+
+export const NETWORK_ID_MAP: Record<number, number> = { 1: 1, 2: 2, 3: 3, 4: 4, 5: 5 };
+
+enum Carrier { MTN = 'MTN', GLO = 'GLO', AIRTEL = 'AIRTEL', T2MOBILE = 'T2MOBILE', SMILE = 'SMILE' }
 
 interface DashboardProps {
   user: { name: string; email: string; balance: number };
@@ -37,42 +88,7 @@ type ProductType = 'Airtime' | 'Data' | 'Cable' | 'Electricity' | 'Exam' | 'Rech
 
 const PREFILLED_AMOUNTS = [1000, 2000, 5000, 10000];
 const RECHARGE_AMOUNTS = [100, 200, 500, 1000];
-
-const PIN_PRICING: Record<number, number> = {
-  1: 98, 2: 97, 3: 97, 4: 95, 5: 95
-};
-
-const CABLE_PROVIDERS = [
-  { id: 1, name: 'GOTV' }, { id: 2, name: 'DSTV' }, { id: 3, name: 'STARTIMES' }, { id: 4, name: 'SHOWMAX' }
-];
-
-const DISCOS = [
-  { id: 1, name: 'Ikeja', short: 'IKEDC' }, { id: 2, name: 'Eko', short: 'EKEDC' },
-  { id: 3, name: 'Abuja', short: 'AEDC' }, { id: 4, name: 'Kano', short: 'KEDCO' },
-  { id: 5, name: 'Enugu', short: 'EEDC' }, { id: 6, name: 'P.Harcourt', short: 'PHED' },
-  { id: 7, name: 'Ibadan', short: 'IBEDC' }, { id: 8, name: 'Kaduna', short: 'KAEDCO' },
-  { id: 9, name: 'Jos', short: 'JED' }, { id: 10, name: 'Benin', short: 'BEDC' },
-  { id: 11, name: 'Yola', short: 'YEDC' },
-];
-
-const EXAM_TYPES = [
-  { id: 'WAEC', name: 'WAEC Result Checker', price: 3500 }, 
-  { id: 'NECO', name: 'NECO Result Checker', price: 1350 },
-];
-
-const detectNetwork = (phone: string) => {
-  const p = phone.replace(/\D/g, '').slice(0, 4);
-  const MTN = ['0803','0806','0703','0706','0813','0816','0810','0814','0903','0906','0913','0916'];
-  const GLO = ['0805','0807','0705','0815','0811','0905','0915'];
-  const AIRTEL = ['0802','0808','0708','0812','0902','0907','0901','0904'];
-  const T2_MOBILE = ['0809','0818','0817','0909','0908'];
-
-  if (MTN.includes(p)) return { id: 1, carrier: Carrier.MTN };
-  if (GLO.includes(p)) return { id: 2, carrier: Carrier.GLO };
-  if (AIRTEL.includes(p)) return { id: 3, carrier: Carrier.AIRTEL };
-  if (T2_MOBILE.includes(p)) return { id: 4, carrier: Carrier.ETISALAT }; 
-  return null;
-};
+const PIN_PRICING: Record<number, number> = { 1: 98, 2: 97, 3: 97, 4: 95, 5: 95 };
 
 const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
   const [isBalanceVisible, setIsBalanceVisible] = useState(true);
@@ -103,6 +119,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
   const [selectedCablePlan, setSelectedCablePlan] = useState<any>(null);
   const [meterNumber, setMeterNumber] = useState('');
   const [selectedDisco, setSelectedDisco] = useState<number | null>(null);
+  // NEW STATE: Toggle for custom electricity dropdown
+  const [isDiscoDropdownOpen, setIsDiscoDropdownOpen] = useState(false);
+  
   const [meterType, setMeterType] = useState(1);
   const [selectedExam, setSelectedExam] = useState<any>(null);
   const [quantity, setQuantity] = useState<number>(1);
@@ -132,6 +151,20 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
   };
 
   useEffect(() => { fetchHistory(); fetchUser(); }, [user.email]);
+
+  const detectNetwork = (phone: string) => {
+    const p = phone.replace(/\D/g, '').slice(0, 4);
+    const MTN = ['0803','0806','0703','0706','0813','0816','0810','0814','0903','0906','0913','0916'];
+    const GLO = ['0805','0807','0705','0815','0811','0905','0915'];
+    const AIRTEL = ['0802','0808','0708','0812','0902','0907','0901','0904'];
+    const T2_MOBILE = ['0809','0818','0817','0909','0908'];
+
+    if (MTN.includes(p)) return { id: 1, carrier: Carrier.MTN };
+    if (GLO.includes(p)) return { id: 2, carrier: Carrier.GLO };
+    if (AIRTEL.includes(p)) return { id: 3, carrier: Carrier.AIRTEL };
+    if (T2_MOBILE.includes(p)) return { id: 4, carrier: Carrier.T2MOBILE }; 
+    return null;
+  };
 
   useEffect(() => {
     const cleanPhone = phoneNumber.replace(/\D/g, '');
@@ -221,18 +254,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
     fetchBanks();
   }, []);
 
-  const isFormValid = () => {
-    const cleanPhone = phoneNumber.replace(/\D/g, '');
-    if (productType === 'Airtime') return cleanPhone.length === 11 && Number(serviceAmount) > 0;
-    if (productType === 'Data') return cleanPhone.length === 11 && selectedPlan !== null;
-    if (productType === 'Cable') return smartCardNumber.length >= 10 && selectedCablePlan !== null && !customerName.includes("Invalid") && !customerName.includes("Verifying");
-    if (productType === 'Electricity') return meterNumber.length >= 10 && Number(serviceAmount) > 0 && selectedDisco !== null && !customerName.includes("Invalid");
-    if (productType === 'Exam') return selectedExam !== null && quantity > 0;
-    if (productType === 'RechargePin') return Number(serviceAmount) > 0 && quantity > 0 && nameOnCard.length > 2;
-    if (productType === 'AirtimeToCash') return cleanPhone.length === 11 && Number(serviceAmount) > 0;
-    return false;
-  };
-
   const calculateTotalCost = () => {
     if (productType === 'Data') return Number(selectedPlan?.amount || selectedPlan?.price);
     if (productType === 'Cable') return Number(selectedCablePlan?.amount);
@@ -292,6 +313,18 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
     };
     verifyAccount();
   }, [accountNumber, bankCode]);
+
+  const isFormValid = () => {
+    const cleanPhone = phoneNumber.replace(/\D/g, '');
+    if (productType === 'Airtime') return cleanPhone.length === 11 && Number(serviceAmount) > 0;
+    if (productType === 'Data') return cleanPhone.length === 11 && selectedPlan !== null;
+    if (productType === 'Cable') return smartCardNumber.length >= 10 && selectedCablePlan !== null && !customerName.includes("Invalid") && !customerName.includes("Verifying");
+    if (productType === 'Electricity') return meterNumber.length >= 10 && Number(serviceAmount) > 0 && selectedDisco !== null && !customerName.includes("Invalid");
+    if (productType === 'Exam') return selectedExam !== null && quantity > 0;
+    if (productType === 'RechargePin') return Number(serviceAmount) > 0 && quantity > 0 && nameOnCard.length > 2;
+    if (productType === 'AirtimeToCash') return cleanPhone.length === 11 && Number(serviceAmount) > 0;
+    return false;
+  };
 
   const paystackConfig = {
     email: user?.email,
@@ -412,6 +445,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
             });
 
             fetchHistory();
+            setIsConfirming(false);
+            setPhoneNumber(''); setServiceAmount(''); setSmartCardNumber(''); setMeterNumber(''); setQuantity(1); setSelectedPlan(null); setSelectedCablePlan(null); setCustomerName('');
             
             if (productType === 'RechargePin') {
                 console.log("RECHARGE PINS GENERATED:", data);
@@ -419,9 +454,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
             } else {
                 alert(`Transaction Successful!`);
             }
-
-            setIsConfirming(false);
-            setPhoneNumber(''); setServiceAmount(''); setSmartCardNumber(''); setMeterNumber(''); setQuantity(1); setSelectedPlan(null); setSelectedCablePlan(null); setCustomerName('');
         } else {
             throw new Error(data?.message || data?.error || "Transaction Failed");
         }
@@ -452,8 +484,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
                 <>
                     <div className="grid grid-cols-5 gap-3 mb-4">
                         {CARRIERS.map(c => (
-                            <button key={c.id} onClick={() => { setSelectedCarrier(c.name as Carrier); setSelectedNetworkId(c.id); }} className={`aspect-square rounded-2xl flex items-center justify-center border-2 transition-all ${selectedNetworkId === c.id ? 'border-emerald-600 bg-emerald-50' : 'border-transparent bg-slate-50'}`}>
+                            <button key={c.id} onClick={() => { setSelectedCarrier(c.name as Carrier); setSelectedNetworkId(c.id); }} className={`relative aspect-square rounded-2xl flex flex-col items-center justify-center border-2 transition-all ${selectedNetworkId === c.id ? 'border-emerald-600 bg-emerald-50' : 'border-transparent bg-slate-50'}`}>
                                 <img src={c.logo} className="w-8 h-8 object-contain rounded-full" />
+                                <span className="text-[7px] font-black mt-1 uppercase text-slate-500">{c.name}</span>
+                                {c.subText && <span className="absolute -bottom-2 text-[5px] text-emerald-600 font-bold whitespace-nowrap">{c.subText}</span>}
                             </button>
                         ))}
                     </div>
@@ -485,10 +519,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
         case 'Cable':
             return (
                 <div className="space-y-4">
-                    <div className="flex gap-2 overflow-x-auto">
+                    <div className="grid grid-cols-4 gap-2">
                         {CABLE_PROVIDERS.map(p => (
-                          <button key={p.id} onClick={() => { setSelectedCableProvider(p.id); setSelectedCablePlan(null); setCustomerName(''); }} className={`flex-1 py-3 px-4 rounded-xl font-bold text-xs border-2 ${selectedCableProvider === p.id ? 'border-emerald-600 bg-emerald-50' : 'border-slate-100'}`}>
-                            {p.name}
+                          <button key={p.id} onClick={() => { setSelectedCableProvider(p.id); setSelectedCablePlan(null); setCustomerName(''); }} className={`flex flex-col items-center p-2 rounded-xl border-2 transition-all ${selectedCableProvider === p.id ? 'border-emerald-600 bg-emerald-50' : 'border-slate-100 bg-white'}`}>
+                            <img src={p.logo} className="w-8 h-8 object-contain mb-1" />
+                            <span className="text-[8px] font-bold uppercase">{p.name}</span>
                           </button>
                         ))}
                     </div>
@@ -510,14 +545,45 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
         case 'Electricity':
             return (
                 <div className="space-y-4">
-                    <div className="grid grid-cols-4 gap-2">
-                        {DISCOS.map(d => (
-                            <button key={d.id} onClick={() => { setSelectedDisco(d.id); if(meterNumber.length >= 10) verifyCustomer(meterNumber, 'electricity', d.id, meterType); }} className={`flex flex-col items-center justify-center p-2 rounded-xl border-2 transition-all ${selectedDisco === d.id ? 'border-emerald-600 bg-emerald-50' : 'border-slate-100 bg-white'}`}>
-                                <div className="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center text-[10px] font-black text-slate-500 mb-1">{d.name.substring(0,2)}</div>
-                                <span className="text-[8px] font-bold">{d.short}</span>
-                            </button>
-                        ))}
+                    {/* CUSTOM DROPDOWN TO SHOW LOGO + NAME */}
+                    <div className="relative">
+                        <button 
+                            onClick={() => setIsDiscoDropdownOpen(!isDiscoDropdownOpen)} 
+                            className="w-full p-4 bg-slate-50 rounded-2xl font-bold flex items-center justify-between border-2 border-transparent focus:border-emerald-500 transition-colors"
+                        >
+                            {selectedDisco ? (
+                                <div className="flex items-center gap-3">
+                                    <img src={DISCOS.find(d => d.id === selectedDisco)?.logo} className="w-6 h-6 object-contain rounded-full" alt="disco" />
+                                    <span>{DISCOS.find(d => d.id === selectedDisco)?.name} ({DISCOS.find(d => d.id === selectedDisco)?.short})</span>
+                                </div>
+                            ) : (
+                                <span className="text-slate-400 font-normal">Select Disco Provider</span>
+                            )}
+                            <ChevronDown className={`text-slate-400 transition-transform ${isDiscoDropdownOpen ? 'rotate-180' : ''}`} size={16} />
+                        </button>
+
+                        {isDiscoDropdownOpen && (
+                            <div className="absolute top-full left-0 w-full mt-2 bg-white rounded-2xl shadow-xl z-20 max-h-60 overflow-y-auto border border-slate-100 custom-scrollbar">
+                                {DISCOS.map(d => (
+                                    <button 
+                                        key={d.id} 
+                                        onClick={() => {
+                                            setSelectedDisco(d.id);
+                                            setIsDiscoDropdownOpen(false);
+                                            if(meterNumber.length >= 10) verifyCustomer(meterNumber, 'electricity', d.id, meterType);
+                                        }}
+                                        className="w-full p-3 flex items-center gap-3 hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0 text-left"
+                                    >
+                                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center p-1">
+                                            <img src={d.logo} className="w-full h-full object-contain" alt={d.short} />
+                                        </div>
+                                        <span className="font-bold text-sm text-slate-700">{d.name} <span className="text-xs text-slate-400">({d.short})</span></span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
+
                     <div className="flex gap-2">
                         <button onClick={() => { setMeterType(1); if(meterNumber && selectedDisco) verifyCustomer(meterNumber, 'electricity', selectedDisco, 1); }} className={`flex-1 p-3 rounded-xl font-bold text-xs border-2 ${meterType === 1 ? 'border-emerald-600 bg-emerald-50' : 'border-slate-100'}`}>Prepaid</button>
                         <button onClick={() => { setMeterType(2); if(meterNumber && selectedDisco) verifyCustomer(meterNumber, 'electricity', selectedDisco, 2); }} className={`flex-1 p-3 rounded-xl font-bold text-xs border-2 ${meterType === 2 ? 'border-emerald-600 bg-emerald-50' : 'border-slate-100'}`}>Postpaid</button>
@@ -530,7 +596,14 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
         case 'Exam':
             return (
                 <div className="space-y-4">
-                    <div className="flex gap-2 overflow-x-auto">{EXAM_TYPES.map(e => <button key={e.id} onClick={() => setSelectedExam(e)} className={`flex-1 py-3 px-4 rounded-xl font-bold text-xs whitespace-nowrap border-2 ${selectedExam?.id === e.id ? 'border-emerald-600 bg-emerald-50' : 'border-slate-100'}`}>{e.id}</button>)}</div>
+                    <div className="flex gap-2 overflow-x-auto">
+                        {EXAM_TYPES.map(e => (
+                            <button key={e.id} onClick={() => setSelectedExam(e)} className={`flex-1 flex flex-col items-center py-3 px-4 rounded-xl font-bold text-xs whitespace-nowrap border-2 ${selectedExam?.id === e.id ? 'border-emerald-600 bg-emerald-50' : 'border-slate-100'}`}>
+                                <img src={e.logo} className="w-10 h-10 object-contain mb-1 rounded-lg" />
+                                {e.id}
+                            </button>
+                        ))}
+                    </div>
                     <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl">
                         <span className="text-xs font-bold text-slate-500">Qty:</span>
                         <button onClick={() => setQuantity(Math.max(1, quantity - 1))} disabled={quantity <= 1} className="w-8 h-8 bg-white rounded-full shadow font-black disabled:opacity-50">-</button>
@@ -545,21 +618,15 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
                 <div className="space-y-4">
                   <p className="text-[10px] font-black uppercase text-slate-400 ml-1">Select Network</p>
                   <div className="grid grid-cols-5 gap-3 mb-4">
-                    {[
-                      { id: 1, name: 'MTN', price: 98, logo: 'https://ckdonline.com.ng/assets/images/mtn.jpg' },
-                      { id: 2, name: 'GLO', price: 97, logo: 'https://ckdonline.com.ng/assets/images/glo.jpg' },
-                      { id: 3, name: 'AIRTEL', price: 97, logo: 'https://ckdonline.com.ng/assets/images/airtel.jpg' },
-                      { id: 4, name: '9MOBILE', price: 95, logo: 'https://ckdonline.com.ng/assets/images/9mobile.jpg' },
-                      { id: 5, name: 'SMILE', price: 95, logo: 'https://upload.wikimedia.org/wikipedia/commons/e/e0/Smile_Communications_Logo.jpg' }
-                    ].map(net => (
+                    {CARRIERS.map(net => (
                       <button 
                         key={net.id} 
                         onClick={() => { setSelectedNetworkId(net.id); setSelectedCarrier(net.name as Carrier); }} 
                         className={`p-3 rounded-2xl flex flex-col items-center border-2 transition-all ${selectedNetworkId === net.id ? 'border-emerald-600 bg-emerald-50' : 'border-slate-100 bg-white'}`}
                       >
                         <img src={net.logo} className="w-8 h-8 object-contain rounded-full mb-1" />
-                        <span className="text-[10px] font-black">{net.name}</span>
-                        <span className="text-[9px] text-emerald-600 font-bold">₦{net.price}</span>
+                        <span className="text-[7px] font-black uppercase">{net.name}</span>
+                        <span className="text-[7px] text-emerald-600 font-bold">₦{PIN_PRICING[net.id] || 98}</span>
                       </button>
                     ))}
                   </div>
