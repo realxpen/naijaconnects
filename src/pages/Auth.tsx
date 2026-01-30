@@ -1,19 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { Zap, User as UserIcon, Mail, Lock, LogIn, UserPlus, Loader2, Smartphone, Receipt, Globe, ShieldCheck, Sparkles, ChevronRight } from 'lucide-react';
-import { dbService } from '../services/dbService';
+import { 
+  Zap, User as UserIcon, Mail, Lock, LogIn, UserPlus, Loader2, 
+  Smartphone, Receipt, Globe, ShieldCheck, Sparkles, ChevronRight, 
+  ArrowLeft, Eye, EyeOff 
+} from 'lucide-react';
 
 interface AuthProps {
   onLogin: (email: string, pass: string) => Promise<void>;
   onSignup: (email: string, name: string, pass: string) => Promise<void>;
+  onForgotPassword: (email: string) => Promise<void>;
   isProcessing: boolean;
 }
 
-const Auth: React.FC<AuthProps> = ({ onLogin, onSignup, isProcessing }) => {
-  const [view, setView] = useState<'login' | 'signup'>('login');
+const Auth: React.FC<AuthProps> = ({ onLogin, onSignup, onForgotPassword, isProcessing }) => {
+  const [view, setView] = useState<'login' | 'signup' | 'forgot-password'>('login');
+  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [activeSlide, setActiveSlide] = useState(0);
+  
+  // New state for password visibility
+  const [showPassword, setShowPassword] = useState(false);
 
   const slides = [
     {
@@ -52,10 +60,32 @@ const Auth: React.FC<AuthProps> = ({ onLogin, onSignup, isProcessing }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      view === 'login' ? await onLogin(email, password) : await onSignup(email, name, password);
+      if (view === 'login') {
+        await onLogin(email, password);
+      } else if (view === 'signup') {
+        await onSignup(email, name, password);
+        alert("Account created! Please check your email to confirm your account.");
+      } else if (view === 'forgot-password') {
+        await onForgotPassword(email);
+        alert("Password reset link sent! Check your email.");
+        setView('login'); 
+      }
     } catch (err: any) {
       alert(err.message || "Something went wrong.");
     }
+  };
+
+  const getTitle = () => {
+    if (view === 'login') return 'Welcome Back';
+    if (view === 'signup') return 'Join the Family';
+    return 'Reset Password';
+  };
+
+  const getButtonText = () => {
+    if (isProcessing) return <Loader2 className="animate-spin" />;
+    if (view === 'login') return 'Sign In';
+    if (view === 'signup') return 'Create Free Account';
+    return 'Send Reset Link';
   };
 
   return (
@@ -63,7 +93,6 @@ const Auth: React.FC<AuthProps> = ({ onLogin, onSignup, isProcessing }) => {
       
       {/* LEFT: DYNAMIC MARKETING CAROUSEL */}
       <div className="lg:w-1/2 bg-emerald-700 p-8 lg:p-16 flex flex-col justify-between text-white relative overflow-hidden min-h-[40vh] lg:min-h-screen">
-        {/* Visual Decor */}
         <div className="absolute top-0 right-0 w-full h-full opacity-20 pointer-events-none">
           <div className="absolute -top-24 -right-24 w-96 h-96 bg-emerald-400 rounded-full blur-[120px]" />
           <div className="absolute bottom-0 left-0 w-64 h-64 bg-yellow-400 rounded-full blur-[100px] opacity-30" />
@@ -93,7 +122,6 @@ const Auth: React.FC<AuthProps> = ({ onLogin, onSignup, isProcessing }) => {
           </div>
         </div>
 
-        {/* Swipe Indicators */}
         <div className="relative z-10 flex items-center gap-4 mt-8">
           <div className="flex gap-2">
             {slides.map((_, i) => (
@@ -109,42 +137,84 @@ const Auth: React.FC<AuthProps> = ({ onLogin, onSignup, isProcessing }) => {
       {/* RIGHT: AUTH FORM SECTION */}
       <div className="lg:w-1/2 flex items-center justify-center p-6 lg:p-12 bg-slate-50 dark:bg-slate-900">
         <div className="w-full max-w-md">
+          
           <div className="mb-8 text-center lg:text-left">
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-full text-[10px] font-black uppercase tracking-[0.2em] mb-4">
               <Sparkles size={12} /> Secure Access
             </div>
             <h2 className="text-3xl lg:text-4xl font-black dark:text-white tracking-tight">
-              {view === 'login' ? 'Welcome Back' : 'Join the Family'}
+              {getTitle()}
             </h2>
+            {view === 'forgot-password' && (
+                <p className="text-slate-400 text-sm mt-2">Enter your email to receive a password reset link.</p>
+            )}
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            
+            {/* NAME INPUT (Signup Only) */}
             {view === 'signup' && (
-              <div className="relative">
+              <div className="relative animate-in slide-in-from-bottom-2">
                 <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                 <input type="text" required placeholder="Full Name" value={name} onChange={e => setName(e.target.value)} className="w-full pl-12 p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 dark:bg-slate-950 dark:text-white font-bold outline-none focus:border-emerald-500 transition-all text-sm" />
               </div>
             )}
             
+            {/* EMAIL INPUT */}
             <div className="relative">
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
               <input type="email" required placeholder="Email Address" value={email} onChange={e => setEmail(e.target.value)} className="w-full pl-12 p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 dark:bg-slate-950 dark:text-white font-bold outline-none focus:border-emerald-500 transition-all text-sm" />
             </div>
 
-            <div className="relative">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-              <input type="password" required placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} className="w-full pl-12 p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 dark:bg-slate-950 dark:text-white font-bold outline-none focus:border-emerald-500 transition-all text-sm" />
-            </div>
+            {/* PASSWORD INPUT (WITH TOGGLE) */}
+            {view !== 'forgot-password' && (
+                <div className="relative animate-in slide-in-from-bottom-2">
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                    <input 
+                      type={showPassword ? "text" : "password"} 
+                      required 
+                      placeholder="Password" 
+                      value={password} 
+                      onChange={e => setPassword(e.target.value)} 
+                      className="w-full pl-12 pr-12 p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 dark:bg-slate-950 dark:text-white font-bold outline-none focus:border-emerald-500 transition-all text-sm" 
+                    />
+                    {/* TOGGLE BUTTON */}
+                    <button 
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-600 transition-colors"
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                </div>
+            )}
+
+            {/* FORGOT PASSWORD LINK */}
+            {view === 'login' && (
+                <div className="flex justify-end">
+                    <button type="button" onClick={() => setView('forgot-password')} className="text-[10px] font-bold text-slate-400 hover:text-emerald-600 transition-colors uppercase tracking-wide">
+                        Forgot Password?
+                    </button>
+                </div>
+            )}
 
             <button type="submit" disabled={isProcessing} className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black shadow-xl shadow-emerald-200 dark:shadow-none uppercase tracking-widest flex justify-center items-center gap-2 hover:bg-emerald-700 active:scale-95 transition-all mt-6 text-sm">
-              {isProcessing ? <Loader2 className="animate-spin" /> : (view === 'login' ? 'Sign In' : 'Create Free Account')}
+              {getButtonText()}
             </button>
           </form>
 
+          {/* BOTTOM NAVIGATION LINKS */}
           <div className="mt-8 text-center flex flex-col gap-4">
-            <button onClick={() => setView(view === 'login' ? 'signup' : 'login')} className="text-emerald-600 font-black uppercase text-[10px] tracking-[0.15em] hover:underline">
-              {view === 'login' ? "New here? Open an account" : "Already have an account? Log in"}
-            </button>
+            {view === 'forgot-password' ? (
+                <button onClick={() => setView('login')} className="text-emerald-600 font-black uppercase text-[10px] tracking-[0.15em] hover:underline flex items-center justify-center gap-2">
+                    <ArrowLeft size={12}/> Back to Login
+                </button>
+            ) : (
+                <button onClick={() => setView(view === 'login' ? 'signup' : 'login')} className="text-emerald-600 font-black uppercase text-[10px] tracking-[0.15em] hover:underline">
+                    {view === 'login' ? "New here? Open an account" : "Already have an account? Log in"}
+                </button>
+            )}
+            
             <div className="flex items-center justify-center gap-2 text-slate-400">
               <ShieldCheck size={14} />
               <span className="text-[10px] font-bold uppercase tracking-widest">Bank-Grade Security</span>

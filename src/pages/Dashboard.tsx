@@ -1,43 +1,29 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Smartphone, Tv, Zap, ArrowRight, ArrowLeftRight, X, Loader2, RotateCcw,
-  TrendingUp, TrendingDown, CreditCard, GraduationCap, Printer, Building2, ChevronDown, CheckCircle
+  TrendingUp, TrendingDown, CreditCard, GraduationCap, Printer, Building2, ChevronDown, CheckCircle,
+  Activity, Share2, Download, Copy, Image as ImageIcon, FileText, ArrowUpRight, ArrowDownLeft,
+  BarChart3, LineChart, PieChart
 } from 'lucide-react';
 import { usePaystackPayment } from 'react-paystack';
 import { dbService } from '../services/dbService';
 import { supabase } from "../supabaseClient";
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 // --- LOGO IMPORTS ---
-// Network Carriers
 import mtnLogo from '../assets/logos/mtn.png';
 import gloLogo from '../assets/logos/glo.png';
 import airtelLogo from '../assets/logos/airtel.png';
-import t2mobileLogo from '../assets/logos/t2mobile.png'; // Formerly 9mobile
+import t2mobileLogo from '../assets/logos/t2mobile.png'; 
 import smileLogo from '../assets/logos/smile.png';
-
-// Exams
 import waecLogo from '../assets/logos/waec.png';
 import necoLogo from '../assets/logos/neco.png';
-
-// Cable Providers
 import dstvLogo from '../assets/logos/dstv.png';
 import gotvLogo from '../assets/logos/gotv.png';
 import startimesLogo from '../assets/logos/startimescable.png';
 import showmaxLogo from '../assets/logos/showmax.png';
-
-// Electricity DISCOs
 import ikejaLogo from '../assets/logos/ikedc.png';
-import ekoLogo from '../assets/logos/eko.png';
-import abujaLogo from '../assets/logos/abuja.png';
-import kanoLogo from '../assets/logos/kano.png';
-import enuguLogo from '../assets/logos/enugu.png';
-import phLogo from '../assets/logos/portharcourt.png';
-import ibadanLogo from '../assets/logos/ibedc.png';
-import kadunaLogo from '../assets/logos/kaduna.png';
-import josLogo from '../assets/logos/jos_jed.png';
-import beninLogo from '../assets/logos/benin.png';
-import yolaLogo from '../assets/logos/yola.png';
-import abaLogo from '../assets/logos/aba.png';
 
 // --- CONSTANTS ---
 export const CARRIERS = [
@@ -57,17 +43,16 @@ const CABLE_PROVIDERS = [
 
 const DISCOS = [
   { id: 1, name: 'Ikeja', short: 'IKEDC', logo: ikejaLogo }, 
-  { id: 2, name: 'Eko', short: 'EKEDC', logo: ekoLogo },
-  { id: 3, name: 'Abuja', short: 'AEDC', logo: abujaLogo }, 
-  { id: 4, name: 'Kano', short: 'KEDCO', logo: kanoLogo },
-  { id: 5, name: 'Enugu', short: 'EEDC', logo: enuguLogo }, 
-  { id: 6, name: 'P.Harcourt', short: 'PHED', logo: phLogo },
-  { id: 7, name: 'Ibadan', short: 'IBEDC', logo: ibadanLogo }, 
-  { id: 8, name: 'Kaduna', short: 'KAEDCO', logo: kadunaLogo },
-  { id: 9, name: 'Jos', short: 'JED', logo: josLogo }, 
-  { id: 10, name: 'Benin', short: 'BEDC', logo: beninLogo },
-  { id: 11, name: 'Yola', short: 'YEDC', logo: yolaLogo },
-  { id: 12, name: 'Aba', short: 'APLE', logo: abaLogo },
+  { id: 2, name: 'Eko', short: 'EKEDC', logo: 'https://via.placeholder.com/50?text=EKO' }, 
+  { id: 3, name: 'Abuja', short: 'AEDC', logo: 'https://via.placeholder.com/50?text=AEDC' }, 
+  { id: 4, name: 'Kano', short: 'KEDCO', logo: 'https://via.placeholder.com/50?text=KEDCO' },
+  { id: 5, name: 'Enugu', short: 'EEDC', logo: 'https://via.placeholder.com/50?text=EEDC' }, 
+  { id: 6, name: 'P.Harcourt', short: 'PHED', logo: 'https://via.placeholder.com/50?text=PHED' },
+  { id: 7, name: 'Ibadan', short: 'IBEDC', logo: 'https://via.placeholder.com/50?text=IBEDC' }, 
+  { id: 8, name: 'Kaduna', short: 'KAEDCO', logo: 'https://via.placeholder.com/50?text=KD' },
+  { id: 9, name: 'Jos', short: 'JED', logo: 'https://via.placeholder.com/50?text=JOS' }, 
+  { id: 10, name: 'Benin', short: 'BEDC', logo: 'https://via.placeholder.com/50?text=BENIN' },
+  { id: 11, name: 'Yola', short: 'YEDC', logo: 'https://via.placeholder.com/50?text=YOLA' },
 ];
 
 const EXAM_TYPES = [
@@ -79,6 +64,190 @@ export const NETWORK_ID_MAP: Record<number, number> = { 1: 1, 2: 2, 3: 3, 4: 4, 
 
 enum Carrier { MTN = 'MTN', GLO = 'GLO', AIRTEL = 'AIRTEL', T2MOBILE = 'T2MOBILE', SMILE = 'SMILE' }
 
+const PREFILLED_AMOUNTS = [1000, 2000, 5000, 10000];
+const RECHARGE_AMOUNTS = [100, 200, 500, 1000];
+const PIN_PRICING: Record<number, number> = { 1: 98, 2: 97, 3: 97, 4: 95, 5: 95 };
+
+// --- HELPER FUNCTIONS (Moved Outside) ---
+const getLogoOrIcon = (transaction: any) => {
+    if (!transaction) return <Activity size={18} />;
+    const desc = (transaction.description || "").toUpperCase();
+    const type = (transaction.type || "").toUpperCase();
+    const combined = desc + " " + type; 
+
+    if (combined.includes("MTN")) return <img src={mtnLogo} className="w-full h-full object-contain rounded-full" />;
+    if (combined.includes("GLO")) return <img src={gloLogo} className="w-full h-full object-contain rounded-full" />;
+    if (combined.includes("AIRTEL")) return <img src={airtelLogo} className="w-full h-full object-contain rounded-full" />;
+    if (combined.includes("9MOBILE") || combined.includes("T2MOBILE")) return <img src={t2mobileLogo} className="w-full h-full object-contain rounded-full" />;
+    if (combined.includes("SMILE")) return <img src={smileLogo} className="w-full h-full object-contain rounded-full" />;
+    if (combined.includes("DSTV")) return <img src={dstvLogo} className="w-full h-full object-contain rounded-full" />;
+    if (combined.includes("GOTV")) return <img src={gotvLogo} className="w-full h-full object-contain rounded-full" />;
+    if (combined.includes("STARTIMES")) return <img src={startimesLogo} className="w-full h-full object-contain rounded-full" />;
+    if (combined.includes("SHOWMAX")) return <img src={showmaxLogo} className="w-full h-full object-contain rounded-full" />;
+    if (combined.includes("IKEJA") || combined.includes("IKEDC")) return <img src={ikejaLogo} className="w-full h-full object-contain rounded-full" />;
+    if (combined.includes("WAEC")) return <img src={waecLogo} className="w-full h-full object-contain rounded-full" />;
+    if (combined.includes("NECO")) return <img src={necoLogo} className="w-full h-full object-contain rounded-full" />;
+
+    switch(transaction.type) {
+        case 'Airtime': return <Smartphone size={18} />;
+        case 'Data': return <Zap size={18} />;
+        case 'Cable': return <Tv size={18} />;
+        case 'Electricity': return <Zap size={18} />;
+        case 'Exam': return <GraduationCap size={18} />;
+        case 'RechargePin': return <Printer size={18} />;
+        case 'Deposit': return <ArrowDownLeft size={18} />;
+        case 'Withdrawal': return <ArrowUpRight size={18} />;
+        case 'AirtimeToCash': return <ArrowLeftRight size={18} />;
+        default: return <Activity size={18} />;
+    }
+};
+
+const getColorClass = (type: string) => {
+    if (type === 'Deposit') return 'bg-emerald-100 text-emerald-600';
+    if (type === 'Withdrawal') return 'bg-rose-100 text-rose-600';
+    if (type === 'AirtimeToCash') return 'bg-orange-100 text-orange-600';
+    return 'bg-slate-100 text-slate-600';
+};
+
+// --- RECEIPT COMPONENT (Moved Outside) ---
+const ReceiptView = ({ tx, onClose }: { tx: any; onClose: () => void }) => {
+  const receiptRef = useRef<HTMLDivElement>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [saveMenuOpen, setSaveMenuOpen] = useState(false);
+
+  // Safety check: ensure tx exists
+  if (!tx) return null;
+
+  const displayRef = tx.ref || tx.reference || tx.request_id || `TRX-${tx.id}`;
+  const amount = tx.amount || 0;
+  const date = tx.created_at ? new Date(tx.created_at).toLocaleString() : 'N/A';
+
+  const generateImage = async (): Promise<Blob | null> => {
+      if (!receiptRef.current) return null;
+      try {
+          const canvas = await html2canvas(receiptRef.current, {
+              backgroundColor: '#ffffff', scale: 2, logging: false, useCORS: true 
+          });
+          return new Promise((resolve) => canvas.toBlob((blob) => resolve(blob), 'image/png'));
+      } catch (error) { console.error(error); return null; }
+  };
+
+  const handleShare = async () => {
+      setIsGenerating(true);
+      const blob = await generateImage();
+      if (blob) {
+          const file = new File([blob], `receipt_${displayRef}.png`, { type: 'image/png' });
+          if (navigator.share) {
+              try { await navigator.share({ title: 'Receipt', text: `Receipt for ${tx.type}`, files: [file] }); } catch (e) {}
+          } else {
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a'); a.href = url; a.download = `receipt_${displayRef}.png`; a.click();
+          }
+      }
+      setIsGenerating(false);
+  };
+
+  const handleSaveImage = async () => {
+      setIsGenerating(true);
+      const blob = await generateImage();
+      if (blob) {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a'); a.href = url; a.download = `receipt_${displayRef}.png`; a.click();
+          setSaveMenuOpen(false);
+      }
+      setIsGenerating(false);
+  };
+
+  const handleSavePDF = async () => {
+      setIsGenerating(true);
+      if (!receiptRef.current) return;
+      const canvas = await html2canvas(receiptRef.current, { scale: 2 });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'px', format: [canvas.width, canvas.height] });
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+      pdf.save(`receipt_${displayRef}.pdf`);
+      setSaveMenuOpen(false);
+      setIsGenerating(false);
+  };
+
+  return (
+      <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-200">
+          <div className="w-full max-w-sm relative">
+              <button onClick={onClose} className="absolute -top-12 right-0 bg-white/20 p-2 rounded-full text-white hover:bg-white/30 transition-colors"><X size={20}/></button>
+              
+              <div ref={receiptRef} className="bg-white rounded-[30px] overflow-hidden shadow-2xl relative">
+                  <div className="h-24 bg-emerald-600 relative">
+                      <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle, #fff 2px, transparent 2px)', backgroundSize: '10px 10px' }}></div>
+                      <div className="absolute inset-0 flex items-center justify-center text-white/10 font-black text-6xl tracking-widest rotate-[-15deg] pointer-events-none">RECEIPT</div>
+                  </div>
+                  <div className="px-6 pb-8 -mt-10 relative">
+                      <div className="bg-white rounded-2xl shadow-lg p-6 text-center border border-slate-100">
+                          <div className={`w-16 h-16 rounded-full mx-auto flex items-center justify-center -mt-14 mb-3 border-4 border-white shadow-md ${getColorClass(tx.type)}`}>
+                               <div className="w-10 h-10">{getLogoOrIcon(tx)}</div>
+                          </div>
+                          <h2 className="text-3xl font-black text-slate-800">₦{amount.toLocaleString()}</h2>
+                          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">{tx.type}</p>
+                          <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase ${tx.status === 'Success' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+                              {tx.status === 'Success' ? <CheckCircle2 size={12}/> : <X size={12}/>}
+                              {tx.status}
+                          </div>
+                      </div>
+                      <div className="mt-6 space-y-4">
+                          <div className="flex justify-between items-center py-2 border-b border-dashed border-slate-200">
+                              <span className="text-xs font-bold text-slate-400">Date</span>
+                              <span className="text-xs font-bold text-slate-700">{date}</span>
+                          </div>
+                          <div className="flex justify-between items-center py-2 border-b border-dashed border-slate-200">
+                              <span className="text-xs font-bold text-slate-400">Reference</span>
+                              <div className="flex items-center gap-2">
+                                  <span className="text-xs font-bold text-slate-700 max-w-[150px] truncate">{displayRef}</span>
+                                  <button onClick={() => {navigator.clipboard.writeText(displayRef); alert("Copied!");}} className="text-slate-400 hover:text-emerald-600 transition-colors"><Copy size={12}/></button>
+                              </div>
+                          </div>
+                          <div className="flex justify-between items-center py-2 border-b border-dashed border-slate-200">
+                              <span className="text-xs font-bold text-slate-400">Description</span>
+                              <span className="text-xs font-bold text-slate-700 text-right max-w-[150px]">{tx.description || tx.type}</span>
+                          </div>
+                          {tx.meta && tx.meta.pin && (
+                              <div className="bg-slate-100 p-3 rounded-xl text-center mt-2 border border-dashed border-slate-300">
+                                  <p className="text-[10px] font-black uppercase text-slate-400">PIN / TOKEN</p>
+                                  <p className="text-xl font-black text-slate-800 tracking-widest select-all">{tx.meta.pin}</p>
+                              </div>
+                          )}
+                      </div>
+                      <div className="mt-6 text-center opacity-30">
+                          <p className="font-black text-xs uppercase">Naija Connects</p>
+                          <p className="text-[8px] font-bold">Generated Receipt</p>
+                      </div>
+                  </div>
+              </div>
+
+              <div className="mt-4 flex gap-3">
+                  <button onClick={handleShare} disabled={isGenerating} className="flex-1 bg-emerald-600 text-white py-3 rounded-xl font-bold text-xs uppercase flex items-center justify-center gap-2 hover:bg-emerald-700 transition-colors shadow-lg">
+                      {isGenerating ? <Loader2 className="animate-spin" size={16}/> : <Share2 size={16}/>} Share
+                  </button>
+                  <div className="relative flex-1">
+                      <button onClick={() => setSaveMenuOpen(!saveMenuOpen)} disabled={isGenerating} className="w-full bg-white text-slate-700 py-3 rounded-xl font-bold text-xs uppercase flex items-center justify-center gap-2 hover:bg-slate-50 transition-colors shadow-lg">
+                          <Download size={16}/> Save
+                      </button>
+                      {saveMenuOpen && (
+                          <div className="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-xl shadow-xl overflow-hidden animate-in slide-in-from-bottom-2">
+                              <button onClick={handleSaveImage} className="w-full p-3 text-left text-xs font-bold hover:bg-slate-50 flex items-center gap-2 border-b border-slate-100">
+                                  <ImageIcon size={14} className="text-emerald-600"/> Save as Image
+                              </button>
+                              <button onClick={handleSavePDF} className="w-full p-3 text-left text-xs font-bold hover:bg-slate-50 flex items-center gap-2">
+                                  <FileText size={14} className="text-rose-600"/> Save as PDF
+                              </button>
+                          </div>
+                      )}
+                  </div>
+              </div>
+          </div>
+      </div>
+  );
+};
+
+// --- MAIN COMPONENT ---
 interface DashboardProps {
   user: { name: string; email: string; balance: number };
   onUpdateBalance: (newBalance: number) => void;
@@ -86,11 +255,8 @@ interface DashboardProps {
 
 type ProductType = 'Airtime' | 'Data' | 'Cable' | 'Electricity' | 'Exam' | 'RechargePin' | 'AirtimeToCash';
 
-const PREFILLED_AMOUNTS = [1000, 2000, 5000, 10000];
-const RECHARGE_AMOUNTS = [100, 200, 500, 1000];
-const PIN_PRICING: Record<number, number> = { 1: 98, 2: 97, 3: 97, 4: 95, 5: 95 };
-
 const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
+  // --- STATES ---
   const [isBalanceVisible, setIsBalanceVisible] = useState(true);
   const [productType, setProductType] = useState<ProductType>('Airtime');
   const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
@@ -99,7 +265,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isRefreshingBalance, setIsRefreshingBalance] = useState(false);
   const [history, setHistory] = useState<any[]>([]);
+  const [selectedTx, setSelectedTx] = useState<any | null>(null);
 
+  // Service States
   const [availablePlans, setAvailablePlans] = useState<any[]>([]);
   const [currentCablePlans, setCurrentCablePlans] = useState<any[]>([]); 
   const [isLoadingPlans, setIsLoadingPlans] = useState(false);
@@ -109,6 +277,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
   const [selectedCarrier, setSelectedCarrier] = useState<Carrier>(Carrier.MTN);
   const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
   
+  // Airtime Type State
+  const [airtimeType, setAirtimeType] = useState<string>('VTU');
+
+  // Input States
   const [depositAmount, setDepositAmount] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [serviceAmount, setServiceAmount] = useState(''); 
@@ -119,23 +291,24 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
   const [selectedCablePlan, setSelectedCablePlan] = useState<any>(null);
   const [meterNumber, setMeterNumber] = useState('');
   const [selectedDisco, setSelectedDisco] = useState<number | null>(null);
-  // NEW STATE: Toggle for custom electricity dropdown
   const [isDiscoDropdownOpen, setIsDiscoDropdownOpen] = useState(false);
-  
   const [meterType, setMeterType] = useState(1);
   const [selectedExam, setSelectedExam] = useState<any>(null);
   const [quantity, setQuantity] = useState<number>(1);
   const [nameOnCard, setNameOnCard] = useState('');
 
+  // Info States
   const [airtimeToCashInfo, setAirtimeToCashInfo] = useState<any>(null);
   const [bankList, setBankList] = useState<any[]>([]);
   const [bankCode, setBankCode] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [accountName, setAccountName] = useState('');
 
+  // Paystack
   const [pendingDepositRef, setPendingDepositRef] = useState<string | null>(null);
   const [currentTxRef, setCurrentTxRef] = useState<string>(`txn_${Date.now()}`);
 
+  // --- 1. DATA FETCHING ---
   const fetchUser = async () => {
     try {
       const { data } = await supabase.from("profiles").select("balance").eq("email", user.email).single();
@@ -145,13 +318,19 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
 
   const fetchHistory = async () => {
     try {
-      const { data } = await supabase.from('transactions').select('*').eq('user_email', user.email).order('created_at', { ascending: false }).limit(5);
+      const { data } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('user_email', user.email)
+        .order('created_at', { ascending: false })
+        .limit(5); // Keep limit to 5
       if(data) setHistory(data);
     } catch(e) { console.error(e); }
   };
 
   useEffect(() => { fetchHistory(); fetchUser(); }, [user.email]);
 
+  // --- 2. HELPER FUNCTIONS ---
   const detectNetwork = (phone: string) => {
     const p = phone.replace(/\D/g, '').slice(0, 4);
     const MTN = ['0803','0806','0703','0706','0813','0816','0810','0814','0903','0906','0913','0916'];
@@ -173,10 +352,17 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
       if (detected) {
         setSelectedNetworkId(detected.id);
         setSelectedCarrier(detected.carrier);
+        
+        // Auto-set Airtime Type based on network
+        // MTN supports multiple types, others default to VTU
+        if (detected.id !== 1) { 
+            setAirtimeType('VTU'); 
+        }
       }
     }
   }, [phoneNumber]);
 
+  // --- 4. API REQUESTS & VALIDATION ---
   const fetchDataPlans = async () => {
       setIsLoadingPlans(true);
       try {
@@ -254,18 +440,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
     fetchBanks();
   }, []);
 
-  const calculateTotalCost = () => {
-    if (productType === 'Data') return Number(selectedPlan?.amount || selectedPlan?.price);
-    if (productType === 'Cable') return Number(selectedCablePlan?.amount);
-    if (productType === 'Exam') return (selectedExam?.price || 0) * quantity;
-    if (productType === 'RechargePin') {
-        const unitPrice = PIN_PRICING[selectedNetworkId] || 100;
-        const multiplier = Number(serviceAmount) / 100;
-        return (unitPrice * multiplier) * quantity;
-    }
-    return Number(serviceAmount);
-  };
-
   const verifyCustomer = async (number: string, serviceType: 'cable' | 'electricity', providerId: number | null, mType: number = 1) => {
     if (number.length < 10 || !providerId) return;
     setCustomerName("Verifying...");
@@ -324,6 +498,18 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
     if (productType === 'RechargePin') return Number(serviceAmount) > 0 && quantity > 0 && nameOnCard.length > 2;
     if (productType === 'AirtimeToCash') return cleanPhone.length === 11 && Number(serviceAmount) > 0;
     return false;
+  };
+
+  const calculateTotalCost = () => {
+    if (productType === 'Data') return Number(selectedPlan?.amount || selectedPlan?.price);
+    if (productType === 'Cable') return Number(selectedCablePlan?.amount);
+    if (productType === 'Exam') return (selectedExam?.price || 0) * quantity;
+    if (productType === 'RechargePin') {
+        const unitPrice = PIN_PRICING[selectedNetworkId] || 100;
+        const multiplier = Number(serviceAmount) / 100;
+        return (unitPrice * multiplier) * quantity;
+    }
+    return Number(serviceAmount);
   };
 
   const paystackConfig = {
@@ -404,7 +590,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
         }
         else if(productType === 'Airtime') { 
             action = 'buy_airtime'; 
-            payload = { network: selectedNetworkId, phone: cleanPhone, amount: cost }; 
+            payload = { 
+              network: selectedNetworkId, 
+              phone: cleanPhone, 
+              amount: cost,
+              airtime_type: airtimeType // NEW: Pass the selected type
+            }; 
         }
         else if (productType === 'Data') { 
             action = 'buy_data'; 
@@ -476,22 +667,39 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
      finally { setIsProcessing(false); }
   };
 
+  // --- 5. RENDERERS ---
   const renderServiceInputs = () => {
     switch (productType) {
         case 'Airtime':
         case 'Data':
             return (
                 <>
-                    <div className="grid grid-cols-5 gap-3 mb-4">
-                        {CARRIERS.map(c => (
-                            <button key={c.id} onClick={() => { setSelectedCarrier(c.name as Carrier); setSelectedNetworkId(c.id); }} className={`relative aspect-square rounded-2xl flex flex-col items-center justify-center border-2 transition-all ${selectedNetworkId === c.id ? 'border-emerald-600 bg-emerald-50' : 'border-transparent bg-slate-50'}`}>
+                    <div className="grid grid-cols-4 gap-3 mb-4">
+                        {CARRIERS.filter(c => productType !== 'Airtime' || c.name !== 'SMILE').map(c => (
+                            <button key={c.id} onClick={() => { setSelectedCarrier(c.name as Carrier); setSelectedNetworkId(c.id); }} className={`aspect-square rounded-2xl flex flex-col items-center justify-center border-2 transition-all ${selectedNetworkId === c.id ? 'border-emerald-600 bg-emerald-50' : 'border-transparent bg-slate-50'}`}>
                                 <img src={c.logo} className="w-8 h-8 object-contain rounded-full" />
                                 <span className="text-[7px] font-black mt-1 uppercase text-slate-500">{c.name}</span>
                                 {c.subText && <span className="absolute -bottom-2 text-[5px] text-emerald-600 font-bold whitespace-nowrap">{c.subText}</span>}
                             </button>
                         ))}
                     </div>
+                    
+                    {productType === 'Airtime' && selectedNetworkId === 1 && (
+                        <div className="flex gap-2 mb-4 bg-slate-50 p-1 rounded-xl">
+                            {['VTU', 'Share and Sell', 'awuf4U'].map(type => (
+                                <button 
+                                    key={type} 
+                                    onClick={() => setAirtimeType(type)}
+                                    className={`flex-1 py-2 rounded-lg text-[10px] font-bold uppercase transition-all ${airtimeType === type ? 'bg-white shadow text-emerald-600' : 'text-slate-400'}`}
+                                >
+                                    {type}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
                     <input type="tel" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 11))} className="w-full p-4 bg-slate-50 rounded-2xl font-black outline-none mb-4" placeholder="Phone Number (080...)" />
+                    
                     {productType === 'Data' ? (
                          <>
                              <div className="flex gap-2 mb-4 overflow-x-auto pb-2 custom-scrollbar">
@@ -519,11 +727,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
         case 'Cable':
             return (
                 <div className="space-y-4">
-                    <div className="grid grid-cols-4 gap-2">
+                    <div className="flex gap-2 overflow-x-auto">
                         {CABLE_PROVIDERS.map(p => (
-                          <button key={p.id} onClick={() => { setSelectedCableProvider(p.id); setSelectedCablePlan(null); setCustomerName(''); }} className={`flex flex-col items-center p-2 rounded-xl border-2 transition-all ${selectedCableProvider === p.id ? 'border-emerald-600 bg-emerald-50' : 'border-slate-100 bg-white'}`}>
-                            <img src={p.logo} className="w-8 h-8 object-contain mb-1" />
-                            <span className="text-[8px] font-bold uppercase">{p.name}</span>
+                          <button key={p.id} onClick={() => { setSelectedCableProvider(p.id); setSelectedCablePlan(null); setCustomerName(''); }} className={`flex-1 py-3 px-4 rounded-xl font-bold text-xs border-2 ${selectedCableProvider === p.id ? 'border-emerald-600 bg-emerald-50' : 'border-slate-100'}`}>
+                            {p.name}
                           </button>
                         ))}
                     </div>
@@ -545,7 +752,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
         case 'Electricity':
             return (
                 <div className="space-y-4">
-                    {/* CUSTOM DROPDOWN TO SHOW LOGO + NAME */}
                     <div className="relative">
                         <button 
                             onClick={() => setIsDiscoDropdownOpen(!isDiscoDropdownOpen)} 
@@ -553,7 +759,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
                         >
                             {selectedDisco ? (
                                 <div className="flex items-center gap-3">
-                                    <img src={DISCOS.find(d => d.id === selectedDisco)?.logo} className="w-6 h-6 object-contain rounded-full" alt="disco" />
+                                    {DISCOS.find(d => d.id === selectedDisco)?.logo && <img src={DISCOS.find(d => d.id === selectedDisco)?.logo} className="w-6 h-6 object-contain rounded-full" alt="disco" />}
                                     <span>{DISCOS.find(d => d.id === selectedDisco)?.name} ({DISCOS.find(d => d.id === selectedDisco)?.short})</span>
                                 </div>
                             ) : (
@@ -575,7 +781,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
                                         className="w-full p-3 flex items-center gap-3 hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0 text-left"
                                     >
                                         <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center p-1">
-                                            <img src={d.logo} className="w-full h-full object-contain" alt={d.short} />
+                                            {d.logo && <img src={d.logo} className="w-full h-full object-contain" alt={d.short} />}
                                         </div>
                                         <span className="font-bold text-sm text-slate-700">{d.name} <span className="text-xs text-slate-400">({d.short})</span></span>
                                     </button>
@@ -596,14 +802,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
         case 'Exam':
             return (
                 <div className="space-y-4">
-                    <div className="flex gap-2 overflow-x-auto">
-                        {EXAM_TYPES.map(e => (
-                            <button key={e.id} onClick={() => setSelectedExam(e)} className={`flex-1 flex flex-col items-center py-3 px-4 rounded-xl font-bold text-xs whitespace-nowrap border-2 ${selectedExam?.id === e.id ? 'border-emerald-600 bg-emerald-50' : 'border-slate-100'}`}>
-                                <img src={e.logo} className="w-10 h-10 object-contain mb-1 rounded-lg" />
-                                {e.id}
-                            </button>
-                        ))}
-                    </div>
+                    <div className="flex gap-2 overflow-x-auto">{EXAM_TYPES.map(e => <button key={e.id} onClick={() => setSelectedExam(e)} className={`flex-1 py-3 px-4 rounded-xl font-bold text-xs whitespace-nowrap border-2 ${selectedExam?.id === e.id ? 'border-emerald-600 bg-emerald-50' : 'border-slate-100'}`}>{e.id}</button>)}</div>
                     <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl">
                         <span className="text-xs font-bold text-slate-500">Qty:</span>
                         <button onClick={() => setQuantity(Math.max(1, quantity - 1))} disabled={quantity <= 1} className="w-8 h-8 bg-white rounded-full shadow font-black disabled:opacity-50">-</button>
@@ -720,24 +919,31 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
          <button onClick={() => setIsConfirming(true)} disabled={!isFormValid()} className="w-full mt-4 py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase disabled:opacity-50">Proceed</button>
       </section>
 
-      {/* 5. HISTORY */}
+      {/* 5. RECENT ACTIVITY (LIMIT 5, CLICKABLE) */}
       <div className="pt-2">
          <h3 className="font-black text-[10px] uppercase text-slate-400 tracking-widest mb-3 ml-2">Recent Activity</h3>
          <div className="space-y-2">
             {history.length === 0 ? <p className="text-center text-xs text-slate-300 py-4">No recent activity</p> : history.map((tx: any) => (
-                <div key={tx.id} className="bg-white p-4 rounded-2xl flex justify-between items-center shadow-sm">
+                <button 
+                    key={tx.id} 
+                    onClick={() => setSelectedTx(tx)} // <--- CLICK TO OPEN RECEIPT
+                    className="w-full bg-white p-4 rounded-2xl flex items-center justify-between shadow-sm hover:bg-slate-50 transition-colors text-left"
+                >
                     <div className="flex items-center gap-3">
                         <div className={`p-2 rounded-full ${tx.type === 'Deposit' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>{tx.type === 'Deposit' ? <TrendingUp size={14}/> : <TrendingDown size={14}/>}</div>
                         <div><p className="font-bold text-xs">{tx.type}</p><p className="text-[10px] text-slate-400">{new Date(tx.created_at).toLocaleDateString()}</p></div>
                     </div>
                     <span className={`font-black text-xs ${tx.type === 'Deposit' ? 'text-emerald-600' : 'text-slate-900'}`}>{tx.type === 'Deposit' ? '+' : '-'}₦{tx.amount}</span>
-                </div>
+                </button>
             ))}
          </div>
       </div>
 
       {/* --- MODALS --- */}
       
+      {/* RECEIPT MODAL */}
+      {selectedTx && <ReceiptView tx={selectedTx} onClose={() => setSelectedTx(null)} />}
+
       {/* DEPOSIT MODAL */}
       {isDepositModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
@@ -773,7 +979,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
          </div>
       )}
 
-      {/* AIRTIME TO CASH INFO */}
       {airtimeToCashInfo && (
          <div className="fixed inset-0 bg-emerald-900/80 backdrop-blur-md z-50 flex items-center justify-center p-6">
             <div className="bg-white dark:bg-slate-800 w-full max-w-sm rounded-[35px] p-8 text-center shadow-2xl relative">

@@ -72,6 +72,17 @@ export const dbService = {
     return data;
   },
 
+  // Added function
+  async updateProfile(email: string, updates: { name?: string; phone?: string }) {
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(updates)
+      .eq('email', email);
+
+    if (error) throw error;
+    return data;
+  },
+
   async getBalance(email: string) {
     const { data, error } = await supabase
       .from('profiles')

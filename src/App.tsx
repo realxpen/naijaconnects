@@ -13,8 +13,7 @@ const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeTab, setActiveTab] = useState<'buy' | 'history' | 'assistant' | 'profile'>('buy');
   
-  // ✅ FIX: Ensured state starts with empty strings to prevent charAt(0) crashes
-  const [user, setUser] = useState<{name: string, email: string, balance: number} | null>(null);
+  const [user, setUser] = useState<{name: string, email: string, balance: number, phone?: string} | null>(null);
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [language, setLanguage] = useState('en');
@@ -38,16 +37,16 @@ const App: React.FC = () => {
     setIsProcessing(true);
     try {
       const u = await dbService.loginUser(email, pass);
-      const profile = await dbService.getUserProfile(email, u.full_name);
+      const profile = await dbService.getUserProfile(email);
       
       setUser({ 
         name: u.full_name || '', 
         email: u.email || '', 
-        balance: Number(profile?.wallet_balance || 0) 
+        balance: Number(profile?.wallet_balance || 0),
+        phone: profile?.phone || '' 
       });
       setIsAuthenticated(true);
     } catch (e: any) { 
-      // Handle "Email not confirmed" or incorrect credentials
       alert(e.message || "Login Failed"); 
     } finally { 
       setIsProcessing(false); 
@@ -58,14 +57,24 @@ const App: React.FC = () => {
     setIsProcessing(true);
     try {
       await dbService.registerUser(email, name, pass);
-      // ✅ SUCCESS: User is registered but unverified. 
-      // We do NOT set isAuthenticated(true) here because they must click the email link first.
+      // Success: User registered. They need to verify email.
       setUser({ name: '', email: '', balance: 0 }); 
     } catch (e: any) { 
       alert(e.message || "Signup Failed"); 
-      throw e; // Pass to Auth.tsx to handle UI reset
+      throw e; 
     } finally { 
       setIsProcessing(false); 
+    }
+  };
+
+  // ✅ NEW: Handle Password Reset
+  const handleForgotPassword = async (email: string) => {
+    try {
+      // We use the dbService we already created to keep things clean
+      await dbService.resetPasswordEmail(email);
+    } catch (e: any) {
+      console.error(e);
+      throw e; // Pass error back to Auth component to display
     }
   };
 
@@ -75,6 +84,13 @@ const App: React.FC = () => {
       setUser({ name: '', email: '', balance: 0 });
       setActiveTab('buy');
     }
+  };
+
+  const handleUpdateUser = async (updatedData: any) => {
+    setUser((prevUser: any) => ({
+        ...prevUser,
+        ...updatedData
+    }));
   };
 
   const onUpdateBalance = (newBalance: number) => {
@@ -95,6 +111,7 @@ const App: React.FC = () => {
       <Auth 
         onLogin={handleLogin} 
         onSignup={handleSignup} 
+        onForgotPassword={handleForgotPassword} // <--- Passed the new function here
         isProcessing={isProcessing} 
       />
     );
@@ -118,8 +135,12 @@ const App: React.FC = () => {
         <Assistant user={user} />
       )}
       
-      {activeTab === 'profile' && (
-        <Profile user={user} onLogout={handleLogout} />
+      {activeTab === 'profile' && user && (
+        <Profile 
+          user={user} 
+          onLogout={handleLogout} 
+          onUpdateUser={handleUpdateUser} 
+        />
       )}
     </DashboardLayout>
   );
