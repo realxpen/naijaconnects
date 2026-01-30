@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Zap } from 'lucide-react';
+import { supabase } from './supabaseClient'; // Added supabase import
 import { dbService } from './services/dbService';
 import DashboardLayout from './layouts/DashboardLayout';
 import Auth from './pages/Auth';
@@ -18,17 +19,70 @@ const App: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [language, setLanguage] = useState('en');
 
-  // Initialization Effect
-  useEffect(() => { 
-    // Splash Screen Timer
-    const timer = setTimeout(() => setIsSplashScreen(false), 2000); 
-    
-    // Check for saved theme preference
+  // --- SESSION & USER FETCHING LOGIC ---
+
+  // 1. Fetch User Profile helper
+  const fetchUser = async (email: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('email', email)
+        .single();
+
+      if (error) {
+        console.error('Error fetching profile:', error);
+      } 
+      
+      if (data) {
+        // Map DB columns (snake_case) to App State (camelCase)
+        setUser({
+          name: data.full_name || '',
+          email: data.email || email,
+          balance: data.wallet_balance || 0,
+          phone: data.phone || ''
+        });
+        setIsAuthenticated(true);
+      }
+    } catch (error) {
+      console.error('Connection error:', error);
+    }
+  };
+
+  // 2. Initialization Effect (Session Check)
+  useEffect(() => {
+    // Theme check
     if (localStorage.getItem('theme') === 'dark') {
       document.documentElement.classList.add('dark');
     }
 
-    return () => clearTimeout(timer);
+    const initSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (session && session.user.email) {
+        // WAIT for profile fetch before stopping loading (Splash Screen)
+        await fetchUser(session.user.email);
+      }
+      
+      setIsSplashScreen(false); // Only stop loading after everything is done
+    };
+
+    initSession();
+
+    // 3. Listen for Auth Changes (Login/Logout)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user.email) {
+        // If a session exists (e.g. after login), fetch user
+        // Note: We check !user to avoid redundant fetches if already loaded
+        await fetchUser(session.user.email);
+      } else {
+        // If no session (logout), clear state
+        setUser(null);
+        setIsAuthenticated(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   // --- ACTIONS ---
@@ -36,16 +90,10 @@ const App: React.FC = () => {
   const handleLogin = async (email: string, pass: string) => {
     setIsProcessing(true);
     try {
-      const u = await dbService.loginUser(email, pass);
-      const profile = await dbService.getUserProfile(email);
-      
-      setUser({ 
-        name: u.full_name || '', 
-        email: u.email || '', 
-        balance: Number(profile?.wallet_balance || 0),
-        phone: profile?.phone || '' 
-      });
-      setIsAuthenticated(true);
+      // dbService.loginUser will trigger onAuthStateChange above, 
+      // but we can leave this here to catch errors directly.
+      await dbService.loginUser(email, pass);
+      // The useEffect listener will handle fetching the profile and setting isAuthenticated
     } catch (e: any) { 
       alert(e.message || "Login Failed"); 
     } finally { 
@@ -67,21 +115,21 @@ const App: React.FC = () => {
     }
   };
 
-  // ✅ NEW: Handle Password Reset
+  // Handle Password Reset
   const handleForgotPassword = async (email: string) => {
     try {
-      // We use the dbService we already created to keep things clean
       await dbService.resetPasswordEmail(email);
     } catch (e: any) {
       console.error(e);
-      throw e; // Pass error back to Auth component to display
+      throw e; 
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     if (confirm("Are you sure you want to logout?")) {
+      await supabase.auth.signOut(); // Use supabase auth to sign out
       setIsAuthenticated(false);
-      setUser({ name: '', email: '', balance: 0 });
+      setUser(null);
       setActiveTab('buy');
     }
   };
@@ -111,7 +159,7 @@ const App: React.FC = () => {
       <Auth 
         onLogin={handleLogin} 
         onSignup={handleSignup} 
-        onForgotPassword={handleForgotPassword} // <--- Passed the new function here
+        onForgotPassword={handleForgotPassword} 
         isProcessing={isProcessing} 
       />
     );

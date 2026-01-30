@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Smartphone, Tv, Zap, ArrowRight, ArrowLeftRight, X, Loader2, RotateCcw,
-  TrendingUp, TrendingDown, CreditCard, GraduationCap, Printer, Building2, ChevronDown, CheckCircle,
+  TrendingUp, TrendingDown, CreditCard, GraduationCap, Printer, Building2, ChevronDown, CheckCircle, CheckCircle2, // <--- Added CheckCircle2
   Activity, Share2, Download, Copy, Image as ImageIcon, FileText, ArrowUpRight, ArrowDownLeft,
   BarChart3, LineChart, PieChart
 } from 'lucide-react';
@@ -64,196 +64,16 @@ export const NETWORK_ID_MAP: Record<number, number> = { 1: 1, 2: 2, 3: 3, 4: 4, 
 
 enum Carrier { MTN = 'MTN', GLO = 'GLO', AIRTEL = 'AIRTEL', T2MOBILE = 'T2MOBILE', SMILE = 'SMILE' }
 
-const PREFILLED_AMOUNTS = [1000, 2000, 5000, 10000];
-const RECHARGE_AMOUNTS = [100, 200, 500, 1000];
-const PIN_PRICING: Record<number, number> = { 1: 98, 2: 97, 3: 97, 4: 95, 5: 95 };
-
-// --- HELPER FUNCTIONS (Moved Outside) ---
-const getLogoOrIcon = (transaction: any) => {
-    if (!transaction) return <Activity size={18} />;
-    const desc = (transaction.description || "").toUpperCase();
-    const type = (transaction.type || "").toUpperCase();
-    const combined = desc + " " + type; 
-
-    if (combined.includes("MTN")) return <img src={mtnLogo} className="w-full h-full object-contain rounded-full" />;
-    if (combined.includes("GLO")) return <img src={gloLogo} className="w-full h-full object-contain rounded-full" />;
-    if (combined.includes("AIRTEL")) return <img src={airtelLogo} className="w-full h-full object-contain rounded-full" />;
-    if (combined.includes("9MOBILE") || combined.includes("T2MOBILE")) return <img src={t2mobileLogo} className="w-full h-full object-contain rounded-full" />;
-    if (combined.includes("SMILE")) return <img src={smileLogo} className="w-full h-full object-contain rounded-full" />;
-    if (combined.includes("DSTV")) return <img src={dstvLogo} className="w-full h-full object-contain rounded-full" />;
-    if (combined.includes("GOTV")) return <img src={gotvLogo} className="w-full h-full object-contain rounded-full" />;
-    if (combined.includes("STARTIMES")) return <img src={startimesLogo} className="w-full h-full object-contain rounded-full" />;
-    if (combined.includes("SHOWMAX")) return <img src={showmaxLogo} className="w-full h-full object-contain rounded-full" />;
-    if (combined.includes("IKEJA") || combined.includes("IKEDC")) return <img src={ikejaLogo} className="w-full h-full object-contain rounded-full" />;
-    if (combined.includes("WAEC")) return <img src={waecLogo} className="w-full h-full object-contain rounded-full" />;
-    if (combined.includes("NECO")) return <img src={necoLogo} className="w-full h-full object-contain rounded-full" />;
-
-    switch(transaction.type) {
-        case 'Airtime': return <Smartphone size={18} />;
-        case 'Data': return <Zap size={18} />;
-        case 'Cable': return <Tv size={18} />;
-        case 'Electricity': return <Zap size={18} />;
-        case 'Exam': return <GraduationCap size={18} />;
-        case 'RechargePin': return <Printer size={18} />;
-        case 'Deposit': return <ArrowDownLeft size={18} />;
-        case 'Withdrawal': return <ArrowUpRight size={18} />;
-        case 'AirtimeToCash': return <ArrowLeftRight size={18} />;
-        default: return <Activity size={18} />;
-    }
-};
-
-const getColorClass = (type: string) => {
-    if (type === 'Deposit') return 'bg-emerald-100 text-emerald-600';
-    if (type === 'Withdrawal') return 'bg-rose-100 text-rose-600';
-    if (type === 'AirtimeToCash') return 'bg-orange-100 text-orange-600';
-    return 'bg-slate-100 text-slate-600';
-};
-
-// --- RECEIPT COMPONENT (Moved Outside) ---
-const ReceiptView = ({ tx, onClose }: { tx: any; onClose: () => void }) => {
-  const receiptRef = useRef<HTMLDivElement>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [saveMenuOpen, setSaveMenuOpen] = useState(false);
-
-  // Safety check: ensure tx exists
-  if (!tx) return null;
-
-  const displayRef = tx.ref || tx.reference || tx.request_id || `TRX-${tx.id}`;
-  const amount = tx.amount || 0;
-  const date = tx.created_at ? new Date(tx.created_at).toLocaleString() : 'N/A';
-
-  const generateImage = async (): Promise<Blob | null> => {
-      if (!receiptRef.current) return null;
-      try {
-          const canvas = await html2canvas(receiptRef.current, {
-              backgroundColor: '#ffffff', scale: 2, logging: false, useCORS: true 
-          });
-          return new Promise((resolve) => canvas.toBlob((blob) => resolve(blob), 'image/png'));
-      } catch (error) { console.error(error); return null; }
-  };
-
-  const handleShare = async () => {
-      setIsGenerating(true);
-      const blob = await generateImage();
-      if (blob) {
-          const file = new File([blob], `receipt_${displayRef}.png`, { type: 'image/png' });
-          if (navigator.share) {
-              try { await navigator.share({ title: 'Receipt', text: `Receipt for ${tx.type}`, files: [file] }); } catch (e) {}
-          } else {
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a'); a.href = url; a.download = `receipt_${displayRef}.png`; a.click();
-          }
-      }
-      setIsGenerating(false);
-  };
-
-  const handleSaveImage = async () => {
-      setIsGenerating(true);
-      const blob = await generateImage();
-      if (blob) {
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a'); a.href = url; a.download = `receipt_${displayRef}.png`; a.click();
-          setSaveMenuOpen(false);
-      }
-      setIsGenerating(false);
-  };
-
-  const handleSavePDF = async () => {
-      setIsGenerating(true);
-      if (!receiptRef.current) return;
-      const canvas = await html2canvas(receiptRef.current, { scale: 2 });
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'px', format: [canvas.width, canvas.height] });
-      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
-      pdf.save(`receipt_${displayRef}.pdf`);
-      setSaveMenuOpen(false);
-      setIsGenerating(false);
-  };
-
-  return (
-      <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-200">
-          <div className="w-full max-w-sm relative">
-              <button onClick={onClose} className="absolute -top-12 right-0 bg-white/20 p-2 rounded-full text-white hover:bg-white/30 transition-colors"><X size={20}/></button>
-              
-              <div ref={receiptRef} className="bg-white rounded-[30px] overflow-hidden shadow-2xl relative">
-                  <div className="h-24 bg-emerald-600 relative">
-                      <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle, #fff 2px, transparent 2px)', backgroundSize: '10px 10px' }}></div>
-                      <div className="absolute inset-0 flex items-center justify-center text-white/10 font-black text-6xl tracking-widest rotate-[-15deg] pointer-events-none">RECEIPT</div>
-                  </div>
-                  <div className="px-6 pb-8 -mt-10 relative">
-                      <div className="bg-white rounded-2xl shadow-lg p-6 text-center border border-slate-100">
-                          <div className={`w-16 h-16 rounded-full mx-auto flex items-center justify-center -mt-14 mb-3 border-4 border-white shadow-md ${getColorClass(tx.type)}`}>
-                               <div className="w-10 h-10">{getLogoOrIcon(tx)}</div>
-                          </div>
-                          <h2 className="text-3xl font-black text-slate-800">₦{amount.toLocaleString()}</h2>
-                          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">{tx.type}</p>
-                          <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase ${tx.status === 'Success' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
-                              {tx.status === 'Success' ? <CheckCircle2 size={12}/> : <X size={12}/>}
-                              {tx.status}
-                          </div>
-                      </div>
-                      <div className="mt-6 space-y-4">
-                          <div className="flex justify-between items-center py-2 border-b border-dashed border-slate-200">
-                              <span className="text-xs font-bold text-slate-400">Date</span>
-                              <span className="text-xs font-bold text-slate-700">{date}</span>
-                          </div>
-                          <div className="flex justify-between items-center py-2 border-b border-dashed border-slate-200">
-                              <span className="text-xs font-bold text-slate-400">Reference</span>
-                              <div className="flex items-center gap-2">
-                                  <span className="text-xs font-bold text-slate-700 max-w-[150px] truncate">{displayRef}</span>
-                                  <button onClick={() => {navigator.clipboard.writeText(displayRef); alert("Copied!");}} className="text-slate-400 hover:text-emerald-600 transition-colors"><Copy size={12}/></button>
-                              </div>
-                          </div>
-                          <div className="flex justify-between items-center py-2 border-b border-dashed border-slate-200">
-                              <span className="text-xs font-bold text-slate-400">Description</span>
-                              <span className="text-xs font-bold text-slate-700 text-right max-w-[150px]">{tx.description || tx.type}</span>
-                          </div>
-                          {tx.meta && tx.meta.pin && (
-                              <div className="bg-slate-100 p-3 rounded-xl text-center mt-2 border border-dashed border-slate-300">
-                                  <p className="text-[10px] font-black uppercase text-slate-400">PIN / TOKEN</p>
-                                  <p className="text-xl font-black text-slate-800 tracking-widest select-all">{tx.meta.pin}</p>
-                              </div>
-                          )}
-                      </div>
-                      <div className="mt-6 text-center opacity-30">
-                          <p className="font-black text-xs uppercase">Naija Connects</p>
-                          <p className="text-[8px] font-bold">Generated Receipt</p>
-                      </div>
-                  </div>
-              </div>
-
-              <div className="mt-4 flex gap-3">
-                  <button onClick={handleShare} disabled={isGenerating} className="flex-1 bg-emerald-600 text-white py-3 rounded-xl font-bold text-xs uppercase flex items-center justify-center gap-2 hover:bg-emerald-700 transition-colors shadow-lg">
-                      {isGenerating ? <Loader2 className="animate-spin" size={16}/> : <Share2 size={16}/>} Share
-                  </button>
-                  <div className="relative flex-1">
-                      <button onClick={() => setSaveMenuOpen(!saveMenuOpen)} disabled={isGenerating} className="w-full bg-white text-slate-700 py-3 rounded-xl font-bold text-xs uppercase flex items-center justify-center gap-2 hover:bg-slate-50 transition-colors shadow-lg">
-                          <Download size={16}/> Save
-                      </button>
-                      {saveMenuOpen && (
-                          <div className="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-xl shadow-xl overflow-hidden animate-in slide-in-from-bottom-2">
-                              <button onClick={handleSaveImage} className="w-full p-3 text-left text-xs font-bold hover:bg-slate-50 flex items-center gap-2 border-b border-slate-100">
-                                  <ImageIcon size={14} className="text-emerald-600"/> Save as Image
-                              </button>
-                              <button onClick={handleSavePDF} className="w-full p-3 text-left text-xs font-bold hover:bg-slate-50 flex items-center gap-2">
-                                  <FileText size={14} className="text-rose-600"/> Save as PDF
-                              </button>
-                          </div>
-                      )}
-                  </div>
-              </div>
-          </div>
-      </div>
-  );
-};
-
-// --- MAIN COMPONENT ---
 interface DashboardProps {
   user: { name: string; email: string; balance: number };
   onUpdateBalance: (newBalance: number) => void;
 }
 
 type ProductType = 'Airtime' | 'Data' | 'Cable' | 'Electricity' | 'Exam' | 'RechargePin' | 'AirtimeToCash';
+
+const PREFILLED_AMOUNTS = [1000, 2000, 5000, 10000];
+const RECHARGE_AMOUNTS = [100, 200, 500, 1000];
+const PIN_PRICING: Record<number, number> = { 1: 98, 2: 97, 3: 97, 4: 95, 5: 95 };
 
 const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
   // --- STATES ---
@@ -352,15 +172,185 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
       if (detected) {
         setSelectedNetworkId(detected.id);
         setSelectedCarrier(detected.carrier);
-        
-        // Auto-set Airtime Type based on network
-        // MTN supports multiple types, others default to VTU
-        if (detected.id !== 1) { 
-            setAirtimeType('VTU'); 
-        }
       }
     }
   }, [phoneNumber]);
+
+  // --- 3. RECEIPT LOGIC ---
+  const getLogoOrIcon = (transaction: any) => {
+      const desc = (transaction.description || "").toUpperCase();
+      const type = (transaction.type || "").toUpperCase();
+      const combined = desc + " " + type; 
+
+      if (combined.includes("MTN")) return <img src={mtnLogo} className="w-full h-full object-contain rounded-full" />;
+      if (combined.includes("GLO")) return <img src={gloLogo} className="w-full h-full object-contain rounded-full" />;
+      if (combined.includes("AIRTEL")) return <img src={airtelLogo} className="w-full h-full object-contain rounded-full" />;
+      if (combined.includes("9MOBILE") || combined.includes("T2MOBILE")) return <img src={t2mobileLogo} className="w-full h-full object-contain rounded-full" />;
+      if (combined.includes("SMILE")) return <img src={smileLogo} className="w-full h-full object-contain rounded-full" />;
+      if (combined.includes("DSTV")) return <img src={dstvLogo} className="w-full h-full object-contain rounded-full" />;
+      if (combined.includes("GOTV")) return <img src={gotvLogo} className="w-full h-full object-contain rounded-full" />;
+      if (combined.includes("STARTIMES")) return <img src={startimesLogo} className="w-full h-full object-contain rounded-full" />;
+      if (combined.includes("SHOWMAX")) return <img src={showmaxLogo} className="w-full h-full object-contain rounded-full" />;
+      if (combined.includes("IKEJA") || combined.includes("IKEDC")) return <img src={ikejaLogo} className="w-full h-full object-contain rounded-full" />;
+      if (combined.includes("WAEC")) return <img src={waecLogo} className="w-full h-full object-contain rounded-full" />;
+      if (combined.includes("NECO")) return <img src={necoLogo} className="w-full h-full object-contain rounded-full" />;
+
+      switch(transaction.type) {
+          case 'Airtime': return <Smartphone size={18} />;
+          case 'Data': return <Zap size={18} />;
+          case 'Cable': return <Tv size={18} />;
+          case 'Electricity': return <Zap size={18} />;
+          case 'Exam': return <GraduationCap size={18} />;
+          case 'RechargePin': return <Printer size={18} />;
+          case 'Deposit': return <ArrowDownLeft size={18} />;
+          case 'Withdrawal': return <ArrowUpRight size={18} />;
+          case 'AirtimeToCash': return <ArrowLeftRight size={18} />;
+          default: return <Activity size={18} />;
+      }
+  };
+
+  const getColorClass = (type: string) => {
+      if (type === 'Deposit') return 'bg-emerald-100 text-emerald-600';
+      if (type === 'Withdrawal') return 'bg-rose-100 text-rose-600';
+      if (type === 'AirtimeToCash') return 'bg-orange-100 text-orange-600';
+      return 'bg-slate-100 text-slate-600';
+  };
+
+  const ReceiptView = ({ tx, onClose }: { tx: any; onClose: () => void }) => {
+    const receiptRef = useRef<HTMLDivElement>(null);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [saveMenuOpen, setSaveMenuOpen] = useState(false);
+
+    const displayRef = tx.ref || tx.reference || tx.request_id || `TRX-${tx.id}`;
+
+    const generateImage = async (): Promise<Blob | null> => {
+        if (!receiptRef.current) return null;
+        try {
+            const canvas = await html2canvas(receiptRef.current, {
+                backgroundColor: '#ffffff', scale: 2, logging: false, useCORS: true 
+            });
+            return new Promise((resolve) => canvas.toBlob((blob) => resolve(blob), 'image/png'));
+        } catch (error) { return null; }
+    };
+
+    const handleShare = async () => {
+        setIsGenerating(true);
+        const blob = await generateImage();
+        if (blob) {
+            const file = new File([blob], `receipt_${displayRef}.png`, { type: 'image/png' });
+            if (navigator.share) {
+                try { await navigator.share({ title: 'Receipt', text: `Receipt for ${tx.type}`, files: [file] }); } catch (e) {}
+            } else {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = `receipt_${displayRef}.png`; a.click();
+            }
+        }
+        setIsGenerating(false);
+    };
+
+    const handleSaveImage = async () => {
+        setIsGenerating(true);
+        const blob = await generateImage();
+        if (blob) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = `receipt_${displayRef}.png`; a.click();
+            setSaveMenuOpen(false);
+        }
+        setIsGenerating(false);
+    };
+
+    const handleSavePDF = async () => {
+        setIsGenerating(true);
+        if (!receiptRef.current) return;
+        const canvas = await html2canvas(receiptRef.current, { scale: 2 });
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF({ orientation: 'portrait', unit: 'px', format: [canvas.width, canvas.height] });
+        pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+        pdf.save(`receipt_${displayRef}.pdf`);
+        setSaveMenuOpen(false);
+        setIsGenerating(false);
+    };
+
+    const handleCopyRef = () => {
+        navigator.clipboard.writeText(displayRef).then(() => alert("Reference copied!"));
+    };
+
+    return (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-full max-w-sm relative">
+                <button onClick={onClose} className="absolute -top-12 right-0 bg-white/20 p-2 rounded-full text-white hover:bg-white/30 transition-colors"><X size={20}/></button>
+                
+                <div ref={receiptRef} className="bg-white rounded-[30px] overflow-hidden shadow-2xl relative">
+                    <div className="h-24 bg-emerald-600 relative">
+                        <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle, #fff 2px, transparent 2px)', backgroundSize: '10px 10px' }}></div>
+                        <div className="absolute inset-0 flex items-center justify-center text-white/10 font-black text-6xl tracking-widest rotate-[-15deg] pointer-events-none">RECEIPT</div>
+                    </div>
+                    <div className="px-6 pb-8 -mt-10 relative">
+                        <div className="bg-white rounded-2xl shadow-lg p-6 text-center border border-slate-100">
+                            <div className={`w-16 h-16 rounded-full mx-auto flex items-center justify-center -mt-14 mb-3 border-4 border-white shadow-md ${getColorClass(tx.type)}`}>
+                                 <div className="w-10 h-10">{getLogoOrIcon(tx)}</div>
+                            </div>
+                            <h2 className="text-3xl font-black text-slate-800">₦{tx.amount.toLocaleString()}</h2>
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">{tx.type}</p>
+                            <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase ${tx.status === 'Success' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+                                {tx.status === 'Success' ? <CheckCircle2 size={12}/> : <X size={12}/>}
+                                {tx.status}
+                            </div>
+                        </div>
+                        <div className="mt-6 space-y-4">
+                            <div className="flex justify-between items-center py-2 border-b border-dashed border-slate-200">
+                                <span className="text-xs font-bold text-slate-400">Date</span>
+                                <span className="text-xs font-bold text-slate-700">{new Date(tx.created_at).toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between items-center py-2 border-b border-dashed border-slate-200">
+                                <span className="text-xs font-bold text-slate-400">Reference</span>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-bold text-slate-700">{displayRef}</span>
+                                    <button onClick={handleCopyRef} className="text-slate-400 hover:text-emerald-600 transition-colors"><Copy size={12}/></button>
+                                </div>
+                            </div>
+                            <div className="flex justify-between items-center py-2 border-b border-dashed border-slate-200">
+                                <span className="text-xs font-bold text-slate-400">Description</span>
+                                <span className="text-xs font-bold text-slate-700 text-right max-w-[150px]">{tx.description || tx.type}</span>
+                            </div>
+                            {tx.meta && tx.meta.pin && (
+                                <div className="bg-slate-100 p-3 rounded-xl text-center mt-2 border border-dashed border-slate-300">
+                                    <p className="text-[10px] font-black uppercase text-slate-400">PIN / TOKEN</p>
+                                    <p className="text-xl font-black text-slate-800 tracking-widest select-all">{tx.meta.pin}</p>
+                                </div>
+                            )}
+                        </div>
+                        <div className="mt-6 text-center opacity-30">
+                            <p className="font-black text-xs uppercase">Naija Connects</p>
+                            <p className="text-[8px] font-bold">Generated Receipt</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="mt-4 flex gap-3">
+                    <button onClick={handleShare} disabled={isGenerating} className="flex-1 bg-emerald-600 text-white py-3 rounded-xl font-bold text-xs uppercase flex items-center justify-center gap-2 hover:bg-emerald-700 transition-colors shadow-lg">
+                        {isGenerating ? <Loader2 className="animate-spin" size={16}/> : <Share2 size={16}/>} Share
+                    </button>
+                    <div className="relative flex-1">
+                        <button onClick={() => setSaveMenuOpen(!saveMenuOpen)} disabled={isGenerating} className="w-full bg-white text-slate-700 py-3 rounded-xl font-bold text-xs uppercase flex items-center justify-center gap-2 hover:bg-slate-50 transition-colors shadow-lg">
+                            <Download size={16}/> Save
+                        </button>
+                        {saveMenuOpen && (
+                            <div className="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-xl shadow-xl overflow-hidden animate-in slide-in-from-bottom-2">
+                                <button onClick={handleSaveImage} className="w-full p-3 text-left text-xs font-bold hover:bg-slate-50 flex items-center gap-2 border-b border-slate-100">
+                                    <ImageIcon size={14} className="text-emerald-600"/> Save as Image
+                                </button>
+                                <button onClick={handleSavePDF} className="w-full p-3 text-left text-xs font-bold hover:bg-slate-50 flex items-center gap-2">
+                                    <FileText size={14} className="text-rose-600"/> Save as PDF
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+  };
 
   // --- 4. API REQUESTS & VALIDATION ---
   const fetchDataPlans = async () => {
