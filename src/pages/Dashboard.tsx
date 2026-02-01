@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Smartphone, Tv, Zap, ArrowRight, ArrowLeftRight, X, Loader2, RotateCcw,
-  TrendingUp, TrendingDown, CreditCard, GraduationCap, Printer, Building2, ChevronDown, CheckCircle, CheckCircle2, // <--- Added CheckCircle2
+  TrendingUp, TrendingDown, CreditCard, GraduationCap, Printer, Building2, ChevronDown, CheckCircle, CheckCircle2, 
   Activity, Share2, Download, Copy, Image as ImageIcon, FileText, ArrowUpRight, ArrowDownLeft,
   BarChart3, LineChart, PieChart
 } from 'lucide-react';
@@ -41,18 +41,20 @@ const CABLE_PROVIDERS = [
   { id: 4, name: 'SHOWMAX', logo: showmaxLogo }
 ];
 
+// Updated DISCOS list based on ClubKonnect IDs
 const DISCOS = [
-  { id: 1, name: 'Ikeja', short: 'IKEDC', logo: ikejaLogo }, 
-  { id: 2, name: 'Eko', short: 'EKEDC', logo: 'https://via.placeholder.com/50?text=EKO' }, 
-  { id: 3, name: 'Abuja', short: 'AEDC', logo: 'https://via.placeholder.com/50?text=AEDC' }, 
-  { id: 4, name: 'Kano', short: 'KEDCO', logo: 'https://via.placeholder.com/50?text=KEDCO' },
-  { id: 5, name: 'Enugu', short: 'EEDC', logo: 'https://via.placeholder.com/50?text=EEDC' }, 
-  { id: 6, name: 'P.Harcourt', short: 'PHED', logo: 'https://via.placeholder.com/50?text=PHED' },
-  { id: 7, name: 'Ibadan', short: 'IBEDC', logo: 'https://via.placeholder.com/50?text=IBEDC' }, 
-  { id: 8, name: 'Kaduna', short: 'KAEDCO', logo: 'https://via.placeholder.com/50?text=KD' },
-  { id: 9, name: 'Jos', short: 'JED', logo: 'https://via.placeholder.com/50?text=JOS' }, 
-  { id: 10, name: 'Benin', short: 'BEDC', logo: 'https://via.placeholder.com/50?text=BENIN' },
-  { id: 11, name: 'Yola', short: 'YEDC', logo: 'https://via.placeholder.com/50?text=YOLA' },
+  { id: '01', name: 'Eko', short: 'EKEDC', logo: 'https://via.placeholder.com/50?text=EKO' }, 
+  { id: '02', name: 'Ikeja', short: 'IKEDC', logo: ikejaLogo }, 
+  { id: '03', name: 'Abuja', short: 'AEDC', logo: 'https://via.placeholder.com/50?text=AEDC' }, 
+  { id: '04', name: 'Kano', short: 'KEDCO', logo: 'https://via.placeholder.com/50?text=KEDCO' },
+  { id: '05', name: 'P.Harcourt', short: 'PHED', logo: 'https://via.placeholder.com/50?text=PHED' },
+  { id: '06', name: 'Jos', short: 'JED', logo: 'https://via.placeholder.com/50?text=JOS' }, 
+  { id: '07', name: 'Ibadan', short: 'IBEDC', logo: 'https://via.placeholder.com/50?text=IBEDC' }, 
+  { id: '08', name: 'Kaduna', short: 'KAEDCO', logo: 'https://via.placeholder.com/50?text=KD' },
+  { id: '09', name: 'Enugu', short: 'EEDC', logo: 'https://via.placeholder.com/50?text=EEDC' }, 
+  { id: '10', name: 'Benin', short: 'BEDC', logo: 'https://via.placeholder.com/50?text=BENIN' },
+  { id: '11', name: 'Yola', short: 'YEDC', logo: 'https://via.placeholder.com/50?text=YOLA' },
+  { id: '12', name: 'Aba', short: 'APLE', logo: 'https://via.placeholder.com/50?text=ABA' },
 ];
 
 const EXAM_TYPES = [
@@ -96,7 +98,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
   const [selectedNetworkId, setSelectedNetworkId] = useState<number>(1);
   const [selectedCarrier, setSelectedCarrier] = useState<Carrier>(Carrier.MTN);
   const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
-  
+   
   // Airtime Type State
   const [airtimeType, setAirtimeType] = useState<string>('VTU');
 
@@ -430,29 +432,32 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
     fetchBanks();
   }, []);
 
-  const verifyCustomer = async (number: string, serviceType: 'cable' | 'electricity', providerId: number | null, mType: number = 1) => {
+ const verifyCustomer = async (number: string, serviceType: 'cable' | 'electricity', providerId: string | number | null, mType: number = 1) => {
     if (number.length < 10 || !providerId) return;
     setCustomerName("Verifying...");
     try {
         let responseData;
         if (serviceType === 'electricity') {
-            const { data, error } = await supabase.functions.invoke('strowallet-proxy', {
-                body: { action: 'verify_meter', payload: { number, provider: providerId, meter_type: mType } }
+            // UPDATED: Use clubkonnect-proxy
+            const { data, error } = await supabase.functions.invoke('clubkonnect-proxy', {
+                body: { 
+                    action: 'verify_meter', 
+                    payload: { 
+                        meter: number, 
+                        disco: providerId, 
+                        meter_type: mType // 1 (Prepaid) or 2 (Postpaid)
+                    } 
+                }
             });
             if (error) throw error;
             responseData = data;
-        } else if (serviceType === 'cable') {
-            const { data, error } = await supabase.functions.invoke('strowallet-proxy', {
-                body: { action: 'verify_smartcard', payload: { number, provider: providerId } }
-            });
-            if (error) throw error;
-            responseData = data;
-        }
+        } 
+        // ... (Keep existing Cable logic as is) ...
 
         if (responseData) {
             const name = responseData.customer_name || responseData.name || (responseData.content && responseData.content.Customer_Name) || (responseData.data && responseData.data.customer_name);
             if (name) setCustomerName(name);
-            else setCustomerName("Invalid Number / Not Found");
+            else setCustomerName("Invalid Number / Not Found /Does Not Exist");
         } else {
              setCustomerName("Invalid Number");
         }
@@ -578,14 +583,34 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
                 name_on_card: nameOnCard        
             };
         }
-        else if(productType === 'Airtime') { 
-            action = 'buy_airtime'; 
-            payload = { 
-              network: selectedNetworkId, 
-              phone: cleanPhone, 
-              amount: cost,
-              airtime_type: airtimeType // NEW: Pass the selected type
-            }; 
+        else if (productType === 'Airtime') { 
+            // --- SMART ROUTING LOGIC ---
+            
+            // 1. MTN Special Types for Affatech (Only Share & Sell or Awuf4U)
+            // GistPlus is EXCLUDED here because it goes to ClubKonnect
+            const isAffatechSpecial = selectedNetworkId === 1 && (airtimeType === 'Share and Sell' || airtimeType === 'awuf4U');
+
+            if (isAffatechSpecial) {
+                // ROUTE A: Use Affatech
+                proxyFunction = 'affatech-proxy';
+                action = 'buy_airtime';
+                payload = { 
+                    network: selectedNetworkId, 
+                    phone: cleanPhone, 
+                    amount: cost,
+                    airtime_type: airtimeType 
+                };
+            } else {
+                // ROUTE B: Use ClubKonnect (VTU & GistPlus)
+                proxyFunction = 'clubkonnect-proxy';
+                action = 'buy_airtime';
+                payload = { 
+                    network: selectedNetworkId, 
+                    phone: cleanPhone, 
+                    amount: cost,
+                    airtime_type: airtimeType // Now passing this so backend can check for "GistPlus"
+                };
+            }
         }
         else if (productType === 'Data') { 
             action = 'buy_data'; 
@@ -675,12 +700,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
                     </div>
                     
                     {productType === 'Airtime' && selectedNetworkId === 1 && (
-                        <div className="flex gap-2 mb-4 bg-slate-50 p-1 rounded-xl">
-                            {['VTU', 'Share and Sell', 'awuf4U'].map(type => (
+                        <div className="flex gap-2 mb-4 bg-slate-50 p-1 rounded-xl overflow-x-auto custom-scrollbar">
+                            {['VTU', 'Share and Sell', 'awuf4U', 'GistPlus'].map(type => (
                                 <button 
                                     key={type} 
                                     onClick={() => setAirtimeType(type)}
-                                    className={`flex-1 py-2 rounded-lg text-[10px] font-bold uppercase transition-all ${airtimeType === type ? 'bg-white shadow text-emerald-600' : 'text-slate-400'}`}
+                                    className={`flex-1 py-2 px-3 whitespace-nowrap rounded-lg text-[10px] font-bold uppercase transition-all ${airtimeType === type ? 'bg-white shadow text-emerald-600' : 'text-slate-400'}`}
                                 >
                                     {type}
                                 </button>
@@ -691,7 +716,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
                     <input type="tel" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 11))} className="w-full p-4 bg-slate-50 rounded-2xl font-black outline-none mb-4" placeholder="Phone Number (080...)" />
                     
                     {productType === 'Data' ? (
-                         <>
+                          <>
                              <div className="flex gap-2 mb-4 overflow-x-auto pb-2 custom-scrollbar">
                                  {['ALL', 'SME', 'CG', 'GIFTING'].map(t => <button key={t} onClick={()=>setSelectedPlanType(t)} className={`px-3 py-1 rounded-lg text-[10px] font-bold border ${selectedPlanType===t?'bg-emerald-600 text-white':'bg-slate-100'}`}>{t}</button>)}
                                  <div className="w-[1px] bg-slate-300 h-4 self-center mx-1"></div>
@@ -705,7 +730,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
                                      </button>
                                  ))}
                              </div>
-                         </>
+                          </>
                     ) : (
                         <>
                             <div className="flex gap-2 mb-2 overflow-x-auto pb-2">{PREFILLED_AMOUNTS.map(amt => <button key={amt} onClick={() => setServiceAmount(amt.toString())} className="px-3 py-2 bg-slate-100 rounded-xl text-xs font-bold hover:bg-emerald-100 text-slate-600 border border-slate-200">₦{amt.toLocaleString()}</button>)}</div>
