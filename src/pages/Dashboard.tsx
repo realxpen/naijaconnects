@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Smartphone, Tv, Zap, ArrowRight, ArrowLeftRight, X, Loader2, RotateCcw,
-  TrendingUp, TrendingDown, CreditCard, GraduationCap, Printer, Building2, ChevronDown, CheckCircle, CheckCircle2, 
+  TrendingUp, TrendingDown, CreditCard, GraduationCap, Printer, Building2, ChevronDown, CheckCircle, CheckCircle2,
   Activity, Share2, Download, Copy, Image as ImageIcon, FileText, ArrowUpRight, ArrowDownLeft,
   BarChart3, LineChart, PieChart
 } from 'lucide-react';
@@ -35,13 +35,13 @@ export const CARRIERS = [
 ];
 
 const CABLE_PROVIDERS = [
-  { id: 1, name: 'GOTV', logo: gotvLogo }, 
-  { id: 2, name: 'DSTV', logo: dstvLogo }, 
-  { id: 3, name: 'STARTIMES', logo: startimesLogo }, 
-  { id: 4, name: 'SHOWMAX', logo: showmaxLogo }
+  { id: 'gotv', name: 'GOtv', logo: gotvLogo }, 
+  { id: 'dstv', name: 'DStv', logo: dstvLogo }, 
+  { id: 'startimes', name: 'StarTimes', logo: startimesLogo }, 
+  { id: 'showmax', name: 'Showmax', logo: showmaxLogo }
 ];
 
-// Updated DISCOS list based on ClubKonnect IDs
+// Updated DISCOS with ClubKonnect IDs (Strings '01', '02', etc.)
 const DISCOS = [
   { id: '01', name: 'Eko', short: 'EKEDC', logo: 'https://via.placeholder.com/50?text=EKO' }, 
   { id: '02', name: 'Ikeja', short: 'IKEDC', logo: ikejaLogo }, 
@@ -58,6 +58,7 @@ const DISCOS = [
 ];
 
 const EXAM_TYPES = [
+  { id: 'JAMB', name: 'JAMB e-PIN', price: 4700, logo: null }, // Using text fallback or add logo
   { id: 'WAEC', name: 'WAEC Result Checker', price: 3500, logo: waecLogo }, 
   { id: 'NECO', name: 'NECO Result Checker', price: 1350, logo: necoLogo },
 ];
@@ -88,6 +89,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
   const [isRefreshingBalance, setIsRefreshingBalance] = useState(false);
   const [history, setHistory] = useState<any[]>([]);
   const [selectedTx, setSelectedTx] = useState<any | null>(null);
+  const [chartType, setChartType] = useState<'bar' | 'line' | 'donut'>('bar');
 
   // Service States
   const [availablePlans, setAvailablePlans] = useState<any[]>([]);
@@ -98,7 +100,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
   const [selectedNetworkId, setSelectedNetworkId] = useState<number>(1);
   const [selectedCarrier, setSelectedCarrier] = useState<Carrier>(Carrier.MTN);
   const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
-   
+  
   // Airtime Type State
   const [airtimeType, setAirtimeType] = useState<string>('VTU');
 
@@ -109,15 +111,23 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [smartCardNumber, setSmartCardNumber] = useState('');
   const [customerName, setCustomerName] = useState('');
-  const [selectedCableProvider, setSelectedCableProvider] = useState(1);
+  
+  // Cable States
+  const [selectedCableProvider, setSelectedCableProvider] = useState<string>('gotv');
   const [selectedCablePlan, setSelectedCablePlan] = useState<any>(null);
+  
+  // Electricity States
   const [meterNumber, setMeterNumber] = useState('');
-  const [selectedDisco, setSelectedDisco] = useState<number | null>(null);
+  const [selectedDisco, setSelectedDisco] = useState<string | null>(null);
   const [isDiscoDropdownOpen, setIsDiscoDropdownOpen] = useState(false);
   const [meterType, setMeterType] = useState(1);
+  
+  // Exam States (UPDATED)
   const [selectedExam, setSelectedExam] = useState<any>(null);
   const [quantity, setQuantity] = useState<number>(1);
   const [nameOnCard, setNameOnCard] = useState('');
+  const [jambType, setJambType] = useState('utme-no-mock'); // Default JAMB type
+  const [jambProfileID, setJambProfileID] = useState('');
 
   // Info States
   const [airtimeToCashInfo, setAirtimeToCashInfo] = useState<any>(null);
@@ -145,7 +155,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
         .select('*')
         .eq('user_email', user.email)
         .order('created_at', { ascending: false })
-        .limit(5); // Keep limit to 5
+        .limit(5); 
       if(data) setHistory(data);
     } catch(e) { console.error(e); }
   };
@@ -174,6 +184,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
       if (detected) {
         setSelectedNetworkId(detected.id);
         setSelectedCarrier(detected.carrier);
+        // Only allow selection if MTN, else default to VTU
+        if (detected.id !== 1) setAirtimeType('VTU');
       }
     }
   }, [phoneNumber]);
@@ -367,33 +379,61 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
       finally { setIsLoadingPlans(false); }
   };
 
+  // UPDATED: Robust fetchCablePlans logic for ClubKonnect
   const fetchCablePlans = async () => {
     if (!selectedCableProvider) return;
     setIsLoadingPlans(true);
     setCurrentCablePlans([]); 
     try {
-      const { data, error } = await supabase.functions.invoke('strowallet-proxy', {
-        body: { action: 'fetch_cable_plans', payload: { provider: selectedCableProvider } }
+      const { data, error } = await supabase.functions.invoke('clubkonnect-proxy', {
+        body: { 
+            action: 'fetch_cable_plans',
+            payload: { provider: selectedCableProvider }
+        }
       });
       if (error) throw error;
+
+      console.log("ClubKonnect Plans Response:", data); 
+
       let rawPlans: any[] = [];
-      if (data.data && Array.isArray(data.data.varations)) { rawPlans = data.data.varations; }
-      else if (data.data && Array.isArray(data.data.variations)) { rawPlans = data.data.variations; }
-      else if (data.data && Array.isArray(data.data.plans)) { rawPlans = data.data.plans; }
-      else if (Array.isArray(data.varations)) { rawPlans = data.varations; }
-      else if (Array.isArray(data.variations)) { rawPlans = data.variations; }
       
-      if (rawPlans.length > 0) {
-        const formattedPlans = rawPlans.map((p: any) => {
-          let rawName = p.name || p.variation_name || "Unknown Plan";
-          const cleanName = rawName.replace(/ N[\d,.]+$/, "").trim();
-          return { id: p.variation_code || p.plan_id, name: cleanName, amount: Number(p.variation_amount || p.amount) };
-        });
-        formattedPlans.sort((a: any, b: any) => a.amount - b.amount);
-        setCurrentCablePlans(formattedPlans);
+      // PARSING LOGIC:
+      // 1. Check for nested TV_ID object (Case-insensitive matching)
+      if (data && data.TV_ID) {
+          const tvIdData = data.TV_ID;
+          // Find key case-insensitively (e.g., 'dstv' matches 'DStv')
+          const key = Object.keys(tvIdData).find(k => 
+              k.toLowerCase() === selectedCableProvider.toLowerCase()
+          );
+          if (key && Array.isArray(tvIdData[key])) {
+              rawPlans = tvIdData[key];
+          }
       }
-    } catch (e: any) { console.error("Cable Plan Error", e); } 
-    finally { setIsLoadingPlans(false); }
+      // 2. Check for direct uppercase key (e.g., { "DSTV": [...] })
+      else if (data && data[selectedCableProvider.toUpperCase()] && Array.isArray(data[selectedCableProvider.toUpperCase()])) {
+          rawPlans = data[selectedCableProvider.toUpperCase()];
+      } 
+      // 3. Fallback: Check if response IS the array
+      else if (Array.isArray(data)) {
+          rawPlans = data;
+      }
+
+      if (rawPlans.length > 0) {
+        const formatted = rawPlans.map((p: any) => ({
+            id: p.PACKAGE_ID || p.ID || p.id, 
+            name: p.PACKAGE_NAME || p.NAME || p.name,
+            amount: Number(p.PACKAGE_AMOUNT || p.AMOUNT || p.amount)
+        }));
+        
+        const validPlans = formatted.filter((p: any) => p.name && !isNaN(p.amount));
+        validPlans.sort((a: any, b: any) => a.amount - b.amount);
+        setCurrentCablePlans(validPlans);
+      }
+    } catch (e: any) { 
+        console.error("Cable Plan Error", e); 
+    } finally { 
+        setIsLoadingPlans(false); 
+    }
   };
 
   useEffect(() => {
@@ -438,7 +478,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
     try {
         let responseData;
         if (serviceType === 'electricity') {
-            // UPDATED: Use clubkonnect-proxy
             const { data, error } = await supabase.functions.invoke('clubkonnect-proxy', {
                 body: { 
                     action: 'verify_meter', 
@@ -452,7 +491,20 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
             if (error) throw error;
             responseData = data;
         } 
-        // ... (Keep existing Cable logic as is) ...
+        else if (serviceType === 'cable') {
+            const { data, error } = await supabase.functions.invoke('clubkonnect-proxy', {
+                body: { 
+                    action: 'verify_smartcard', 
+                    payload: { 
+                        number, 
+                        provider: providerId, // 'dstv', 'gotv', etc.
+                        iuc: number 
+                    } 
+                }
+            });
+            if (error) throw error;
+            responseData = data;
+        }
 
         if (responseData) {
             const name = responseData.customer_name || responseData.name || (responseData.content && responseData.content.Customer_Name) || (responseData.data && responseData.data.customer_name);
@@ -465,6 +517,29 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
         console.error("Verify Error:", e);
         setCustomerName("Verification Failed"); 
     }
+  };
+
+  // ADDED: Verify JAMB Profile ID
+  const verifyJamb = async (profileId: string, type: string) => {
+      if (profileId.length < 10) return;
+      setCustomerName("Verifying...");
+      try {
+          const { data, error } = await supabase.functions.invoke('clubkonnect-proxy', {
+              body: { 
+                  action: 'verify_jamb', 
+                  payload: { profile_id: profileId, exam_type: type.includes('de') ? 'de' : 'utme' } 
+              }
+          });
+          if (error) throw error;
+          
+          if (data.valid || data.customer_name) {
+              setCustomerName(data.customer_name || "Verified ID");
+          } else {
+              setCustomerName("Invalid Profile ID");
+          }
+      } catch (e) {
+          setCustomerName("Verification Failed");
+      }
   };
 
   useEffect(() => {
@@ -487,9 +562,19 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
     const cleanPhone = phoneNumber.replace(/\D/g, '');
     if (productType === 'Airtime') return cleanPhone.length === 11 && Number(serviceAmount) > 0;
     if (productType === 'Data') return cleanPhone.length === 11 && selectedPlan !== null;
-    if (productType === 'Cable') return smartCardNumber.length >= 10 && selectedCablePlan !== null && !customerName.includes("Invalid") && !customerName.includes("Verifying");
+    
+    if (productType === 'Cable') return smartCardNumber.length >= 10 && selectedCablePlan !== null && cleanPhone.length === 11 && !customerName.includes("Invalid") && !customerName.includes("Verifying");
+    
     if (productType === 'Electricity') return meterNumber.length >= 10 && Number(serviceAmount) > 0 && selectedDisco !== null && !customerName.includes("Invalid");
-    if (productType === 'Exam') return selectedExam !== null && quantity > 0;
+    
+    // UPDATED: Exam Validation (JAMB vs Others)
+    if (productType === 'Exam') {
+        if (selectedExam?.id === 'JAMB') {
+            return jambProfileID.length === 10 && cleanPhone.length === 11 && !customerName.includes("Invalid") && !customerName.includes("Verifying");
+        }
+        return selectedExam !== null && quantity > 0;
+    }
+
     if (productType === 'RechargePin') return Number(serviceAmount) > 0 && quantity > 0 && nameOnCard.length > 2;
     if (productType === 'AirtimeToCash') return cleanPhone.length === 11 && Number(serviceAmount) > 0;
     return false;
@@ -498,7 +583,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
   const calculateTotalCost = () => {
     if (productType === 'Data') return Number(selectedPlan?.amount || selectedPlan?.price);
     if (productType === 'Cable') return Number(selectedCablePlan?.amount);
-    if (productType === 'Exam') return (selectedExam?.price || 0) * quantity;
+    
+    // UPDATED: Exam Cost (JAMB is fixed price, others use quantity)
+    if (productType === 'Exam') return (selectedExam?.price || 0) * (selectedExam?.id === 'JAMB' ? 1 : quantity);
+    
     if (productType === 'RechargePin') {
         const unitPrice = PIN_PRICING[selectedNetworkId] || 100;
         const multiplier = Number(serviceAmount) / 100;
@@ -564,14 +652,50 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
         let payload: any = {};
 
         if (productType === 'Electricity') {
-            proxyFunction = 'strowallet-proxy';
+            proxyFunction = 'clubkonnect-proxy';
             action = 'buy_electricity';
-            payload = { disco: selectedDisco, meter: meterNumber, amount: cost, meter_type: meterType, phone: phoneNumber || "08000000000" };
+            payload = { 
+                disco: selectedDisco, 
+                meter: meterNumber, 
+                amount: cost, 
+                meter_type: meterType, 
+                phone: phoneNumber || "08000000000" 
+            };
         }
         else if (productType === 'Cable') { 
-            proxyFunction = 'strowallet-proxy';
+            proxyFunction = 'clubkonnect-proxy';
             action = 'buy_cable'; 
-            payload = { provider: selectedCableProvider, iuc: smartCardNumber, plan_id: selectedCablePlan.id, amount: cost, plan_name: selectedCablePlan.name, phone: phoneNumber || "08000000000" }; 
+            payload = { 
+                provider: selectedCableProvider, 
+                iuc: smartCardNumber, 
+                plan_code: selectedCablePlan.id, 
+                amount: cost, 
+                phone: cleanPhone 
+            }; 
+        }
+        // UPDATED: EXAM Logic for JAMB
+        else if (productType === 'Exam') { 
+            proxyFunction = 'clubkonnect-proxy';
+            action = 'buy_education'; 
+            
+            if (selectedExam.id === 'JAMB') {
+                if (!customerName || customerName.includes("Invalid")) throw new Error("Please verify Profile ID first");
+                payload = { 
+                    exam_group: 'JAMB',
+                    exam_type: jambType, // 'utme-mock', 'utme-no-mock', 'de'
+                    phone: cleanPhone, // Phone number to receive PIN
+                    profile_id: jambProfileID,
+                    amount: cost
+                };
+            } else {
+                // WAEC / NECO
+                payload = { 
+                    exam_group: selectedExam.id, // 'WAEC' or 'NECO'
+                    quantity: quantity,
+                    phone: cleanPhone,
+                    amount: cost
+                };
+            }
         }
         else if (productType === 'RechargePin') {
             proxyFunction = 'affatech-proxy';   
@@ -585,13 +709,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
         }
         else if (productType === 'Airtime') { 
             // --- SMART ROUTING LOGIC ---
-            
-            // 1. MTN Special Types for Affatech (Only Share & Sell or Awuf4U)
-            // GistPlus is EXCLUDED here because it goes to ClubKonnect
             const isAffatechSpecial = selectedNetworkId === 1 && (airtimeType === 'Share and Sell' || airtimeType === 'awuf4U');
 
             if (isAffatechSpecial) {
-                // ROUTE A: Use Affatech
                 proxyFunction = 'affatech-proxy';
                 action = 'buy_airtime';
                 payload = { 
@@ -601,24 +721,19 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
                     airtime_type: airtimeType 
                 };
             } else {
-                // ROUTE B: Use ClubKonnect (VTU & GistPlus)
                 proxyFunction = 'clubkonnect-proxy';
                 action = 'buy_airtime';
                 payload = { 
                     network: selectedNetworkId, 
                     phone: cleanPhone, 
                     amount: cost,
-                    airtime_type: airtimeType // Now passing this so backend can check for "GistPlus"
+                    airtime_type: airtimeType 
                 };
             }
         }
         else if (productType === 'Data') { 
             action = 'buy_data'; 
             payload = { network: selectedNetworkId, phone: cleanPhone, plan_id: selectedPlan?.id || selectedPlan?.plan_id }; 
-        }
-        else if (productType === 'Exam') { 
-            action = 'buy_epin'; 
-            payload = { exam_name: selectedExam.id, quantity: quantity }; 
         }
         else if (productType === 'AirtimeToCash') { 
             action = 'airtime_to_cash'; 
@@ -652,7 +767,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
 
             fetchHistory();
             setIsConfirming(false);
-            setPhoneNumber(''); setServiceAmount(''); setSmartCardNumber(''); setMeterNumber(''); setQuantity(1); setSelectedPlan(null); setSelectedCablePlan(null); setCustomerName('');
+            setPhoneNumber(''); setServiceAmount(''); setSmartCardNumber(''); setMeterNumber(''); setQuantity(1); setSelectedPlan(null); setSelectedCablePlan(null); setCustomerName(''); setJambProfileID('');
             
             if (productType === 'RechargePin') {
                 console.log("RECHARGE PINS GENERATED:", data);
@@ -716,7 +831,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
                     <input type="tel" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 11))} className="w-full p-4 bg-slate-50 rounded-2xl font-black outline-none mb-4" placeholder="Phone Number (080...)" />
                     
                     {productType === 'Data' ? (
-                          <>
+                         <>
                              <div className="flex gap-2 mb-4 overflow-x-auto pb-2 custom-scrollbar">
                                  {['ALL', 'SME', 'CG', 'GIFTING'].map(t => <button key={t} onClick={()=>setSelectedPlanType(t)} className={`px-3 py-1 rounded-lg text-[10px] font-bold border ${selectedPlanType===t?'bg-emerald-600 text-white':'bg-slate-100'}`}>{t}</button>)}
                                  <div className="w-[1px] bg-slate-300 h-4 self-center mx-1"></div>
@@ -730,7 +845,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
                                      </button>
                                  ))}
                              </div>
-                          </>
+                         </>
                     ) : (
                         <>
                             <div className="flex gap-2 mb-2 overflow-x-auto pb-2">{PREFILLED_AMOUNTS.map(amt => <button key={amt} onClick={() => setServiceAmount(amt.toString())} className="px-3 py-2 bg-slate-100 rounded-xl text-xs font-bold hover:bg-emerald-100 text-slate-600 border border-slate-200">₦{amt.toLocaleString()}</button>)}</div>
@@ -749,6 +864,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
                           </button>
                         ))}
                     </div>
+                    {/* Added: Phone Number Input for Cable (Required by API) */}
+                    <input type="tel" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 11))} className="w-full p-4 bg-slate-50 rounded-2xl font-black outline-none" placeholder="Customer Phone Number" />
+                    
                     <input type="text" value={smartCardNumber} onChange={e => { const val = e.target.value; setSmartCardNumber(val); if(val.length >= 10) verifyCustomer(val, 'cable', selectedCableProvider); }} className="w-full p-4 bg-slate-50 rounded-2xl font-black outline-none" placeholder="IUC Number" />
                     {customerName && <p className={`text-[10px] font-bold px-2 ${customerName.includes("Invalid") ? "text-red-500" : "text-emerald-500"}`}>{customerName}</p>}
                     <div className="relative">
@@ -817,14 +935,68 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
         case 'Exam':
             return (
                 <div className="space-y-4">
-                    <div className="flex gap-2 overflow-x-auto">{EXAM_TYPES.map(e => <button key={e.id} onClick={() => setSelectedExam(e)} className={`flex-1 py-3 px-4 rounded-xl font-bold text-xs whitespace-nowrap border-2 ${selectedExam?.id === e.id ? 'border-emerald-600 bg-emerald-50' : 'border-slate-100'}`}>{e.id}</button>)}</div>
-                    <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl">
-                        <span className="text-xs font-bold text-slate-500">Qty:</span>
-                        <button onClick={() => setQuantity(Math.max(1, quantity - 1))} disabled={quantity <= 1} className="w-8 h-8 bg-white rounded-full shadow font-black disabled:opacity-50">-</button>
-                        <span className="font-black text-xl">{quantity}</span>
-                        <button onClick={() => setQuantity(Math.min(5, quantity + 1))} disabled={quantity >= 5} className="w-8 h-8 bg-white rounded-full shadow font-black disabled:opacity-50">+</button>
+                    {/* Exam Selector */}
+                    <div className="flex gap-2 overflow-x-auto">
+                        {EXAM_TYPES.map(e => (
+                            <button key={e.id} onClick={() => { setSelectedExam(e); setCustomerName(''); }} className={`flex-1 flex flex-col items-center py-3 px-4 rounded-xl font-bold text-xs whitespace-nowrap border-2 ${selectedExam?.id === e.id ? 'border-emerald-600 bg-emerald-50' : 'border-slate-100'}`}>
+                                {e.logo && <img src={e.logo} className="w-8 h-8 object-contain mb-1 rounded-full" />}
+                                {e.id}
+                            </button>
+                        ))}
                     </div>
-                    {selectedExam && <p className="text-center font-black text-emerald-600 text-xl">Total: ₦{(selectedExam.price * quantity).toLocaleString()}</p>}
+
+                    {/* JAMB Specific Inputs */}
+                    {selectedExam?.id === 'JAMB' && (
+                        <div className="space-y-3 animate-in slide-in-from-top-2">
+                            <div className="flex gap-2">
+                                {['utme-no-mock', 'utme-mock', 'de'].map(t => (
+                                    <button 
+                                        key={t} 
+                                        onClick={() => { setJambType(t); if(jambProfileID) verifyJamb(jambProfileID, t); }} 
+                                        className={`flex-1 py-2 px-2 rounded-lg text-[10px] font-bold uppercase border ${jambType === t ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white border-slate-200 text-slate-500'}`}
+                                    >
+                                        {t.replace(/-/g, ' ')}
+                                    </button>
+                                ))}
+                            </div>
+                            
+                            <input 
+                                type="text" 
+                                value={jambProfileID} 
+                                onChange={e => { 
+                                    setJambProfileID(e.target.value); 
+                                    if(e.target.value.length === 10) verifyJamb(e.target.value, jambType); 
+                                }} 
+                                className="w-full p-4 bg-slate-50 rounded-2xl font-black outline-none" 
+                                placeholder="JAMB Profile ID (10 digits)" 
+                                maxLength={10}
+                            />
+                            
+                            {customerName && (
+                                <p className={`text-[10px] font-bold px-2 ${customerName.includes("Invalid") || customerName.includes("Failed") ? "text-red-500" : "text-emerald-500"}`}>
+                                    {customerName}
+                                </p>
+                            )}
+
+                            <input type="tel" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl font-black outline-none" placeholder="Buyer Phone Number" />
+                        </div>
+                    )}
+
+                    {/* WAEC/NECO Specific Inputs */}
+                    {selectedExam?.id !== 'JAMB' && (
+                        <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl">
+                            <span className="text-xs font-bold text-slate-500">Qty:</span>
+                            <button onClick={() => setQuantity(Math.max(1, quantity - 1))} disabled={quantity <= 1} className="w-8 h-8 bg-white rounded-full shadow font-black disabled:opacity-50">-</button>
+                            <span className="font-black text-xl">{quantity}</span>
+                            <button onClick={() => setQuantity(Math.min(5, quantity + 1))} disabled={quantity >= 5} className="w-8 h-8 bg-white rounded-full shadow font-black disabled:opacity-50">+</button>
+                        </div>
+                    )}
+
+                    {selectedExam && (
+                        <p className="text-center font-black text-emerald-600 text-xl mt-2">
+                            Total: ₦{(selectedExam.price * (selectedExam.id === 'JAMB' ? 1 : quantity)).toLocaleString()}
+                        </p>
+                    )}
                 </div>
             );
         case 'RechargePin':

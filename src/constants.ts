@@ -2,16 +2,71 @@
 
 import { Carrier, DataPlan, Language } from './types';
 
+// --- ASSET IMPORTS (NEW) ---
+import mtnLogo from './assets/logos/mtn.png';
+import gloLogo from './assets/logos/glo.png';
+import airtelLogo from './assets/logos/airtel.png';
+import t2mobileLogo from './assets/logos/t2mobile.png'; // formerly 9mobile
+import smileLogo from './assets/logos/smile.png';
+import waecLogo from './assets/logos/waec.png';
+import necoLogo from './assets/logos/neco.png';
+import dstvLogo from './assets/logos/dstv.png';
+import gotvLogo from './assets/logos/gotv.png';
+import startimesLogo from './assets/logos/startimescable.png';
+import showmaxLogo from './assets/logos/showmax.png';
+import ikejaLogo from './assets/logos/ikedc.png';
+
 // --- 1. NETWORK ID MAPPING ---
-// This maps the API ID (e.g. 1) to our Carrier Enum (e.g. MTN)
+// Maps API IDs to Carrier Enums for logic handling
 export const NETWORK_ID_MAP: Record<number, Carrier> = {
   1: Carrier.MTN,
   2: Carrier.GLO,
-  3: Carrier.NINEMOBILE,
-  4: Carrier.AIRTEL
+  3: Carrier.AIRTEL,
+  4: Carrier.NINEMOBILE, // Maps to T2MOBILE in UI
+  5: Carrier.SMILE
 };
 
-// --- 2. NETWORK PREFIXES (For Auto-Detect) ---
+// --- 2. CARRIER LIST (UI Data) ---
+// Merged: Uses new local Logos + Existing color schemes
+export const CARRIERS = [
+  { id: 1, enum: Carrier.MTN, name: 'MTN', logo: mtnLogo, color: 'bg-yellow-400' },
+  { id: 2, enum: Carrier.GLO, name: 'GLO', logo: gloLogo, color: 'bg-green-600' },
+  { id: 3, enum: Carrier.AIRTEL, name: 'AIRTEL', logo: airtelLogo, color: 'bg-red-600' },
+  { id: 4, enum: Carrier.NINEMOBILE, name: 'T2MOBILE', logo: t2mobileLogo, subText: '(Formerly 9Mobile)', color: 'bg-green-900' },
+  { id: 5, enum: Carrier.SMILE, name: 'SMILE', logo: smileLogo, color: 'bg-pink-600' }
+];
+
+// --- 3. BILL PAYMENT PROVIDERS (Detailed) ---
+
+export const CABLE_PROVIDERS = [
+  { id: 'gotv', name: 'GOtv', logo: gotvLogo }, 
+  { id: 'dstv', name: 'DStv', logo: dstvLogo }, 
+  { id: 'startimes', name: 'StarTimes', logo: startimesLogo }, 
+  { id: 'showmax', name: 'Showmax', logo: showmaxLogo }
+];
+
+export const DISCOS = [
+  { id: '01', name: 'Eko', short: 'EKEDC', logo: 'https://via.placeholder.com/50?text=EKO' }, 
+  { id: '02', name: 'Ikeja', short: 'IKEDC', logo: ikejaLogo }, 
+  { id: '03', name: 'Abuja', short: 'AEDC', logo: 'https://via.placeholder.com/50?text=AEDC' }, 
+  { id: '04', name: 'Kano', short: 'KEDCO', logo: 'https://via.placeholder.com/50?text=KEDCO' },
+  { id: '05', name: 'P.Harcourt', short: 'PHED', logo: 'https://via.placeholder.com/50?text=PHED' },
+  { id: '06', name: 'Jos', short: 'JED', logo: 'https://via.placeholder.com/50?text=JOS' }, 
+  { id: '07', name: 'Ibadan', short: 'IBEDC', logo: 'https://via.placeholder.com/50?text=IBEDC' }, 
+  { id: '08', name: 'Kaduna', short: 'KAEDCO', logo: 'https://via.placeholder.com/50?text=KD' },
+  { id: '09', name: 'Enugu', short: 'EEDC', logo: 'https://via.placeholder.com/50?text=EEDC' }, 
+  { id: '10', name: 'Benin', short: 'BEDC', logo: 'https://via.placeholder.com/50?text=BENIN' },
+  { id: '11', name: 'Yola', short: 'YEDC', logo: 'https://via.placeholder.com/50?text=YOLA' },
+  { id: '12', name: 'Aba', short: 'APLE', logo: 'https://via.placeholder.com/50?text=ABA' },
+];
+
+export const EXAM_TYPES = [
+  { id: 'JAMB', name: 'JAMB e-PIN', price: 4500, logo: null }, 
+  { id: 'WAEC', name: 'WAEC Result Checker', price: 3500, logo: waecLogo }, 
+  { id: 'NECO', name: 'NECO Result Checker', price: 1350, logo: necoLogo },
+];
+
+// --- 4. NETWORK PREFIXES (For Auto-Detect) ---
 export const NETWORK_PREFIXES: Record<string, string[]> = {
   [Carrier.MTN]: [
     '0803', '0806', '0810', '0813', '0814', '0816', 
@@ -30,15 +85,12 @@ export const NETWORK_PREFIXES: Record<string, string[]> = {
   ]
 };
 
-// --- 3. CARRIER LIST (For UI Icons) ---
-export const CARRIERS = [
-  { id: Carrier.MTN, logo: 'https://upload.wikimedia.org/wikipedia/commons/9/93/New-mtn-logo.jpg', color: 'bg-yellow-400' },
-  { id: Carrier.GLO, logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/Glo_button.png/1200px-Glo_button.png', color: 'bg-green-600' },
-  { id: Carrier.AIRTEL, logo: 'https://upload.wikimedia.org/wikipedia/commons/bc/Airtel_logo_2010.svg', color: 'bg-red-600' },
-  { id: Carrier.NINEMOBILE, logo: 'https://upload.wikimedia.org/wikipedia/commons/9/98/9mobile_Logo.png', color: 'bg-green-900' },
-];
+// --- 5. PRICING & DEFAULTS ---
+export const PREFILLED_AMOUNTS = [1000, 2000, 5000, 10000];
+export const RECHARGE_AMOUNTS = [100, 200, 500, 1000];
+export const PIN_PRICING: Record<number, number> = { 1: 98, 2: 97, 3: 97, 4: 95, 5: 95 };
 
-// --- 4. LANGUAGES & TRANSLATIONS ---
+// --- 6. LANGUAGES & TRANSLATIONS ---
 export const LANGUAGES: Language[] = [
   { id: 'en', name: 'English', flag: '🇬🇧' },
   { id: 'ng', name: 'Pidgin', flag: '🇳🇬' },
@@ -73,7 +125,7 @@ export const TRANSLATIONS: any = {
   },
 };
 
-// --- 5. MOCK DATA (Fallback) ---
+// --- 7. MOCK DATA PLANS ---
 export const MOCK_DATA_PLANS: Record<string, DataPlan[]> = {
   [Carrier.MTN]: [],
   [Carrier.GLO]: [],
@@ -81,44 +133,22 @@ export const MOCK_DATA_PLANS: Record<string, DataPlan[]> = {
   [Carrier.NINEMOBILE]: []
 };
 
-// --- 6. BILL PAYMENT CONSTANTS (New) ---
-
-export const DISCOS = [
-  { id: 1, name: 'Ikeja Electric' },
-  { id: 2, name: 'Eko Electric' },
-  { id: 3, name: 'Abuja Electric' },
-  { id: 4, name: 'Kano Electric' },
-  { id: 5, name: 'Enugu Electric' },
-  { id: 6, name: 'Port Harcourt Electric' },
-  { id: 7, name: 'Ibadan Electric' },
-  { id: 8, name: 'Kaduna Electric' },
-  { id: 9, name: 'Jos Electric' },
-  { id: 10, name: 'Benin Electric' },
-  { id: 11, name: 'Yola Electric' }
-];
-
-export const CABLE_PROVIDERS = [
-  { id: 1, name: 'GOTV' },
-  { id: 2, name: 'DSTV' },
-  { id: 3, name: 'STARTIMES' }
-];
-
-// Mock Cable Plans (Since we don't have a live API for plans yet)
-export const MOCK_CABLE_PLANS: Record<number, { id: number; name: string; amount: number }[]> = {
-  1: [ // GOTV
+// Mock Cable Plans (Updated keys to match CABLE_PROVIDERS IDs)
+export const MOCK_CABLE_PLANS: Record<string, { id: number; name: string; amount: number }[]> = {
+  'gotv': [ 
     { id: 16, name: 'GOtv Jinja', amount: 3900 },
     { id: 17, name: 'GOtv Jolli', amount: 5800 },
     { id: 2, name: 'GOtv Max', amount: 8500 },
     { id: 47, name: 'GOtv Supa', amount: 11400 },
   ],
-  2: [ // DSTV
+  'dstv': [ 
     { id: 20, name: 'DStv Padi', amount: 4400 },
     { id: 6, name: 'DStv Yanga', amount: 6000 },
     { id: 19, name: 'DStv Confam', amount: 11000 },
     { id: 7, name: 'DStv Compact', amount: 19000 },
     { id: 9, name: 'DStv Premium', amount: 44500 },
   ],
-  3: [ // STARTIMES
+  'startimes': [ 
     { id: 14, name: 'Nova', amount: 1900 },
     { id: 38, name: 'Basic', amount: 3700 },
     { id: 11, name: 'Classic', amount: 6200 },
