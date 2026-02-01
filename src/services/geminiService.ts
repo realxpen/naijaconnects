@@ -1,7 +1,7 @@
 // src/services/geminiService.ts
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { MOCK_DATA_PLANS } from "../constants";
+// REMOVED: import { MOCK_DATA_PLANS } from "../constants"; 
 import { Language } from "../types";
 
 // Initialize Gemini (Ensure VITE_GEMINI_API_KEY is in your .env.local)
@@ -46,23 +46,25 @@ export const geminiService = {
       try {
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-        const languageNames: Record<Language, string> = {
+        const languageNames: Record<string, string> = {
           en: 'English', yo: 'Yoruba', ig: 'Igbo', ha: 'Hausa', fr: 'French'
         };
 
+        // We removed the hardcoded MOCK_DATA_PLANS.
+        // Instead, the AI will act as a general support agent.
         const systemPrompt = `
           You are "NaijaConnect AI", a helpful Nigerian Telecom assistant.
           User Name: ${userContext.name}
           User Balance: ₦${userContext.balance}
-          Current Language: ${languageNames[language]}
+          Current Language: ${languageNames[language] || 'English'}
           
-          Task: Answer the user's question based on the data plans below.
-          Data Plans: ${JSON.stringify(MOCK_DATA_PLANS)}
+          Task: Answer the user's question about VTU services (Airtime, Data, Cable TV, Electricity).
           
           Rules:
           1. Be concise and friendly.
           2. Use mild Nigerian slang (e.g., "No wahala", "Oshey") if speaking English.
-          3. If recommending a plan, state the Network, Price, and Validity clearly.
+          3. If the user asks for specific data plan prices, tell them to check the "Data" tab on the dashboard for the latest live rates.
+          4. Do not invent fake prices.
         `;
 
         const result = await model.generateContent([systemPrompt, text]);
@@ -76,6 +78,6 @@ export const geminiService = {
     }
 
     // --- 3. FINAL FALLBACK ---
-    return "I can help you check your balance, fund your wallet, or recommend the best data plans. What would you like to know?";
+    return "I can help you check your balance, fund your wallet, or recommend services. What would you like to know?";
   }
 };

@@ -1,77 +1,96 @@
-import { makeClubKonnectRequest, CLUBKONNECT_USER_ID, CLUBKONNECT_API_KEY } from "../config.ts";
+import { CLUBKONNECT_USER_ID, CLUBKONNECT_API_KEY } from "../config.ts";
 
-// Helper to pad numbers (e.g. 1 -> "01")
-const formatCode = (code: number | string) => {
+/**
+ * Standardizes MeterType to numeric codes.
+ * 01 = Prepaid
+ * 02 = Postpaid
+ */
+const getMeterTypeCode = (type: any): string => {
+    const val = type?.toString().toLowerCase();
+    if (val === "2" || val === "02" || val === "postpaid") {
+        return "02";
+    }
+    return "01";
+};
+
+/**
+ * Ensures disco codes are always 2 digits (e.g. "01").
+ */
+const formatDisco = (code: number | string): string => {
     return code.toString().padStart(2, '0');
 };
 
 export const verifyMeter = async (payload: any) => {
-    // ENDPOINT: https://www.nellobytesystems.com/APIVerifyElectricityV1.asp
-    // Params: UserID, APIKey, ElectricCompany, MeterNo, MeterType
-    
+    const meterTypeCode = getMeterTypeCode(payload.meter_type);
+    const discoCode = formatDisco(payload.disco);
+
+    // EXACT capitalization as per documentation
     const params = new URLSearchParams();
     params.append("UserID", CLUBKONNECT_USER_ID);
     params.append("APIKey", CLUBKONNECT_API_KEY);
-    params.append("ElectricCompany", formatCode(payload.disco)); // "01", "02"...
+    params.append("ElectricCompany", discoCode);
     params.append("MeterNo", payload.meter);
-    params.append("MeterType", formatCode(payload.meter_type)); // "01" (Prepaid) or "02" (Postpaid)
+    params.append("MeterType", meterTypeCode);
 
-    // Note: The verify endpoint is different (APIVerifyElectricityV1.asp)
-    // We need to construct the URL manually or update config to support base URL override
-    // But since config uses the base URL for airtime, let's hardcode the verify base here for safety
     const verifyUrl = `https://www.nellobytesystems.com/APIVerifyElectricityV1.asp?${params.toString()}`;
     
+    // Log the URL to your Supabase console to see exactly what is being sent
+    console.log(`[Verify Meter] URL: ${verifyUrl}`);
+
     try {
         const response = await fetch(verifyUrl);
         const data = await response.json();
         
-        // Normalize response for frontend
-        // Success: { "customer_name": "NAME" }
-        // Fail: { "customer_name": "INVALID_METERNO" } or similar
+        // Success: {"customer_name":"NAME"}
+        // Fail: {"customer_name":"INVALID_METERNO"}
+        const isInvalid = !data.customer_name || 
+                          data.customer_name.includes("INVALID") || 
+                          data.customer_name.includes("MISSING") ||
+                          data.customer_name.includes("Error");
+
         return {
-            valid: data.customer_name && data.customer_name !== "INVALID_METERNO",
-            customer_name: data.customer_name
+            valid: !isInvalid,
+            customer_name: isInvalid ? "Invalid Meter Number" : data.customer_name
         };
     } catch (e) {
-        console.error("Verify Error:", e);
-        throw new Error("Verification failed");
+        console.error("Verification Error:", e);
+        throw new Error("Verification failed - Connection issue");
     }
 };
 
 export const buyElectricity = async (payload: any) => {
-    // ENDPOINT: https://www.nellobytesystems.com/APIElectricityV1.asp
-    
-    const requestID = `CK_ELEC_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-    
+    const requestID = `CK_ELEC_${Date.now()}`;
+    const meterTypeCode = getMeterTypeCode(payload.meter_type);
+    const discoCode = formatDisco(payload.disco);
+
     const params = new URLSearchParams();
     params.append("UserID", CLUBKONNECT_USER_ID);
     params.append("APIKey", CLUBKONNECT_API_KEY);
-    params.append("ElectricCompany", formatCode(payload.disco));
-    params.append("MeterType", formatCode(payload.meter_type));
+    params.append("ElectricCompany", discoCode);
+    params.append("MeterType", meterTypeCode);
     params.append("MeterNo", payload.meter);
-    params.append("Amount", payload.amount);
+    params.append("Amount", payload.amount.toString());
     params.append("PhoneNo", payload.phone);
     params.append("RequestID", requestID);
 
-    // Hardcoded base URL for Electricity Purchase
     const buyUrl = `https://www.nellobytesystems.com/APIElectricityV1.asp?${params.toString()}`;
 
     try {
         const response = await fetch(buyUrl);
         const data = await response.json();
 
-        // Response format: { status, metertoken, ... }
+        // Status codes: 100 for received, 200 for completed
         const isSuccess = data.status === "ORDER_RECEIVED" || data.status === "ORDER_COMPLETED";
 
         return {
             success: isSuccess,
-            message: data.status,
-            token: data.metertoken, // Important for prepaid
+            message: data.status || data.remark || "Processed",
+            token: data.metertoken || null, 
             data: data,
             reference: requestID
         };
     } catch (e) {
-        console.error("Buy Electricity Error:", e);
+        console.error("Purchase Error:", e);
         throw e;
     }
 };

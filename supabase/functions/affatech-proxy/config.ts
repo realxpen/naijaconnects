@@ -1,3 +1,8 @@
+export const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
 export const AFFATECH_CONFIG = {
     // UPDATED: Added 'www.' back as per documentation
     BASE_URL: "https://www.affatech.com.ng/api", 
@@ -34,6 +39,7 @@ export const makeAffatechRequest = async (endpoint: string, payload: any = {}, m
         try {
             return JSON.parse(rawText);
         } catch {
+            // Log the raw text if parsing fails (helps debug HTML error pages)
             throw new Error(`Affatech Error (Non-JSON): ${rawText.substring(0, 100)}`);
         }
     } catch (e: any) {

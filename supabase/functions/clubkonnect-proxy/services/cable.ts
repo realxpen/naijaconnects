@@ -1,28 +1,63 @@
 import { makeClubKonnectRequest, CLUBKONNECT_USER_ID, CLUBKONNECT_API_KEY } from "../config.ts";
 
 export const fetchCablePlans = async () => {
-    // ENDPOINT: https://www.nellobytesystems.com/APICableTVPackagesV2.asp
-    // This returns the full list of packages for all providers
+    // 1. Fetch LIVE data from ClubKonnect
     const url = `https://www.nellobytesystems.com/APICableTVPackagesV2.asp?UserID=${CLUBKONNECT_USER_ID}`;
     
     try {
         const response = await fetch(url);
-        const data = await response.json();
-        return data; 
+        const rawData = await response.json();
+        
+        // 2. Prepare a clean container for our plans
+        const cleanPlans: Record<string, any[]> = {
+            dstv: [],
+            gotv: [],
+            startimes: [],
+            showmax: []
+        };
+
+        // 3. Helper to extract products from the specific API structure
+        // Structure is: { TV_ID: { "DStv": [ { "PRODUCT": [...] } ] } }
+        const extract = (apiKeys: string[]) => {
+            if (!rawData.TV_ID) return [];
+
+            for (const key of apiKeys) {
+                // Check if key exists (e.g. "DStv" or "DSTV")
+                const providerData = rawData.TV_ID[key]; 
+                
+                // Navigate into the nested array
+                if (Array.isArray(providerData) && providerData[0] && Array.isArray(providerData[0].PRODUCT)) {
+                    return providerData[0].PRODUCT.map((p: any) => ({
+                        id: p.PACKAGE_ID,
+                        name: p.PACKAGE_NAME,
+                        amount: parseFloat(p.PACKAGE_AMOUNT)
+                    })).sort((a: any, b: any) => a.amount - b.amount);
+                }
+            }
+            return [];
+        };
+
+        // 4. Map ClubKonnect's keys to our App's keys
+        cleanPlans.dstv = extract(["DStv", "DSTV"]);
+        cleanPlans.gotv = extract(["GOtv", "GOTV"]);
+        cleanPlans.startimes = extract(["Startimes", "STARTIMES"]);
+        cleanPlans.showmax = extract(["Showmax", "SHOWMAX"]);
+
+        // 5. Return clean data to Frontend
+        return cleanPlans;
+
     } catch (e) {
-        console.error("Fetch Cable Plans Error:", e);
-        throw new Error("Failed to fetch cable plans");
+        console.error("Backend Cable Fetch Error:", e);
+        throw e;
     }
 };
 
+// ... (Keep verifySmartCard and buyCable below exactly as they were) ...
 export const verifySmartCard = async (payload: any) => {
-    // ENDPOINT: https://www.nellobytesystems.com/APIVerifyCableTVV1.0.asp
-    // Params: UserID, APIKey, CableTV, SmartCardNo
-    
     const params = new URLSearchParams();
     params.append("UserID", CLUBKONNECT_USER_ID);
     params.append("APIKey", CLUBKONNECT_API_KEY);
-    params.append("CableTV", payload.provider); // dstv, gotv, startimes, showmax
+    params.append("CableTV", payload.provider); 
     params.append("SmartCardNo", payload.iuc);
 
     const url = `https://www.nellobytesystems.com/APIVerifyCableTVV1.0.asp?${params.toString()}`;
@@ -30,23 +65,17 @@ export const verifySmartCard = async (payload: any) => {
     try {
         const response = await fetch(url);
         const data = await response.json();
-        
-        // Response: { "customer_name": "NAME" } or { "customer_name": "INVALID_SMARTCARDNO" }
         return {
             valid: data.customer_name && !data.customer_name.includes("INVALID"),
             customer_name: data.customer_name
         };
     } catch (e) {
-        console.error("Verify Cable Error:", e);
-        throw new Error("Verification failed");
+        throw e;
     }
 };
 
 export const buyCable = async (payload: any) => {
-    // ENDPOINT: https://www.nellobytesystems.com/APICableTVV1.asp
-    
     const requestID = `CK_CAB_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-    
     const params = new URLSearchParams();
     params.append("UserID", CLUBKONNECT_USER_ID);
     params.append("APIKey", CLUBKONNECT_API_KEY);
@@ -55,15 +84,12 @@ export const buyCable = async (payload: any) => {
     params.append("SmartCardNo", payload.iuc);
     params.append("PhoneNo", payload.phone);
     params.append("RequestID", requestID);
-    // params.append("CallBackURL", "...");
 
     const url = `https://www.nellobytesystems.com/APICableTVV1.asp?${params.toString()}`;
 
     try {
         const response = await fetch(url);
         const data = await response.json();
-
-        // Success check based on docs
         const isSuccess = data.status === "ORDER_RECEIVED" || data.status === "ORDER_COMPLETED";
 
         return {
@@ -73,7 +99,6 @@ export const buyCable = async (payload: any) => {
             reference: requestID
         };
     } catch (e) {
-        console.error("Buy Cable Error:", e);
         throw e;
     }
 };
