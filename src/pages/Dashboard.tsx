@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import * as React from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   Smartphone,
   Tv,
@@ -53,7 +54,7 @@ import {
 // ];
 
 interface DashboardProps {
-  user: { name: string; email: string; balance: number };
+  user: { name: string; email: string; balance: number; phone?: string };
   onUpdateBalance: (newBalance: number) => void;
 }
 
@@ -66,7 +67,7 @@ type ProductType =
   | "RechargePin"
   | "AirtimeToCash";
 
-const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
+const Dashboard = ({ user, onUpdateBalance }: DashboardProps) => {
   // --- STATES ---
   const [isBalanceVisible, setIsBalanceVisible] = useState(true);
   const [productType, setProductType] = useState<ProductType>("Airtime");
@@ -228,7 +229,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
     if (MTN.includes(p)) return { id: 1, carrier: Carrier.MTN };
     if (GLO.includes(p)) return { id: 2, carrier: Carrier.GLO };
     if (AIRTEL.includes(p)) return { id: 3, carrier: Carrier.AIRTEL };
-    if (T2_MOBILE.includes(p)) return { id: 4, carrier: Carrier.T2MOBILE };
+    if (T2_MOBILE.includes(p)) return { id: 4, carrier: Carrier.NINEMOBILE };
     return null;
   };
 
@@ -388,7 +389,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
     let plansForNetwork: any[] = [];
     if (Array.isArray(availablePlans))
       plansForNetwork = availablePlans.filter(
-        (p) =>
+        (p: any) =>
           p.network == selectedNetworkId || p.network_id == selectedNetworkId,
       );
     else plansForNetwork = availablePlans[selectedNetworkId] || [];
@@ -616,10 +617,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
       return;
     }
     setPendingDepositRef(currentTxRef);
-    initializePayment(
-      () => console.log("Paystack success"),
-      () => console.log("Paystack closed"),
-    );
+    initializePayment({
+      onSuccess: () => {
+        console.log("Paystack success");
+        handleVerifyDeposit();
+      },
+      onClose: () => console.log("Paystack closed")
+    } as any);
   };
 
   const handleVerifyDeposit = async () => {
@@ -857,8 +861,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
           <>
             <div className="grid grid-cols-4 gap-3 mb-4">
               {CARRIERS.filter(
-                (c) => productType !== "Airtime" || c.name !== "SMILE",
-              ).map((c) => (
+                (c: any) => productType !== "Airtime" || c.name !== "SMILE",
+              ).map((c: any) => (
                 <button
                   key={c.id}
                   onClick={() => {
@@ -963,7 +967,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
             ) : (
               <>
                 <div className="flex gap-2 mb-2 overflow-x-auto pb-2">
-                  {PREFILLED_AMOUNTS.map((amt) => (
+                  {PREFILLED_AMOUNTS.map((amt: number) => (
                     <button
                       key={amt}
                       onClick={() => setServiceAmount(amt.toString())}
@@ -1065,15 +1069,15 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
               >
                 {selectedDisco ? (
                   <div className="flex items-center gap-3">
-                    {DISCOS.find((d) => d.id === selectedDisco)?.logo && (
+                    {DISCOS.find((d: any) => d.id === selectedDisco)?.logo && (
                       <img
-                        src={DISCOS.find((d) => d.id === selectedDisco)?.logo}
+                        src={DISCOS.find((d: any) => d.id === selectedDisco)?.logo}
                         className="w-6 h-6 object-contain rounded-full"
                       />
                     )}
                     <span>
-                      {DISCOS.find((d) => d.id === selectedDisco)?.name} (
-                      {DISCOS.find((d) => d.id === selectedDisco)?.short})
+                      {DISCOS.find((d: any) => d.id === selectedDisco)?.name} (
+                      {DISCOS.find((d: any) => d.id === selectedDisco)?.short})
                     </span>
                   </div>
                 ) : (
@@ -1088,7 +1092,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
               </button>
               {isDiscoDropdownOpen && (
                 <div className="absolute top-full left-0 w-full mt-2 bg-white rounded-2xl shadow-xl z-20 max-h-60 overflow-y-auto border border-slate-100 custom-scrollbar">
-                  {DISCOS.map((d) => (
+                  {DISCOS.map((d: any) => (
                     <button
                       key={d.id}
                       onClick={() => {
@@ -1193,7 +1197,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
           <div className="space-y-4">
             {/* Exam Type Tabs */}
             <div className="flex gap-2 overflow-x-auto">
-              {examTypes.map((e) => (
+              {examTypes.map((e: any) => (
                 <button
                   key={e.id}
                   onClick={() => {
@@ -1218,7 +1222,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
             {selectedExam?.id === "JAMB" && (
               <div className="space-y-3 animate-in slide-in-from-top-2">
                 <div className="flex gap-2">
-                  {JAMB_VARIANTS.map((variant) => (
+                  {JAMB_VARIANTS.map((variant: any) => (
                     <button
                       key={variant.id}
                       onClick={() => {
@@ -1309,7 +1313,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
               Select Network
             </p>
             <div className="grid grid-cols-5 gap-3 mb-4">
-              {CARRIERS.map((net) => (
+              {CARRIERS.map((net: any) => (
                 <button
                   key={net.id}
                   onClick={() => {
@@ -1335,7 +1339,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
               Select Pin Denomination
             </p>
             <div className="flex gap-2 mb-2 overflow-x-auto pb-2">
-              {RECHARGE_AMOUNTS.map((amt) => (
+              {RECHARGE_AMOUNTS.map((amt: number) => (
                 <button
                   key={amt}
                   onClick={() => setServiceAmount(amt.toString())}
@@ -1499,7 +1503,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
         {productType === "AirtimeToCash" ? (
           <div className="space-y-4">
             <div className="grid grid-cols-4 gap-3">
-              {CARRIERS.map((c) => (
+              {CARRIERS.map((c: any) => (
                 <button
                   key={c.id}
                   onClick={() => setSelectedNetworkId(c.id)}
@@ -1608,7 +1612,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
             {!pendingDepositRef ? (
               <>
                 <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
-                  {PREFILLED_AMOUNTS.map((amt) => (
+                  {PREFILLED_AMOUNTS.map((amt: number) => (
                     <button
                       key={amt}
                       onClick={() => setDepositAmount(amt.toString())}
@@ -1741,7 +1745,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
               className="w-full p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl font-bold outline-none"
             >
               <option value="">Select Bank</option>
-              {bankList.map((b) => (
+              {bankList.map((b: any) => (
                 <option key={b.id} value={b.code}>
                   {b.name}
                 </option>
@@ -1765,7 +1769,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateBalance }) => {
               </p>
             )}
             <div className="flex gap-2 mb-2 overflow-x-auto pb-2">
-              {PREFILLED_AMOUNTS.map((amt) => (
+              {PREFILLED_AMOUNTS.map((amt: number) => (
                 <button
                   key={amt}
                   onClick={() => setWithdrawAmount(amt.toString())}
