@@ -3,6 +3,7 @@ import { ArrowLeft, Loader2, GraduationCap, User, Phone, Check, BookOpen } from 
 import { supabase } from "../../supabaseClient";
 import { dbService } from "../../services/dbService";
 import { EXAM_TYPES, JAMB_VARIANTS } from "../../constants";
+import { useI18n } from "../../i18n";
 
 interface ExamsProps {
   user: any;
@@ -11,6 +12,7 @@ interface ExamsProps {
 }
 
 const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(false);
   const [selectedExam, setSelectedExam] = useState<any>(EXAM_TYPES[0]); // Default to first (usually JAMB or WAEC)
   const [quantity, setQuantity] = useState(1);
@@ -24,7 +26,7 @@ const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
   // --- 1. VERIFY JAMB ---
   const verifyJamb = async (profileId: string) => {
     if (profileId.length !== 10) return;
-    setCustomerName("Verifying...");
+    setCustomerName(t("exam.verifying"));
     try {
       const { data, error } = await supabase.functions.invoke("clubkonnect-proxy", {
         body: {
@@ -33,9 +35,9 @@ const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
         },
       });
       if (error) throw error;
-      setCustomerName(data.valid || data.customer_name ? (data.customer_name || "Verified ID") : "Invalid Profile ID");
+      setCustomerName(data.valid || data.customer_name ? (data.customer_name || t("exam.verified_id")) : t("exam.invalid_profile_id"));
     } catch (e) {
-      setCustomerName("Verification Failed");
+      setCustomerName(t("exam.verification_failed"));
     }
   };
 
@@ -53,8 +55,8 @@ const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
     if (!selectedExam) return;
     const cost = calculateCost();
 
-    if (user.balance < cost) return alert("Insufficient Balance");
-    if (selectedExam.id === "JAMB" && (!jambProfileID || customerName.includes("Invalid"))) return alert("Verify Profile ID");
+    if (user.balance < cost) return alert(t("data.insufficient_balance"));
+    if (selectedExam.id === "JAMB" && (!jambProfileID || customerName.includes("Invalid"))) return alert(t("exam.verify_profile_id"));
 
     setLoading(true);
     try {
@@ -103,12 +105,12 @@ const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
              details: `Exam: ${selectedExam.id}`
           }
         });
-        alert("Purchase Successful! Check Receipt for PIN.");
+        alert(t("exam.purchase_success"));
         setJambProfileID("");
         setCustomerName("");
         setQuantity(1);
       } else {
-        throw new Error(data.message || "Purchase Failed");
+        throw new Error(data.message || t("exam.purchase_failed"));
       }
     } catch (e: any) {
       alert(e.message);
@@ -122,10 +124,10 @@ const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <button onClick={onBack} className="flex items-center gap-2 text-slate-500 font-bold text-xs uppercase">
-          <ArrowLeft size={16} /> Back
+          <ArrowLeft size={16} /> {t("common.back")}
         </button>
         <div className="flex items-center gap-2 bg-emerald-50 px-3 py-1 rounded-full">
-            <span className="text-xs font-bold text-slate-400">Balance:</span>
+            <span className="text-xs font-bold text-slate-400">{t("common.balance")}:</span>
             <span className="text-sm font-black text-emerald-600">₦{user.balance.toLocaleString()}</span>
         </div>
       </div>
@@ -134,7 +136,7 @@ const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
         
         {/* Top Section (Dark) */}
         <div className="p-6 bg-slate-900 text-white">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">Select Exam</label>
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">{t("exam.select_exam")}</label>
             
             {/* Exam Selection Cards */}
             <div className="grid grid-cols-3 gap-3 mb-6">
@@ -161,7 +163,7 @@ const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
             {selectedExam?.id === "JAMB" && (
                 <div className="animate-in fade-in slide-in-from-bottom-2">
                     <div className="flex justify-between items-center mb-2">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase">Profile ID</label>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase">{t("exam.profile_id")}</label>
                         {customerName && (
                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${customerName.includes("Invalid") || customerName.includes("Failed") ? "bg-red-500/20 text-red-400" : "bg-emerald-500/20 text-emerald-400"}`}>
                                 {customerName}
@@ -178,7 +180,7 @@ const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
                                 if (e.target.value.length === 10) verifyJamb(e.target.value);
                             }}
                             className="bg-transparent w-full font-bold text-white outline-none placeholder:text-slate-600"
-                            placeholder="Enter 10-digit ID"
+                            placeholder={t("exam.enter_profile_id")}
                             maxLength={10}
                         />
                     </div>
@@ -190,7 +192,7 @@ const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
                             value={phone}
                             onChange={(e) => setPhone(e.target.value)}
                             className="bg-transparent w-full font-bold text-white outline-none placeholder:text-slate-600"
-                            placeholder="Phone Number"
+                            placeholder={t("profile.phone_number")}
                         />
                     </div>
                 </div>
@@ -201,7 +203,7 @@ const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
         <div className="p-5">
             {selectedExam?.id === "JAMB" ? (
                 <div>
-                     <h3 className="font-bold text-slate-700 mb-3 text-sm">Exam Type</h3>
+                     <h3 className="font-bold text-slate-700 mb-3 text-sm">{t("exam.exam_type")}</h3>
                      <div className="flex gap-3">
                         {JAMB_VARIANTS.map(v => (
                             <button 
@@ -224,7 +226,7 @@ const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
                 </div>
             ) : (
                 <div>
-                    <h3 className="font-bold text-slate-700 mb-3 text-sm">Quantity</h3>
+                    <h3 className="font-bold text-slate-700 mb-3 text-sm">{t("exam.quantity")}</h3>
                     <div className="bg-slate-50 p-4 rounded-2xl flex items-center justify-between border border-slate-100">
                         <button 
                             onClick={() => setQuantity(Math.max(1, quantity - 1))} 
@@ -235,7 +237,7 @@ const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
                         
                         <div className="text-center">
                             <span className="block text-3xl font-black text-slate-800">{quantity}</span>
-                            <span className="text-[10px] text-slate-400 font-bold uppercase">PINs</span>
+                            <span className="text-[10px] text-slate-400 font-bold uppercase">{t("exam.pins")}</span>
                         </div>
                         
                         <button 
@@ -258,7 +260,7 @@ const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
             >
                 {loading ? <Loader2 className="animate-spin" /> : (
                     <>
-                        <span>Purchase</span>
+                        <span>{t("exam.purchase")}</span>
                         <span className="bg-emerald-700/50 px-2 py-0.5 rounded text-xs">₦{calculateCost().toLocaleString()}</span>
                     </>
                 )}

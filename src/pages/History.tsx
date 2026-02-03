@@ -7,6 +7,7 @@ import {
 import { supabase } from "../supabaseClient";
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import { useI18n } from '../i18n';
 
 // --- LOGO IMPORTS ---
 import mtnLogo from '../assets/logos/mtn.png';
@@ -37,6 +38,7 @@ interface Transaction {
 }
 
 const History = () => {
+  const { t } = useI18n();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('All');
@@ -221,15 +223,15 @@ const History = () => {
             if (navigator.share) {
                 try {
                     await navigator.share({
-                        title: 'Transaction Receipt',
-                        text: `Receipt for ${tx.type} - ₦${tx.amount}`,
+                        title: t("dashboard.receipt_title"),
+                        text: t("dashboard.receipt_for", { type: tx.type, amount: tx.amount }),
                         files: [file]
                     });
                 } catch (e) {
                     console.log("Share cancelled or failed", e);
                 }
             } else {
-                alert("Sharing is not supported on this browser. Downloading instead.");
+                alert(t("history.share_not_supported"));
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
@@ -270,14 +272,14 @@ const History = () => {
             pdf.save(`receipt_${displayRef}.pdf`);
             setSaveMenuOpen(false);
         } catch (e) {
-            alert("Error generating PDF");
+            alert(t("dashboard.error_generating_pdf"));
         }
         setIsGenerating(false);
     };
 
     const handleCopyRef = () => {
         navigator.clipboard.writeText(displayRef).then(() => {
-            alert("Reference copied to clipboard!");
+            alert(t("history.reference_copied_clipboard"));
         });
     };
 
@@ -292,7 +294,7 @@ const History = () => {
                     <div className="h-24 bg-emerald-600 relative">
                         <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle, #fff 2px, transparent 2px)', backgroundSize: '10px 10px' }}></div>
                         <div className="absolute inset-0 flex items-center justify-center text-white/10 font-black text-6xl tracking-widest rotate-[-15deg] pointer-events-none">
-                            RECEIPT
+                            {t("history.receipt")}
                         </div>
                     </div>
 
@@ -312,12 +314,12 @@ const History = () => {
 
                         <div className="mt-6 space-y-4">
                             <div className="flex justify-between items-center py-2 border-b border-dashed border-slate-200">
-                                <span className="text-xs font-bold text-slate-400">Date</span>
+                                <span className="text-xs font-bold text-slate-400">{t("common.date")}</span>
                                 <span className="text-xs font-bold text-slate-700">{new Date(tx.created_at).toLocaleString()}</span>
                             </div>
                             
                             <div className="flex justify-between items-center py-2 border-b border-dashed border-slate-200">
-                                <span className="text-xs font-bold text-slate-400">Reference</span>
+                                <span className="text-xs font-bold text-slate-400">{t("common.ref_id")}</span>
                                 <div className="flex items-center gap-2">
                                     <span className="text-xs font-bold text-slate-700">{displayRef}</span>
                                     <button onClick={handleCopyRef} className="text-slate-400 hover:text-emerald-600 transition-colors">
@@ -327,42 +329,42 @@ const History = () => {
                             </div>
 
                             <div className="flex justify-between items-center py-2 border-b border-dashed border-slate-200">
-                                <span className="text-xs font-bold text-slate-400">Description</span>
+                                <span className="text-xs font-bold text-slate-400">{t("common.desc")}</span>
                                 <span className="text-xs font-bold text-slate-700 text-right max-w-[150px]">{tx.description || tx.type}</span>
                             </div>
                             
                             {tx.meta && tx.meta.pin && (
                                 <div className="bg-slate-100 p-3 rounded-xl text-center mt-2 border border-dashed border-slate-300">
-                                    <p className="text-[10px] font-black uppercase text-slate-400">PIN / TOKEN</p>
+                                    <p className="text-[10px] font-black uppercase text-slate-400">{t("history.pin_token")}</p>
                                     <p className="text-xl font-black text-slate-800 tracking-widest select-all">{tx.meta.pin}</p>
                                 </div>
                             )}
                         </div>
 
                         <div className="mt-6 text-center opacity-30">
-                            <p className="font-black text-xs uppercase">Naija Connects</p>
-                            <p className="text-[8px] font-bold">Generated Receipt</p>
+                            <p className="font-black text-xs uppercase">{t("app.name")}</p>
+                            <p className="text-[8px] font-bold">{t("history.generated_receipt")}</p>
                         </div>
                     </div>
                 </div>
 
                 <div className="mt-4 flex gap-3">
                     <button onClick={handleShare} disabled={isGenerating} className="flex-1 bg-emerald-600 text-white py-3 rounded-xl font-bold text-xs uppercase flex items-center justify-center gap-2 hover:bg-emerald-700 transition-colors shadow-lg">
-                        {isGenerating ? <Loader2 className="animate-spin" size={16}/> : <Share2 size={16}/>} Share
+                        {isGenerating ? <Loader2 className="animate-spin" size={16}/> : <Share2 size={16}/>} {t("common.share")}
                     </button>
                     
                     <div className="relative flex-1">
                         <button onClick={() => setSaveMenuOpen(!saveMenuOpen)} disabled={isGenerating} className="w-full bg-white text-slate-700 py-3 rounded-xl font-bold text-xs uppercase flex items-center justify-center gap-2 hover:bg-slate-50 transition-colors shadow-lg">
-                            <Download size={16}/> Save
+                            <Download size={16}/> {t("common.save")}
                         </button>
 
                         {saveMenuOpen && (
                             <div className="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-xl shadow-xl overflow-hidden animate-in slide-in-from-bottom-2">
                                 <button onClick={handleSaveImage} className="w-full p-3 text-left text-xs font-bold hover:bg-slate-50 flex items-center gap-2 border-b border-slate-100">
-                                    <ImageIcon size={14} className="text-emerald-600"/> Save as Image
+                                    <ImageIcon size={14} className="text-emerald-600"/> {t("common.save_image")}
                                 </button>
                                 <button onClick={handleSavePDF} className="w-full p-3 text-left text-xs font-bold hover:bg-slate-50 flex items-center gap-2">
-                                    <FileText size={14} className="text-rose-600"/> Save as PDF
+                                    <FileText size={14} className="text-rose-600"/> {t("common.save_pdf")}
                                 </button>
                             </div>
                         )}
@@ -377,7 +379,7 @@ const History = () => {
   if (loading) return (
     <div className="flex flex-col items-center justify-center h-64 space-y-4">
         <Loader2 className="animate-spin text-emerald-600" size={32} />
-        <p className="text-slate-400 font-bold uppercase text-xs tracking-widest">Loading History...</p>
+        <p className="text-slate-400 font-bold uppercase text-xs tracking-widest">{t("history.loading")}</p>
     </div>
   );
 
@@ -387,11 +389,11 @@ const History = () => {
       {/* 1. HEADER */}
       <div className="flex justify-between items-end px-2">
         <div>
-          <h2 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">Activity</h2>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Your Financial Overview</p>
+          <h2 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">{t("history.activity")}</h2>
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t("history.financial_overview")}</p>
         </div>
         <div className="bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full text-[10px] font-black uppercase text-slate-500 flex items-center gap-1">
-           <Calendar size={10} /> Recent
+           <Calendar size={10} /> {t("common.recent")}
         </div>
       </div>
 
@@ -399,16 +401,16 @@ const History = () => {
       <div className="grid grid-cols-2 gap-3">
         <div className="bg-slate-900 text-white p-5 rounded-[30px] shadow-xl relative overflow-hidden">
           <div className="absolute top-0 right-0 p-3 opacity-10"><TrendingUp size={80} /></div>
-          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Total Spent</p>
+          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">{t("history.total_spent")}</p>
           <h3 className="text-2xl font-black">₦{stats.totalSpent.toLocaleString()}</h3>
-          <p className="text-[9px] text-slate-500 font-bold mt-1">Lifetime spending</p>
+          <p className="text-[9px] text-slate-500 font-bold mt-1">{t("history.lifetime_spending")}</p>
         </div>
 
         <div className="space-y-3">
            <div className="bg-white dark:bg-slate-800 p-4 rounded-[25px] shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col justify-center">
               <div className="flex justify-between items-start">
                  <div>
-                   <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Transactions</p>
+                   <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{t("history.transactions")}</p>
                    <h3 className="text-xl font-black dark:text-white">{stats.totalTx}</h3>
                  </div>
                  <div className="bg-blue-50 text-blue-600 p-2 rounded-full"><Activity size={16}/></div>
@@ -417,7 +419,7 @@ const History = () => {
            <div className="bg-white dark:bg-slate-800 p-4 rounded-[25px] shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col justify-center">
               <div className="flex justify-between items-start">
                  <div>
-                   <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Success Rate</p>
+                   <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{t("history.success_rate")}</p>
                    <h3 className="text-xl font-black dark:text-white">{stats.successRate}%</h3>
                  </div>
                  <div className="bg-emerald-50 text-emerald-600 p-2 rounded-full"><CheckCircle2 size={16}/></div>
@@ -429,7 +431,7 @@ const History = () => {
       {/* 3. DYNAMIC VISUALIZATION CHART */}
       <section className="bg-white dark:bg-slate-800 p-6 rounded-[35px] shadow-sm border border-slate-100 dark:border-slate-700">
          <div className="flex justify-between items-center mb-6">
-             <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Spending Analysis</h3>
+             <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">{t("history.spending_analysis")}</h3>
              {/* CHART SWITCHER */}
              <div className="flex bg-slate-100 dark:bg-slate-700 p-1 rounded-full">
                  <button onClick={() => setChartType('bar')} className={`p-2 rounded-full transition-all ${chartType === 'bar' ? 'bg-white shadow text-emerald-600' : 'text-slate-400'}`}>
@@ -522,8 +524,8 @@ const History = () => {
                              )` 
                          }}>
                         <div className="absolute inset-4 bg-white dark:bg-slate-800 rounded-full flex items-center justify-center flex-col">
-                            <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Top</span>
-                            <span className="text-lg font-black text-slate-800 dark:text-white">{categoryData[0]?.name || "N/A"}</span>
+                            <span className="text-xs font-black text-slate-400 uppercase tracking-widest">{t("history.top")}</span>
+                            <span className="text-lg font-black text-slate-800 dark:text-white">{categoryData[0]?.name || t("history.na")}</span>
                         </div>
                     </div>
                     {/* Legend */}
@@ -537,7 +539,7 @@ const History = () => {
                                 </div>
                             </div>
                         ))}
-                        {categoryData.length === 0 && <p className="text-xs text-slate-400">No data yet</p>}
+                        {categoryData.length === 0 && <p className="text-xs text-slate-400">{t("history.no_data")}</p>}
                     </div>
                 </div>
             )}
@@ -552,7 +554,7 @@ const History = () => {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                 <input 
                     type="text" 
-                    placeholder="Search transactions..." 
+                    placeholder={t("history.search_transactions")} 
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="w-full pl-9 pr-4 py-3 bg-white dark:bg-slate-800 rounded-2xl text-xs font-bold outline-none border border-slate-100 dark:border-slate-700 focus:border-emerald-500 transition-colors"
@@ -561,13 +563,22 @@ const History = () => {
         </div>
 
         <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-2 custom-scrollbar">
-           {['All', 'Deposit', 'Airtime', 'Data', 'Cable', 'Electricity', 'Exam', 'RechargePin'].map(cat => (
+           {[
+             { key: 'All', label: t("history.filter.all") },
+             { key: 'Deposit', label: t("history.filter.deposit") },
+             { key: 'Airtime', label: t("dashboard.airtime") },
+             { key: 'Data', label: t("dashboard.data") },
+             { key: 'Cable', label: t("dashboard.cable") },
+             { key: 'Electricity', label: t("dashboard.electricity") },
+             { key: 'Exam', label: t("dashboard.exam") },
+             { key: 'RechargePin', label: t("dashboard.recharge_pin") }
+           ].map(cat => (
              <button 
-               key={cat} 
-               onClick={() => setFilter(cat)}
-               className={`px-4 py-2 rounded-full text-[10px] font-black uppercase whitespace-nowrap transition-all ${filter === cat ? 'bg-emerald-600 text-white shadow-md' : 'bg-white dark:bg-slate-800 text-slate-400 border border-slate-100 dark:border-slate-700'}`}
+               key={cat.key} 
+               onClick={() => setFilter(cat.key)}
+               className={`px-4 py-2 rounded-full text-[10px] font-black uppercase whitespace-nowrap transition-all ${filter === cat.key ? 'bg-emerald-600 text-white shadow-md' : 'bg-white dark:bg-slate-800 text-slate-400 border border-slate-100 dark:border-slate-700'}`}
              >
-               {cat}
+               {cat.label}
              </button>
            ))}
         </div>
@@ -577,7 +588,7 @@ const History = () => {
           {filteredList.length === 0 ? (
              <div className="text-center py-10 opacity-40">
                 <Activity className="w-12 h-12 mx-auto mb-2 text-slate-300" />
-                <p className="font-black text-sm uppercase text-slate-300">No Transactions Found</p>
+                <p className="font-black text-sm uppercase text-slate-300">{t("history.no_transactions_found")}</p>
              </div>
           ) : (
              filteredList.map((tx) => (

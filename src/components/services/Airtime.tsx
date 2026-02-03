@@ -3,6 +3,7 @@ import { ArrowLeft, Loader2, Smartphone, Wallet, User, History, Plus, X } from "
 import { supabase } from "../../supabaseClient";
 import { dbService } from "../../services/dbService";
 import { CARRIERS } from "../../constants";
+import { useI18n } from "../../i18n";
 
 interface AirtimeProps {
   user: any;
@@ -11,6 +12,7 @@ interface AirtimeProps {
 }
 
 const Airtime = ({ user, onUpdateBalance, onBack }: AirtimeProps) => {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(false);
   const [networkId, setNetworkId] = useState(1);
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -98,7 +100,7 @@ const Airtime = ({ user, onUpdateBalance, onBack }: AirtimeProps) => {
   // --- 4. PURCHASE LOGIC ---
   const handlePurchase = async () => {
     if (!amount || !phoneNumber) return;
-    if (Number(amount) > user.balance) return alert("Insufficient balance");
+    if (Number(amount) > user.balance) return alert(t("airtime.insufficient_balance"));
     
     setLoading(true);
     try {
@@ -137,14 +139,14 @@ const Airtime = ({ user, onUpdateBalance, onBack }: AirtimeProps) => {
         // Save to Recents
         saveRecentNumber(phoneNumber);
 
-        alert("Airtime Sent Successfully!");
+        alert(t("airtime.sent_success"));
         setPhoneNumber(userPhone); // Reset to user phone
         setAmount("");
       } else {
         throw new Error(data?.message || "Transaction Failed");
       }
     } catch (e: any) {
-      alert(e.message || "Failed to process airtime");
+      alert(e.message || t("airtime.failed"));
     } finally {
       setLoading(false);
     }
@@ -157,7 +159,7 @@ const Airtime = ({ user, onUpdateBalance, onBack }: AirtimeProps) => {
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <button onClick={onBack} className="flex items-center gap-2 text-slate-500 font-bold text-xs uppercase">
-          <ArrowLeft size={16} /> Back
+          <ArrowLeft size={16} /> {t("common.back")}
         </button>
         <div className="flex items-center gap-2 bg-emerald-50 px-3 py-1 rounded-full">
             <Wallet size={14} className="text-emerald-600"/>
@@ -170,12 +172,12 @@ const Airtime = ({ user, onUpdateBalance, onBack }: AirtimeProps) => {
         {/* Phone Input Section (Dark Theme) */}
         <div className="p-6 bg-slate-900 text-white relative">
             <div className="flex justify-between items-center mb-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mobile Number</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t("airtime.mobile_number")}</label>
                 <button 
                     onClick={() => setShowRecents(!showRecents)}
                     className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded-full hover:bg-emerald-400/20 transition-colors"
                 >
-                    <History size={12} /> Recent
+                    <History size={12} /> {t("common.recent")}
                 </button>
             </div>
 
@@ -204,7 +206,7 @@ const Airtime = ({ user, onUpdateBalance, onBack }: AirtimeProps) => {
             {showRecents && (
                 <div className="mt-3 bg-slate-800 rounded-xl p-2 animate-in slide-in-from-top-2 border border-slate-700 absolute z-20 left-6 right-6 shadow-2xl">
                     <div className="flex justify-between items-center px-2 mb-2 border-b border-slate-700 pb-2">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">Select Recent</span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">{t("airtime.select_recent")}</span>
                         <button onClick={() => setShowRecents(false)}><X size={14} className="text-slate-500 hover:text-white"/></button>
                     </div>
                     
@@ -218,7 +220,7 @@ const Airtime = ({ user, onUpdateBalance, onBack }: AirtimeProps) => {
                                 <User size={14} />
                             </div>
                             <div>
-                                <p className="text-xs font-bold text-white group-hover:text-emerald-400 transition-colors">My Number</p>
+                                <p className="text-xs font-bold text-white group-hover:text-emerald-400 transition-colors">{t("common.my_number")}</p>
                                 <p className="text-[10px] text-emerald-400 font-mono tracking-wide">{userPhone}</p>
                             </div>
                         </button>
@@ -237,13 +239,13 @@ const Airtime = ({ user, onUpdateBalance, onBack }: AirtimeProps) => {
                                 </div>
                                 <div>
                                     <span className="block text-xs font-bold text-slate-300 font-mono">{num}</span>
-                                    <span className="text-[9px] text-slate-500">Recent Transaction</span>
+                                    <span className="text-[9px] text-slate-500">{t("airtime.recent_transaction")}</span>
                                 </div>
                             </button>
                         ))}
                         
                         {recentNumbers.length === 0 && (
-                            <p className="text-center text-[10px] text-slate-500 py-4">No recent transactions</p>
+                            <p className="text-center text-[10px] text-slate-500 py-4">{t("common.no_recent_transactions")}</p>
                         )}
                     </div>
                 </div>
@@ -279,7 +281,7 @@ const Airtime = ({ user, onUpdateBalance, onBack }: AirtimeProps) => {
         </div>
 
         <div className="p-5">
-            <h3 className="font-bold text-slate-700 mb-4">Top up</h3>
+            <h3 className="font-bold text-slate-700 mb-4">{t("airtime.top_up")}</h3>
             
             {/* Amount Grid */}
             <div className="grid grid-cols-3 gap-3 mb-6">
@@ -295,16 +297,16 @@ const Airtime = ({ user, onUpdateBalance, onBack }: AirtimeProps) => {
                     >
                         {amt === 50 && (
                             <span className="absolute -top-2 bg-emerald-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full">
-                                Cashback
+                                {t("airtime.cashback")}
                             </span>
                         )}
                         <span className="text-lg font-black text-slate-800">₦{amt}</span>
-                        <span className="text-[9px] font-bold text-slate-400">Pay ₦{amt}</span>
+                        <span className="text-[9px] font-bold text-slate-400">{t("airtime.pay_amount", { amount: amt })}</span>
                     </button>
                 ))}
             </div>
             
-            <p className="text-[10px] text-slate-400 font-bold text-center mb-2">Or enter custom amount (₦50 - ₦500,000)</p>
+            <p className="text-[10px] text-slate-400 font-bold text-center mb-2">{t("airtime.custom_amount")}</p>
         </div>
 
         {/* Fixed Bottom Action Bar */}
@@ -324,7 +326,7 @@ const Airtime = ({ user, onUpdateBalance, onBack }: AirtimeProps) => {
                 disabled={loading || phoneNumber.length < 11 || !amount}
                 className="px-8 bg-emerald-600 text-white rounded-2xl font-black uppercase disabled:opacity-50 shadow-lg shadow-emerald-200 active:scale-95 transition-transform flex items-center justify-center"
             >
-                {loading ? <Loader2 className="animate-spin" /> : "Pay"}
+                {loading ? <Loader2 className="animate-spin" /> : t("common.pay")}
             </button>
         </div>
 

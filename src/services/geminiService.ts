@@ -2,7 +2,7 @@
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
 // REMOVED: import { MOCK_DATA_PLANS } from "../constants"; 
-import { Language } from "../types";
+import { LanguageCode } from "../i18n";
 
 // Initialize Gemini (Ensure VITE_GEMINI_API_KEY is in your .env.local)
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
@@ -11,7 +11,7 @@ const genAI = new GoogleGenerativeAI(API_KEY);
 export const geminiService = {
   
   // Main entry point for the Assistant
-  generateResponse: async (text: string, userContext: { name: string, balance: number }, language: Language = 'en') => {
+  generateResponse: async (text: string, userContext: { name: string, balance: number }, language: LanguageCode = 'en') => {
     
     // Simulate a small "thinking" delay for realism
     await new Promise(r => setTimeout(r, 1000));
@@ -47,7 +47,12 @@ export const geminiService = {
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
         const languageNames: Record<string, string> = {
-          en: 'English', yo: 'Yoruba', ig: 'Igbo', ha: 'Hausa', fr: 'French'
+          en: 'English',
+          yo: 'Yoruba',
+          ig: 'Igbo',
+          ha: 'Hausa',
+          fr: 'French',
+          ng: 'Pidgin'
         };
 
         // We removed the hardcoded MOCK_DATA_PLANS.

@@ -4,6 +4,7 @@ import {
   Smartphone, Receipt, Globe, ShieldCheck, Sparkles, ChevronRight, 
   ArrowLeft, Eye, EyeOff 
 } from 'lucide-react';
+import { useI18n } from '../i18n';
 
 interface AuthProps {
   onLogin: (email: string, pass: string) => Promise<void>;
@@ -13,6 +14,7 @@ interface AuthProps {
 }
 
 const Auth: React.FC<AuthProps> = ({ onLogin, onSignup, onForgotPassword, isProcessing }) => {
+  const { t } = useI18n();
   const [view, setView] = useState<'login' | 'signup' | 'forgot-password'>('login');
   
   const [email, setEmail] = useState('');
@@ -64,28 +66,28 @@ const Auth: React.FC<AuthProps> = ({ onLogin, onSignup, onForgotPassword, isProc
         await onLogin(email, password);
       } else if (view === 'signup') {
         await onSignup(email, name, password);
-        alert("Account created! Please check your email to confirm your account.");
+        alert(t("auth.alert.account_created"));
       } else if (view === 'forgot-password') {
         await onForgotPassword(email);
-        alert("Password reset link sent! Check your email.");
+        alert(t("auth.alert.reset_link_sent"));
         setView('login'); 
       }
     } catch (err: any) {
-      alert(err.message || "Something went wrong.");
+      alert(err.message || t("auth.alert.generic_error"));
     }
   };
 
   const getTitle = () => {
-    if (view === 'login') return 'Welcome Back';
-    if (view === 'signup') return 'Join the Family';
-    return 'Reset Password';
+    if (view === 'login') return t("auth.title.login");
+    if (view === 'signup') return t("auth.title.signup");
+    return t("auth.title.reset");
   };
 
   const getButtonText = () => {
     if (isProcessing) return <Loader2 className="animate-spin" />;
-    if (view === 'login') return 'Sign In';
-    if (view === 'signup') return 'Create Free Account';
-    return 'Send Reset Link';
+    if (view === 'login') return t("auth.button.sign_in");
+    if (view === 'signup') return t("auth.button.create_account");
+    return t("auth.button.send_reset");
   };
 
   return (
@@ -129,7 +131,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin, onSignup, onForgotPassword, isProc
             ))}
           </div>
           <span className="text-[10px] font-bold text-emerald-300 uppercase tracking-widest animate-pulse flex items-center gap-1">
-            Swipe to explore <ChevronRight size={12} />
+            {t("auth.swipe_explore")} <ChevronRight size={12} />
           </span>
         </div>
       </div>
@@ -140,13 +142,13 @@ const Auth: React.FC<AuthProps> = ({ onLogin, onSignup, onForgotPassword, isProc
           
           <div className="mb-8 text-center lg:text-left">
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-full text-[10px] font-black uppercase tracking-[0.2em] mb-4">
-              <Sparkles size={12} /> Secure Access
+              <Sparkles size={12} /> {t("auth.secure_access")}
             </div>
             <h2 className="text-3xl lg:text-4xl font-black dark:text-white tracking-tight">
               {getTitle()}
             </h2>
             {view === 'forgot-password' && (
-                <p className="text-slate-400 text-sm mt-2">Enter your email to receive a password reset link.</p>
+                <p className="text-slate-400 text-sm mt-2">{t("auth.reset_hint")}</p>
             )}
           </div>
 
@@ -156,14 +158,14 @@ const Auth: React.FC<AuthProps> = ({ onLogin, onSignup, onForgotPassword, isProc
             {view === 'signup' && (
               <div className="relative animate-in slide-in-from-bottom-2">
                 <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input type="text" required placeholder="Full Name" value={name} onChange={e => setName(e.target.value)} className="w-full pl-12 p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 dark:bg-slate-950 dark:text-white font-bold outline-none focus:border-emerald-500 transition-all text-sm" />
+                <input type="text" required placeholder={t("auth.full_name")} value={name} onChange={e => setName(e.target.value)} className="w-full pl-12 p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 dark:bg-slate-950 dark:text-white font-bold outline-none focus:border-emerald-500 transition-all text-sm" />
               </div>
             )}
             
             {/* EMAIL INPUT */}
             <div className="relative">
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-              <input type="email" required placeholder="Email Address" value={email} onChange={e => setEmail(e.target.value)} className="w-full pl-12 p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 dark:bg-slate-950 dark:text-white font-bold outline-none focus:border-emerald-500 transition-all text-sm" />
+              <input type="email" required placeholder={t("auth.email")} value={email} onChange={e => setEmail(e.target.value)} className="w-full pl-12 p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 dark:bg-slate-950 dark:text-white font-bold outline-none focus:border-emerald-500 transition-all text-sm" />
             </div>
 
             {/* PASSWORD INPUT (WITH TOGGLE) */}
@@ -173,7 +175,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin, onSignup, onForgotPassword, isProc
                     <input 
                       type={showPassword ? "text" : "password"} 
                       required 
-                      placeholder="Password" 
+                      placeholder={t("auth.password")} 
                       value={password} 
                       onChange={e => setPassword(e.target.value)} 
                       className="w-full pl-12 pr-12 p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 dark:bg-slate-950 dark:text-white font-bold outline-none focus:border-emerald-500 transition-all text-sm" 
@@ -193,7 +195,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin, onSignup, onForgotPassword, isProc
             {view === 'login' && (
                 <div className="flex justify-end">
                     <button type="button" onClick={() => setView('forgot-password')} className="text-[10px] font-bold text-slate-400 hover:text-emerald-600 transition-colors uppercase tracking-wide">
-                        Forgot Password?
+                        {t("auth.forgot_password")}
                     </button>
                 </div>
             )}
@@ -207,17 +209,17 @@ const Auth: React.FC<AuthProps> = ({ onLogin, onSignup, onForgotPassword, isProc
           <div className="mt-8 text-center flex flex-col gap-4">
             {view === 'forgot-password' ? (
                 <button onClick={() => setView('login')} className="text-emerald-600 font-black uppercase text-[10px] tracking-[0.15em] hover:underline flex items-center justify-center gap-2">
-                    <ArrowLeft size={12}/> Back to Login
+                    <ArrowLeft size={12}/> {t("auth.back_to_login")}
                 </button>
             ) : (
                 <button onClick={() => setView(view === 'login' ? 'signup' : 'login')} className="text-emerald-600 font-black uppercase text-[10px] tracking-[0.15em] hover:underline">
-                    {view === 'login' ? "New here? Open an account" : "Already have an account? Log in"}
+                    {view === 'login' ? t("auth.switch_to_signup") : t("auth.switch_to_login")}
                 </button>
             )}
             
             <div className="flex items-center justify-center gap-2 text-slate-400">
               <ShieldCheck size={14} />
-              <span className="text-[10px] font-bold uppercase tracking-widest">Bank-Grade Security</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest">{t("auth.bank_grade_security")}</span>
             </div>
           </div>
         </div>

@@ -10,6 +10,7 @@ import { supabase } from "../supabaseClient";
 import { dbService } from "../services/dbService";
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import { useI18n } from "../i18n";
 
 // --- SERVICE COMPONENTS ---
 import Airtime from "../components/services/Airtime";
@@ -93,6 +94,7 @@ const getLogoOrIcon = (transaction: Transaction) => {
 
 // --- COMPONENT: RECEIPT VIEW ---
 const ReceiptView = ({ tx, onClose }: { tx: Transaction; onClose: () => void }) => {
+    const { t } = useI18n();
     const receiptRef = useRef<HTMLDivElement>(null);
     const [isGenerating, setIsGenerating] = useState(false);
     const [saveMenuOpen, setSaveMenuOpen] = useState(false);
@@ -139,8 +141,8 @@ const ReceiptView = ({ tx, onClose }: { tx: Transaction; onClose: () => void }) 
         if (navigator.share) {
           try {
             await navigator.share({
-              title: 'Transaction Receipt',
-              text: `Receipt for ${tx.type} - ₦${tx.amount.toLocaleString()}`,
+              title: t("dashboard.receipt_title"),
+              text: t("dashboard.receipt_for", { type: tx.type, amount: tx.amount.toLocaleString() }),
               files: [file]
             });
           } catch (e) { console.log("Share skipped"); }
@@ -185,13 +187,13 @@ const ReceiptView = ({ tx, onClose }: { tx: Transaction; onClose: () => void }) 
         pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
         pdf.save(`receipt_${displayRef}.pdf`);
         setSaveMenuOpen(false);
-      } catch (e) { alert("Error generating PDF"); }
+      } catch (e) { alert(t("dashboard.error_generating_pdf")); }
       setIsGenerating(false);
     };
 
     const handleCopyRef = () => {
         navigator.clipboard.writeText(displayRef).then(() => {
-            alert("Reference copied!");
+            alert(t("dashboard.reference_copied"));
         });
     };
   
@@ -217,7 +219,7 @@ const ReceiptView = ({ tx, onClose }: { tx: Transaction; onClose: () => void }) 
                 <h2 className="text-3xl font-black text-slate-900 mt-2">
                   ₦{tx.amount.toLocaleString()}
                 </h2>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Total Amount</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{t("dashboard.total_amount")}</p>
                 
                 <div className={`mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase ${tx.status === 'Success' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
                   {tx.status === 'Success' ? <CheckCircle2 size={12} strokeWidth={3}/> : <X size={12} strokeWidth={3}/>}
@@ -228,7 +230,7 @@ const ReceiptView = ({ tx, onClose }: { tx: Transaction; onClose: () => void }) 
               {/* Details */}
               <div className="p-6 pt-5 space-y-4 bg-slate-50/50">
                 <div className="flex justify-between items-center">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Service</span>
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t("common.service")}</span>
                   <div className="flex items-center gap-2 text-right">
                      <span className="text-sm font-black text-slate-700">{tx.type}</span>
                      <div className="w-6 h-6 rounded-full border border-slate-200 overflow-hidden bg-white flex items-center justify-center">
@@ -238,7 +240,7 @@ const ReceiptView = ({ tx, onClose }: { tx: Transaction; onClose: () => void }) 
                 </div>
   
                 <div className="flex justify-between items-center border-b border-dashed border-slate-200 pb-3">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Date</span>
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t("common.date")}</span>
                   <span className="text-xs font-black text-slate-700 text-right">
                     {new Date(tx.created_at).toLocaleString('en-NG', { 
                       day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute:'2-digit' 
@@ -247,7 +249,7 @@ const ReceiptView = ({ tx, onClose }: { tx: Transaction; onClose: () => void }) 
                 </div>
   
                 <div className="flex justify-between items-center border-b border-dashed border-slate-200 pb-3">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Ref ID</span>
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t("common.ref_id")}</span>
                   <button onClick={handleCopyRef} className="flex items-center gap-1 text-[10px] font-mono font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded hover:bg-emerald-100 hover:text-emerald-700 transition-colors">
                     {displayRef} <Copy size={10}/>
                   </button>
@@ -255,7 +257,7 @@ const ReceiptView = ({ tx, onClose }: { tx: Transaction; onClose: () => void }) 
   
                 {(tx.description || tx.user_email) && (
                   <div className="flex justify-between items-start border-b border-dashed border-slate-200 pb-3">
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Desc</span>
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t("common.desc")}</span>
                     <span className="text-xs font-bold text-slate-700 text-right max-w-[150px] leading-tight">
                       {tx.description || tx.type}
                     </span>
@@ -266,7 +268,7 @@ const ReceiptView = ({ tx, onClose }: { tx: Transaction; onClose: () => void }) 
                 {(tx.meta?.pin || tx.meta?.token) && (
                   <div className="mt-2 bg-slate-800 text-white p-3 rounded-xl text-center relative overflow-hidden shadow-inner">
                      <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">
-                       {tx.type === 'Electricity' ? 'Token' : 'PIN'}
+                       {tx.type === 'Electricity' ? t("common.token") : t("common.pin")}
                      </p>
                      <p className="text-lg font-mono font-black tracking-[0.2em] select-all">
                        {tx.meta.pin || tx.meta.token}
@@ -278,7 +280,7 @@ const ReceiptView = ({ tx, onClose }: { tx: Transaction; onClose: () => void }) 
               {/* Footer */}
               <div className="bg-white p-4 text-center pb-8 rounded-b-2xl">
                 <p className="text-[9px] text-slate-300 font-bold uppercase tracking-widest">
-                  Generated by NaijaPay
+                  {t("dashboard.generated_by")}
                 </p>
               </div>
   
@@ -294,7 +296,7 @@ const ReceiptView = ({ tx, onClose }: { tx: Transaction; onClose: () => void }) 
               disabled={isGenerating}
               className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold text-xs uppercase shadow-lg shadow-emerald-600/20 transition-all active:scale-95 flex items-center justify-center gap-2"
             >
-              {isGenerating ? <Loader2 className="animate-spin" size={16}/> : <Share2 size={16}/>} Share
+              {isGenerating ? <Loader2 className="animate-spin" size={16}/> : <Share2 size={16}/>} {t("common.share")}
             </button>
             
             <div className="relative flex-1">
@@ -303,16 +305,16 @@ const ReceiptView = ({ tx, onClose }: { tx: Transaction; onClose: () => void }) 
                 disabled={isGenerating} 
                 className="w-full bg-white hover:bg-slate-50 text-slate-700 py-3 rounded-xl font-bold text-xs uppercase shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
               >
-                <Download size={16}/> Save
+                <Download size={16}/> {t("common.save")}
               </button>
   
               {saveMenuOpen && (
                  <div className="absolute bottom-full right-0 left-0 mb-3 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden animate-in slide-in-from-bottom-2 z-20">
                     <button onClick={handleSaveImage} className="w-full p-3 text-left text-xs font-bold hover:bg-slate-50 flex items-center gap-3 border-b border-slate-100">
-                       <ImageIcon size={14} className="text-emerald-600"/> Save Image
+                       <ImageIcon size={14} className="text-emerald-600"/> {t("common.save_image")}
                     </button>
                     <button onClick={handleSavePDF} className="w-full p-3 text-left text-xs font-bold hover:bg-slate-50 flex items-center gap-3">
-                       <FileText size={14} className="text-rose-600"/> Save PDF
+                       <FileText size={14} className="text-rose-600"/> {t("common.save_pdf")}
                     </button>
                  </div>
               )}
@@ -327,6 +329,7 @@ const ReceiptView = ({ tx, onClose }: { tx: Transaction; onClose: () => void }) 
 
 // --- MAIN DASHBOARD COMPONENT ---
 const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
+  const { t } = useI18n();
   const [view, setView] = useState<ViewState>("Dashboard");
   const [isRefreshingBalance, setIsRefreshingBalance] = useState(false);
   const [history, setHistory] = useState<Transaction[]>([]);
@@ -369,7 +372,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
   const initializePayment = usePaystackPayment(paystackConfig);
 
   const handleStartDeposit = () => {
-    if (!depositAmount || Number(depositAmount) < 100) return alert("Min ₦100");
+    if (!depositAmount || Number(depositAmount) < 100) return alert(t("dashboard.min_deposit"));
     initializePayment({
       onSuccess: async () => {
          const newBal = user.balance + Number(depositAmount);
@@ -381,7 +384,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
          setIsDepositModalOpen(false);
          setDepositAmount("");
          setCurrentTxRef(`txn_${Date.now()}`);
-         alert("Wallet Funded Successfully!");
+         alert(t("dashboard.wallet_funded"));
          fetchHistory();
       },
       onClose: () => console.log("Closed")
@@ -420,7 +423,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
 
         <div className="relative z-10">
             <div className="flex justify-between items-start mb-1">
-            <p className="text-[10px] font-black uppercase tracking-widest opacity-80">Available Balance</p>
+            <p className="text-[10px] font-black uppercase tracking-widest opacity-80">{t("dashboard.available_balance")}</p>
             <button onClick={() => { setIsRefreshingBalance(true); fetchUser(); setTimeout(() => setIsRefreshingBalance(false), 1000); }} className="p-2 bg-emerald-700/50 rounded-full hover:bg-emerald-700 transition-colors">
                 <RotateCcw size={14} className={isRefreshingBalance ? "animate-spin" : ""} />
             </button>
@@ -428,10 +431,10 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
             <h2 className="text-4xl font-black mb-6">₦{user.balance.toLocaleString()}</h2>
             <div className="flex gap-3">
             <button onClick={() => setIsDepositModalOpen(true)} className="flex-1 bg-white text-emerald-700 py-4 rounded-2xl font-black text-xs uppercase shadow-lg flex items-center justify-center gap-2 hover:bg-emerald-50 transition-colors">
-                <CreditCard size={16} /> Fund
+                <CreditCard size={16} /> {t("dashboard.fund")}
             </button>
             <button className="flex-1 bg-emerald-800/40 border border-emerald-400/30 text-emerald-100 py-4 rounded-2xl font-black text-xs uppercase cursor-not-allowed">
-                Withdraw
+                {t("dashboard.withdraw")}
             </button>
             </div>
         </div>
@@ -440,11 +443,12 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
       {/* SERVICE GRID */}
       <div className="grid grid-cols-3 gap-2 bg-slate-100 dark:bg-slate-800 p-2 rounded-2xl">
         {[
-          { id: "Airtime", icon: <Smartphone size={18} /> },
-          { id: "Data", icon: <Zap size={18} /> },
-          { id: "Cable", icon: <Tv size={18} /> },
+          { id: "Airtime", labelKey: "dashboard.airtime", icon: <Smartphone size={18} /> },
+          { id: "Data", labelKey: "dashboard.data", icon: <Zap size={18} /> },
+          { id: "Cable", labelKey: "dashboard.cable", icon: <Tv size={18} /> },
           { 
             id: "Electricity", 
+            labelKey: "dashboard.electricity",
             icon: (
                 <div className="relative">
                     <Building2 size={18} />
@@ -452,15 +456,15 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
                 </div>
             ) 
           },
-          { id: "Exam", icon: <GraduationCap size={18} /> },
-          { id: "RechargePin", icon: <Printer size={18} /> },
+          { id: "Exam", labelKey: "dashboard.exam", icon: <GraduationCap size={18} /> },
+          { id: "RechargePin", labelKey: "dashboard.recharge_pin", icon: <Printer size={18} /> },
         ].map((s) => (
           <button
             key={s.id}
             onClick={() => setView(s.id as ViewState)}
             className="flex flex-col items-center py-4 rounded-xl text-slate-400 hover:bg-white hover:text-emerald-600 hover:shadow-sm transition-all"
           >
-            {s.icon} <span className="text-[9px] font-black uppercase mt-1">{s.id}</span>
+            {s.icon} <span className="text-[9px] font-black uppercase mt-1">{t(s.labelKey)}</span>
           </button>
         ))}
       </div>
@@ -469,8 +473,8 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
         <div className="flex items-center gap-4">
           <div className="p-3 bg-orange-100 text-orange-600 rounded-xl group-hover:bg-orange-200 transition-colors"><ArrowLeftRight size={22} /></div>
           <div className="text-left">
-            <h3 className="font-black text-sm uppercase text-slate-800">Airtime to Cash</h3>
-            <p className="text-[10px] text-slate-400 font-bold">Swap Airtime for Cash</p>
+            <h3 className="font-black text-sm uppercase text-slate-800">{t("dashboard.airtime_to_cash")}</h3>
+            <p className="text-[10px] text-slate-400 font-bold">{t("dashboard.swap_airtime_for_cash")}</p>
           </div>
         </div>
         <ArrowRight size={20} className="text-slate-300 group-hover:text-emerald-500 transition-colors" />
@@ -478,9 +482,9 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
 
       {/* HISTORY (UPDATED WITH CLICKABLE RECEIPT) */}
       <div className="pt-2">
-        <h3 className="font-black text-[10px] uppercase text-slate-400 tracking-widest mb-3 ml-2">Recent Activity</h3>
+        <h3 className="font-black text-[10px] uppercase text-slate-400 tracking-widest mb-3 ml-2">{t("dashboard.recent_activity")}</h3>
         <div className="space-y-2">
-          {history.length === 0 && <p className="text-center text-xs text-slate-300 py-4">No recent activity</p>}
+          {history.length === 0 && <p className="text-center text-xs text-slate-300 py-4">{t("common.no_recent_activity")}</p>}
           
           {history.map((tx) => (
             <button 
@@ -522,14 +526,14 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-in fade-in">
           <div className="bg-white w-full max-w-sm rounded-[35px] p-8 shadow-2xl relative">
             <button onClick={() => setIsDepositModalOpen(false)} className="absolute top-6 right-6 p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"><X size={16} /></button>
-            <h3 className="text-xl font-black text-center mb-6 text-slate-800">Fund Wallet</h3>
+            <h3 className="text-xl font-black text-center mb-6 text-slate-800">{t("dashboard.fund_wallet")}</h3>
             <div className="flex gap-2 mb-4 overflow-x-auto pb-2 custom-scrollbar">
                  {[100, 500, 1000, 2000, 5000].map(amt => (
                      <button key={amt} onClick={() => setDepositAmount(amt.toString())} className="px-4 py-2 bg-slate-100 hover:bg-emerald-100 hover:text-emerald-700 rounded-xl text-xs font-bold text-slate-600 transition-colors whitespace-nowrap">₦{amt}</button>
                  ))}
             </div>
-            <input type="number" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl font-black mb-4 outline-none border border-slate-200 focus:border-emerald-500 transition-colors text-slate-800" placeholder="Amount (₦)" />
-            <button onClick={handleStartDeposit} className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black uppercase transition-colors shadow-lg shadow-emerald-200">Pay Securely</button>
+            <input type="number" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl font-black mb-4 outline-none border border-slate-200 focus:border-emerald-500 transition-colors text-slate-800" placeholder={t("common.amount")} />
+            <button onClick={handleStartDeposit} className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black uppercase transition-colors shadow-lg shadow-emerald-200">{t("common.pay_securely")}</button>
           </div>
         </div>
       )}

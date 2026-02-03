@@ -8,20 +8,39 @@ import {
   Bell 
 } from 'lucide-react';
 import { LANGUAGES } from '../constants';
+import { useI18n, LanguageCode } from '../i18n';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
   activeTab: 'buy' | 'history' | 'assistant' | 'profile';
   setActiveTab: (tab: 'buy' | 'history' | 'assistant' | 'profile') => void;
   userName: string;
-  language: string;
-  setLanguage: (lang: any) => void;
 }
 
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ 
-  children, activeTab, setActiveTab, userName, language, setLanguage 
+  children, activeTab, setActiveTab, userName
 }) => {
   const [showLangMenu, setShowLangMenu] = useState(false);
+  const { t, setLanguage } = useI18n();
+
+  const getLangLabel = (id: string) => {
+    switch (id) {
+      case "en":
+        return t("lang.english");
+      case "yo":
+        return t("lang.yoruba");
+      case "ig":
+        return t("lang.igbo");
+      case "fr":
+        return t("lang.french");
+      case "ha":
+        return t("lang.hausa");
+      case "ng":
+        return t("lang.pidgin");
+      default:
+        return id.toUpperCase();
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col max-w-lg mx-auto bg-slate-50 dark:bg-slate-900 relative transition-colors">
@@ -49,8 +68,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             {showLangMenu && (
               <div className="absolute top-12 right-0 bg-white dark:bg-slate-800 p-2 rounded-xl shadow-2xl z-50 overflow-hidden w-40 border border-slate-100 dark:border-slate-700">
                 {LANGUAGES.map(l => (
-                  <button key={l.id} onClick={() => {setLanguage(l.id); setShowLangMenu(false)}} className="block w-full text-left p-3 text-xs font-black dark:text-white hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg transition-colors">
-                    {l.flag} {l.name}
+                  <button key={l.id} onClick={() => {setLanguage(l.id as LanguageCode); setShowLangMenu(false)}} className="block w-full text-left p-3 text-xs font-black dark:text-white hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg transition-colors">
+                    {l.flag} {getLangLabel(l.id)}
                   </button>
                 ))}
               </div>
@@ -65,7 +84,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             <div className="w-9 h-9 bg-emerald-500 rounded-full flex items-center justify-center font-black border-2 border-white/20 uppercase shadow-inner text-white text-sm">
               {userName.charAt(0)}
             </div>
-            <span className="text-[8px] font-black uppercase text-emerald-100">Me</span>
+            <span className="text-[8px] font-black uppercase text-emerald-100">{t("nav.me")}</span>
           </button>
         </div>
       </header>
@@ -83,7 +102,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             active={activeTab === 'assistant'} 
             onClick={() => setActiveTab('assistant')} 
             icon={<MessageCircle size={24} strokeWidth={2.5}/>} 
-            label="Ask AI"
+            label={t("nav.ask_ai")}
             badge={true} 
         />
 
@@ -93,7 +112,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 active={activeTab === 'buy'} 
                 onClick={() => setActiveTab('buy')} 
                 icon={<Wifi size={28} strokeWidth={3} />} 
-                label="Buy" 
+                label={t("nav.buy")}
                 isMain={true} 
             />
         </div>
@@ -103,7 +122,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             active={activeTab === 'history'} 
             onClick={() => setActiveTab('history')} 
             icon={<HistoryIcon size={24} strokeWidth={2.5}/>} 
-            label="History" 
+            label={t("nav.history")}
         />
 
       </nav>

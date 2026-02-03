@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Sparkles, MoreHorizontal } from 'lucide-react';
 import { geminiService } from '../services/geminiService';
 import { ChatMessage } from '../types';
+import { useI18n } from '../i18n';
 
 interface AssistantProps {
   user: { name: string; email: string; balance: number };
@@ -11,9 +12,10 @@ const Assistant: React.FC<AssistantProps> = ({ user }) => {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { t, language } = useI18n();
 
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: 'model', text: `Hi ${user.name}! 👋 I'm your NaijaConnect AI. Ask me about your balance, funding your wallet, or how to buy data!` }
+    { role: 'model', text: t("assistant.greeting", { name: user.name }) }
   ]);
 
   // Auto-scroll to bottom
@@ -22,6 +24,18 @@ const Assistant: React.FC<AssistantProps> = ({ user }) => {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, isTyping]);
+
+  // Update greeting when language changes
+  useEffect(() => {
+    setMessages(prev => {
+      if (prev.length === 0) {
+        return [{ role: "model", text: t("assistant.greeting", { name: user.name }) }];
+      }
+      const [first, ...rest] = prev;
+      if (first.role !== "model") return prev;
+      return [{ ...first, text: t("assistant.greeting", { name: user.name }) }, ...rest];
+    });
+  }, [t, user.name]);
 
   const handleSend = async (textOverride?: string) => {
     const textToSend = textOverride || input;
@@ -35,12 +49,12 @@ const Assistant: React.FC<AssistantProps> = ({ user }) => {
 
     // 2. Get AI Response
     try {
-      const responseText = await geminiService.generateResponse(textToSend, user);
+      const responseText = await geminiService.generateResponse(textToSend, user, language);
       
       const aiMsg: ChatMessage = { role: 'model', text: responseText };
       setMessages(prev => [...prev, aiMsg]);
     } catch (error) {
-      setMessages(prev => [...prev, { role: 'model', text: "I'm having trouble connecting right now. Please try again." }]);
+      setMessages(prev => [...prev, { role: 'model', text: t("assistant.offline") }]);
     } finally {
       setIsTyping(false);
     }
@@ -64,8 +78,8 @@ const Assistant: React.FC<AssistantProps> = ({ user }) => {
           <Sparkles size={20} className="animate-pulse"/>
         </div>
         <div>
-           <h2 className="font-black text-sm dark:text-white uppercase tracking-tight">AI Assistant</h2>
-           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Always Online</p>
+           <h2 className="font-black text-sm dark:text-white uppercase tracking-tight">{t("assistant.title")}</h2>
+           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t("assistant.subtitle")}</p>
         </div>
       </div>
 
@@ -105,10 +119,10 @@ const Assistant: React.FC<AssistantProps> = ({ user }) => {
          
          {/* Quick Prompts Scroll */}
          <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
-            <QuickPrompt text="Check my balance" />
-            <QuickPrompt text="How do I deposit?" />
-            <QuickPrompt text="Buy Data" />
-            <QuickPrompt text="Who are you?" />
+            <QuickPrompt text={t("assistant.quick.balance")} />
+            <QuickPrompt text={t("assistant.quick.deposit")} />
+            <QuickPrompt text={t("assistant.quick.buy_data")} />
+            <QuickPrompt text={t("assistant.quick.who")} />
          </div>
 
          <div className="relative">
@@ -117,7 +131,7 @@ const Assistant: React.FC<AssistantProps> = ({ user }) => {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-              placeholder="Ask me anything..." 
+              placeholder={t("assistant.input_placeholder")} 
               className="w-full pl-5 pr-14 py-4 bg-slate-100 dark:bg-slate-900 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-emerald-500 transition-all dark:text-white"
             />
             <button 

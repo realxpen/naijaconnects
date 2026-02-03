@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Zap } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { dbService } from './services/dbService';
+import { I18nProvider, LanguageCode } from './i18n';
 
 // Layouts & Pages
 import DashboardLayout from "./layouts/DashboardLayout"; // Adjusted path to components
@@ -23,7 +24,10 @@ const App: React.FC = () => {
   const [user, setUser] = useState<{name: string, email: string, balance: number, phone?: string} | null>(null);
   
   const [isProcessing, setIsProcessing] = useState(false);
-  const [language, setLanguage] = useState('en');
+  const [language, setLanguage] = useState<LanguageCode>(() => {
+    const stored = localStorage.getItem("language");
+    return (stored as LanguageCode) || "en";
+  });
 
   // --- 1. FETCH USER PROFILE ---
   const fetchUser = async (email: string) => {
@@ -142,56 +146,57 @@ const App: React.FC = () => {
     setUser(prev => prev ? { ...prev, balance: newBalance } : prev);
   };
 
+  // Persist language
+  useEffect(() => {
+    localStorage.setItem("language", language);
+  }, [language]);
+
   // --- RENDER ---
 
-  if (isSplashScreen) return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-emerald-600 text-white">
-      <Zap className="w-24 h-24 animate-bounce text-yellow-400 fill-yellow-400"/>
-      <h1 className="text-4xl font-black mt-8 tracking-tighter">NaijaConnect</h1>
-    </div>
-  );
-
-  if (!isAuthenticated) {
-    return (
-      <Auth 
-        onLogin={handleLogin} 
-        onSignup={handleSignup} 
-        onForgotPassword={handleForgotPassword} 
-        isProcessing={isProcessing} 
-      />
-    );
-  }
-
   return (
-    <DashboardLayout 
-      activeTab={activeTab} 
-      setActiveTab={handleTabChange} // Use the smart handler here
-      userName={user?.name || ''} 
-      language={language} 
-      setLanguage={setLanguage}
-    >
-      {activeTab === 'buy' && user && (
-        <Dashboard 
-            key={dashboardResetKey} // This forces the reset
-            user={user} 
-            onUpdateBalance={onUpdateBalance} 
+    <I18nProvider language={language} setLanguage={setLanguage}>
+      {isSplashScreen ? (
+        <div className="min-h-screen flex flex-col items-center justify-center bg-emerald-600 text-white">
+          <Zap className="w-24 h-24 animate-bounce text-yellow-400 fill-yellow-400"/>
+          <h1 className="text-4xl font-black mt-8 tracking-tighter">NaijaConnect</h1>
+        </div>
+      ) : !isAuthenticated ? (
+        <Auth 
+          onLogin={handleLogin} 
+          onSignup={handleSignup} 
+          onForgotPassword={handleForgotPassword} 
+          isProcessing={isProcessing} 
         />
+      ) : (
+        <DashboardLayout 
+          activeTab={activeTab} 
+          setActiveTab={handleTabChange} // Use the smart handler here
+          userName={user?.name || ''} 
+        >
+          {activeTab === 'buy' && user && (
+            <Dashboard 
+                key={dashboardResetKey} // This forces the reset
+                user={user} 
+                onUpdateBalance={onUpdateBalance} 
+            />
+          )}
+          
+          {activeTab === 'history' && <History />}
+          
+          {activeTab === 'assistant' && user && (
+            <Assistant user={user} />
+          )}
+          
+          {activeTab === 'profile' && user && (
+            <Profile 
+              user={user} 
+              onLogout={handleLogout} 
+              onUpdateUser={handleUpdateUser} 
+            />
+          )}
+        </DashboardLayout>
       )}
-      
-      {activeTab === 'history' && <History />}
-      
-      {activeTab === 'assistant' && (
-        <Assistant user={user} />
-      )}
-      
-      {activeTab === 'profile' && user && (
-        <Profile 
-          user={user} 
-          onLogout={handleLogout} 
-          onUpdateUser={handleUpdateUser} 
-        />
-      )}
-    </DashboardLayout>
+    </I18nProvider>
   );
 };
 

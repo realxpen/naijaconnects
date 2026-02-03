@@ -54,22 +54,22 @@ export const CARRIERS = [
 ];
 
 export const CABLE_PROVIDERS = [
-  { id: 'gotv', name: 'GOtv', logo: gotvLogo }, 
-  { id: 'dstv', name: 'DStv', logo: dstvLogo }, 
-  { id: 'startimes', name: 'StarTimes', logo: startimesLogo }, 
+  { id: 'gotv', name: 'GOtv', logo: gotvLogo },
+  { id: 'dstv', name: 'DStv', logo: dstvLogo },
+  { id: 'startimes', name: 'StarTimes', logo: startimesLogo },
   { id: 'showmax', name: 'Showmax', logo: showmaxLogo }
 ];
 
 export const DISCOS = [
-  { id: '01', name: 'Eko', short: 'EKEDC', logo: 'https://via.placeholder.com/50?text=EKO' }, 
-  { id: '02', name: 'Ikeja', short: 'IKEDC', logo: ikejaLogo }, 
-  { id: '03', name: 'Abuja', short: 'AEDC', logo: 'https://via.placeholder.com/50?text=AEDC' }, 
+  { id: '01', name: 'Eko', short: 'EKEDC', logo: 'https://via.placeholder.com/50?text=EKO' },
+  { id: '02', name: 'Ikeja', short: 'IKEDC', logo: ikejaLogo },
+  { id: '03', name: 'Abuja', short: 'AEDC', logo: 'https://via.placeholder.com/50?text=AEDC' },
   { id: '04', name: 'Kano', short: 'KEDCO', logo: 'https://via.placeholder.com/50?text=KEDCO' },
   { id: '05', name: 'P.Harcourt', short: 'PHED', logo: 'https://via.placeholder.com/50?text=PHED' },
-  { id: '06', name: 'Jos', short: 'JED', logo: 'https://via.placeholder.com/50?text=JOS' }, 
-  { id: '07', name: 'Ibadan', short: 'IBEDC', logo: 'https://via.placeholder.com/50?text=IBEDC' }, 
+  { id: '06', name: 'Jos', short: 'JED', logo: 'https://via.placeholder.com/50?text=JOS' },
+  { id: '07', name: 'Ibadan', short: 'IBEDC', logo: 'https://via.placeholder.com/50?text=IBEDC' },
   { id: '08', name: 'Kaduna', short: 'KAEDCO', logo: 'https://via.placeholder.com/50?text=KD' },
-  { id: '09', name: 'Enugu', short: 'EEDC', logo: 'https://via.placeholder.com/50?text=EEDC' }, 
+  { id: '09', name: 'Enugu', short: 'EEDC', logo: 'https://via.placeholder.com/50?text=EEDC' },
   { id: '10', name: 'Benin', short: 'BEDC', logo: 'https://via.placeholder.com/50?text=BENIN' },
   { id: '11', name: 'Yola', short: 'YEDC', logo: 'https://via.placeholder.com/50?text=YOLA' },
   { id: '12', name: 'Aba', short: 'APLE', logo: 'https://via.placeholder.com/50?text=ABA' },
@@ -84,8 +84,8 @@ export const JAMB_VARIANTS = [
 
 export const EXAM_TYPES = [
   { id: 'JAMB', name: 'JAMB e-PIN', price: 0, logo: null }, // Price calculated from variant
-  { id: 'WAEC', name: 'WAEC Result Checker', price: 3500, logo: waecLogo }, // ₦3,500
-  { id: 'NECO', name: 'NECO Result Checker', price: 1300, logo: necoLogo }, // ₦1,300
+  { id: 'WAEC', name: 'WAEC Result Checker', price: 3500, logo: waecLogo },
+  { id: 'NECO', name: 'NECO Result Checker', price: 1300, logo: necoLogo },
 ];
 
 export const PREFILLED_AMOUNTS = [1000, 2000, 5000, 10000];
@@ -94,5 +94,9 @@ export const PIN_PRICING: Record<number, number> = { 1: 98, 2: 97, 3: 97, 4: 95,
 
 export const LANGUAGES: Language[] = [
   { id: 'en', name: 'English', flag: '🇬🇧' },
+  { id: 'yo', name: 'Yoruba', flag: '🇳🇬' },
+  { id: 'ig', name: 'Igbo', flag: '🇳🇬' },
+  { id: 'fr', name: 'French', flag: '🇫🇷' },
+  { id: 'ha', name: 'Hausa', flag: '🇳🇬' },
   { id: 'ng', name: 'Pidgin', flag: '🇳🇬' },
 ];

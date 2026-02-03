@@ -3,6 +3,7 @@ import { ArrowLeft, Loader2, Zap, Wifi, CheckCircle2, History, User, X } from "l
 import { supabase } from "../../supabaseClient";
 import { dbService } from "../../services/dbService";
 import { CARRIERS } from "../../constants";
+import { useI18n } from "../../i18n";
 
 interface DataBundleProps {
   user: any;
@@ -11,6 +12,7 @@ interface DataBundleProps {
 }
 
 const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(false);
   const [networkId, setNetworkId] = useState(1);
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -150,7 +152,7 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
   // --- 6. PURCHASE LOGIC ---
   const handlePurchase = async () => {
     if (!selectedPlan || !phoneNumber) return;
-    if (user.balance < selectedPlan.amount) return alert("Insufficient Balance");
+    if (user.balance < selectedPlan.amount) return alert(t("data.insufficient_balance"));
 
     setLoading(true);
     try {
@@ -182,14 +184,14 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
         
         saveRecentNumber(phoneNumber);
 
-        alert(`Success! ${selectedPlan.plan_name} sent.`);
+        alert(t("data.success_sent", { plan: selectedPlan.plan_name }));
         setPhoneNumber(userPhone); // Reset to user
         setSelectedPlan(null);
       } else {
         throw new Error(data.message || "Failed");
       }
     } catch (e: any) {
-      alert(e.message || "Transaction Failed");
+      alert(e.message || t("data.transaction_failed"));
     } finally {
       setLoading(false);
     }
@@ -205,10 +207,10 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <button onClick={onBack} className="flex items-center gap-2 text-slate-500 font-bold text-xs uppercase">
-          <ArrowLeft size={16} /> Back
+          <ArrowLeft size={16} /> {t("common.back")}
         </button>
         <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-400">Balance:</span>
+            <span className="text-xs font-bold text-slate-400">{t("common.balance")}:</span>
             <span className="text-sm font-black text-emerald-600">₦{user.balance.toLocaleString()}</span>
         </div>
       </div>
@@ -219,12 +221,12 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
         {/* Phone Input Section (Updated to match Airtime) */}
         <div className="p-6 bg-slate-900 text-white relative">
             <div className="flex justify-between items-center mb-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mobile Number</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t("airtime.mobile_number")}</label>
                 <button 
                     onClick={() => setShowRecents(!showRecents)}
                     className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded-full hover:bg-emerald-400/20 transition-colors"
                 >
-                    <History size={12} /> Recent
+                    <History size={12} /> {t("common.recent")}
                 </button>
             </div>
 
@@ -252,7 +254,7 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
             {showRecents && (
                 <div className="mt-3 bg-slate-800 rounded-xl p-2 animate-in slide-in-from-top-2 border border-slate-700 absolute z-20 left-6 right-6 shadow-2xl">
                     <div className="flex justify-between items-center px-2 mb-2 border-b border-slate-700 pb-2">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">Select Recent</span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">{t("data.select_recent")}</span>
                         <button onClick={() => setShowRecents(false)}><X size={14} className="text-slate-500 hover:text-white"/></button>
                     </div>
                     
@@ -266,7 +268,7 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
                                 <User size={14} />
                             </div>
                             <div>
-                                <p className="text-xs font-bold text-white group-hover:text-emerald-400 transition-colors">My Number</p>
+                                <p className="text-xs font-bold text-white group-hover:text-emerald-400 transition-colors">{t("common.my_number")}</p>
                                 <p className="text-[10px] text-emerald-400 font-mono tracking-wide">{userPhone}</p>
                             </div>
                         </button>
@@ -285,12 +287,12 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
                                 </div>
                                 <div>
                                     <span className="block text-xs font-bold text-slate-300 font-mono">{num}</span>
-                                    <span className="text-[9px] text-slate-500">Recent Data</span>
+                                    <span className="text-[9px] text-slate-500">{t("data.recent_data")}</span>
                                 </div>
                             </button>
                         ))}
                         {recentNumbers.length === 0 && (
-                            <p className="text-center text-[10px] text-slate-500 py-4">No recent transactions</p>
+                            <p className="text-center text-[10px] text-slate-500 py-4">{t("common.no_recent_transactions")}</p>
                         )}
                     </div>
                 </div>
@@ -312,34 +314,44 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
         <div className="p-4">
             {/* TABS */}
             <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
-                {["HOT", "Daily", "Weekly", "Monthly"].map((tab) => (
+                {[
+                  { key: "HOT", label: t("data.tab.hot") },
+                  { key: "Daily", label: t("data.tab.daily") },
+                  { key: "Weekly", label: t("data.tab.weekly") },
+                  { key: "Monthly", label: t("data.tab.monthly") }
+                ].map((tab) => (
                     <button
-                        key={tab}
-                        onClick={() => setActiveTab(tab as any)}
+                        key={tab.key}
+                        onClick={() => setActiveTab(tab.key as any)}
                         className={`text-xs font-bold pb-2 border-b-2 transition-all px-2 ${
-                            activeTab === tab 
+                            activeTab === tab.key 
                             ? "text-emerald-600 border-emerald-600" 
                             : "text-slate-400 border-transparent hover:text-slate-600"
                         }`}
                     >
-                        {tab}
+                        {tab.label}
                     </button>
                 ))}
             </div>
 
             {/* SUB-TABS */}
             <div className="flex gap-2 mb-6 overflow-x-auto custom-scrollbar pb-2">
-                 {["ALL", "SME", "CG", "GIFTING"].map(type => (
+                 {[
+                   { key: "ALL", label: t("data.type.all") },
+                   { key: "SME", label: t("data.type.sme") },
+                   { key: "CG", label: t("data.type.cg") },
+                   { key: "GIFTING", label: t("data.type.gifting") }
+                 ].map(type => (
                      <button
-                        key={type}
-                        onClick={() => setSelectedPlanType(type)}
+                        key={type.key}
+                        onClick={() => setSelectedPlanType(type.key)}
                         className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase whitespace-nowrap transition-all ${
-                            selectedPlanType === type 
+                            selectedPlanType === type.key 
                             ? "bg-slate-900 text-white shadow-md" 
                             : "bg-slate-100 text-slate-500 hover:bg-slate-200"
                         }`}
                      >
-                        {type}
+                        {type.label}
                      </button>
                  ))}
             </div>
@@ -348,7 +360,7 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
             {loadingPlans ? (
                 <div className="py-12 text-center"><Loader2 className="animate-spin mx-auto text-emerald-600" /></div>
             ) : filteredPlans.length === 0 ? (
-                <div className="py-12 text-center text-slate-400 text-xs">No plans found for this category.</div>
+                <div className="py-12 text-center text-slate-400 text-xs">{t("data.no_plans")}</div>
             ) : (
                 <div className="grid grid-cols-2 gap-3 max-h-[400px] overflow-y-auto pr-1 custom-scrollbar">
                     {filteredPlans.map((plan) => (
@@ -378,7 +390,7 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
 
                             <div className="mt-4 pt-3 border-t border-slate-200/50 flex justify-between items-end">
                                 <div>
-                                    <p className="text-[10px] text-slate-400 font-bold mb-0.5">Price</p>
+                                    <p className="text-[10px] text-slate-400 font-bold mb-0.5">{t("data.price")}</p>
                                     <p className="text-sm font-black text-slate-900">₦{plan.amount}</p>
                                 </div>
                                 <div className="text-right">
@@ -402,7 +414,7 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
             >
                 {loading ? <Loader2 className="animate-spin" /> : (
                     <>
-                        <span>Buy Bundle</span>
+                        <span>{t("data.buy_bundle")}</span>
                         {selectedPlan && <span className="bg-emerald-700/50 px-2 py-0.5 rounded text-xs">₦{selectedPlan.amount}</span>}
                     </>
                 )}
