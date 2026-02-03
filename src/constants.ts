@@ -23,56 +23,47 @@ export interface Language {
 }
 
 // --- 2. ASSET IMPORTS ---
+// --- IMPORT LOGOS EXPLICITLY ---
+
+// Carriers
 import mtnLogo from './assets/logos/mtn.png';
 import gloLogo from './assets/logos/glo.png';
 import airtelLogo from './assets/logos/airtel.png';
-import t2mobileLogo from './assets/logos/t2mobile.png';
+import nineMobileLogo from './assets/logos/t2mobile.png'; // Assuming t2mobile is 9mobile
 import smileLogo from './assets/logos/smile.png';
-import waecLogo from './assets/logos/waec.png';
-import necoLogo from './assets/logos/neco.png';
+
+// Cable TV
 import dstvLogo from './assets/logos/dstv.png';
 import gotvLogo from './assets/logos/gotv.png';
 import startimesLogo from './assets/logos/startimescable.png';
 import showmaxLogo from './assets/logos/showmax.png';
+
+// Electricity (Discos)
 import ikejaLogo from './assets/logos/ikedc.png';
+import ekoLogo from './assets/logos/eko.png';
+import abujaLogo from './assets/logos/abuja.png';
+import ibadanLogo from './assets/logos/ibedc.png';
+import enuguLogo from './assets/logos/enugu.png';
+import portharcourtLogo from './assets/logos/portharcourt.png';
+import kanoLogo from './assets/logos/kano.png';
+import kadunaLogo from './assets/logos/kaduna.png';
+import josLogo from './assets/logos/jos_jed.png';
+import beninLogo from './assets/logos/benin.png';
+import yolaLogo from './assets/logos/yola.png';
 
-// --- 3. MAPPINGS & DATA ---
-export const NETWORK_ID_MAP: Record<number, Carrier> = {
-  1: Carrier.MTN,
-  2: Carrier.GLO,
-  3: Carrier.AIRTEL,
-  4: Carrier.NINEMOBILE,
-  5: Carrier.SMILE
-};
+// Exams
+import jambLogo from './assets/logos/jamb.png';
+import waecLogo from './assets/logos/waec.png';
+import necoLogo from './assets/logos/neco.png';
 
-export const CARRIERS = [
-  { id: 1, enum: Carrier.MTN, name: 'MTN', logo: mtnLogo, color: 'bg-yellow-400' },
-  { id: 2, enum: Carrier.GLO, name: 'GLO', logo: gloLogo, color: 'bg-green-600' },
-  { id: 3, enum: Carrier.AIRTEL, name: 'AIRTEL', logo: airtelLogo, color: 'bg-red-600' },
-  { id: 4, enum: Carrier.NINEMOBILE, name: 'T2MOBILE', logo: t2mobileLogo, subText: '(Formerly 9Mobile)', color: 'bg-green-900' },
-  { id: 5, enum: Carrier.SMILE, name: 'SMILE', logo: smileLogo, color: 'bg-pink-600' }
-];
-
-export const CABLE_PROVIDERS = [
-  { id: 'gotv', name: 'GOtv', logo: gotvLogo }, 
-  { id: 'dstv', name: 'DStv', logo: dstvLogo }, 
-  { id: 'startimes', name: 'StarTimes', logo: startimesLogo }, 
-  { id: 'showmax', name: 'Showmax', logo: showmaxLogo }
-];
-
-export const DISCOS = [
-  { id: '01', name: 'Eko', short: 'EKEDC', logo: 'https://via.placeholder.com/50?text=EKO' }, 
-  { id: '02', name: 'Ikeja', short: 'IKEDC', logo: ikejaLogo }, 
-  { id: '03', name: 'Abuja', short: 'AEDC', logo: 'https://via.placeholder.com/50?text=AEDC' }, 
-  { id: '04', name: 'Kano', short: 'KEDCO', logo: 'https://via.placeholder.com/50?text=KEDCO' },
-  { id: '05', name: 'P.Harcourt', short: 'PHED', logo: 'https://via.placeholder.com/50?text=PHED' },
-  { id: '06', name: 'Jos', short: 'JED', logo: 'https://via.placeholder.com/50?text=JOS' }, 
-  { id: '07', name: 'Ibadan', short: 'IBEDC', logo: 'https://via.placeholder.com/50?text=IBEDC' }, 
-  { id: '08', name: 'Kaduna', short: 'KAEDCO', logo: 'https://via.placeholder.com/50?text=KD' },
-  { id: '09', name: 'Enugu', short: 'EEDC', logo: 'https://via.placeholder.com/50?text=EEDC' }, 
-  { id: '10', name: 'Benin', short: 'BEDC', logo: 'https://via.placeholder.com/50?text=BENIN' },
-  { id: '11', name: 'Yola', short: 'YEDC', logo: 'https://via.placeholder.com/50?text=YOLA' },
-  { id: '12', name: 'Aba', short: 'APLE', logo: 'https://via.placeholder.com/50?text=ABA' },
+// ... (keep your existing Enum definitions like Carrier, etc.)
+export enum Carrier {
+  MTN = "MTN",
+  GLO = "GLO",
+  AIRTEL = "AIRTEL",
+  NINEMOBILE = "9MOBILE",
+  SMILE = "SMILE"
+}
 ];
 
 // --- 4. EXAM PRICING (Updated) ---
