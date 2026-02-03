@@ -2,8 +2,8 @@ import axios from 'axios';
 import { DataPlan } from '../types';
 
 // 🔐 KEYS
-const PAYSTACK_SECRET_KEY = "sk_test_595ac543ca73e33e382d7af1bb041693f197fcb8"; 
-const AFFATECH_TOKEN = "Token 33e818b356ba84a730783032c7f7bc2f2478337a"; 
+const PAYSTACK_SECRET_KEY = "VITE_PAYSTACK_PUBLIC_KEY"; 
+const AFFATECH_TOKEN = "Token AFFATECH_API_KEY"; 
 
 // 🌍 CONFIGURATION
 // Uses local proxy rewrite defined in vercel.json to bypass CORS

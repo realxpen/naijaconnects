@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Zap } from 'lucide-react';
-import { supabase } from './supabaseClient'; // Added supabase import
+import { supabase } from './supabaseClient';
 import { dbService } from './services/dbService';
-import DashboardLayout from './layouts/DashboardLayout';
+
+// Layouts & Pages
+import DashboardLayout from "./layouts/DashboardLayout"; // Adjusted path to components
 import Auth from './pages/Auth';
 import Dashboard from './pages/Dashboard';
-import History from './pages/History';
+// Placeholders for now - ensure these files exist or comment them out
+import History from './pages/History'; 
 import Profile from './pages/Profile';
 import Assistant from './pages/Assistant';
 
@@ -14,14 +17,15 @@ const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeTab, setActiveTab] = useState<'buy' | 'history' | 'assistant' | 'profile'>('buy');
   
+  // Navigation Reset Key (To force Dashboard reload when clicking "Buy")
+  const [dashboardResetKey, setDashboardResetKey] = useState(0);
+
   const [user, setUser] = useState<{name: string, email: string, balance: number, phone?: string} | null>(null);
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [language, setLanguage] = useState('en');
 
-  // --- SESSION & USER FETCHING LOGIC ---
-
-  // 1. Fetch User Profile helper
+  // --- 1. FETCH USER PROFILE ---
   const fetchUser = async (email: string) => {
     try {
       const { data, error } = await supabase
@@ -30,12 +34,9 @@ const App: React.FC = () => {
         .eq('email', email)
         .single();
 
-      if (error) {
-        console.error('Error fetching profile:', error);
-      } 
+      if (error) console.error('Error fetching profile:', error);
       
       if (data) {
-        // Map DB columns (snake_case) to App State (camelCase)
         setUser({
           name: data.full_name || '',
           email: data.email || email,
@@ -49,7 +50,7 @@ const App: React.FC = () => {
     }
   };
 
-  // 2. Initialization Effect (Session Check)
+  // --- 2. SESSION INITIALIZATION ---
   useEffect(() => {
     // Theme check
     if (localStorage.getItem('theme') === 'dark') {
@@ -60,23 +61,19 @@ const App: React.FC = () => {
       const { data: { session } } = await supabase.auth.getSession();
 
       if (session && session.user.email) {
-        // WAIT for profile fetch before stopping loading (Splash Screen)
         await fetchUser(session.user.email);
       }
       
-      setIsSplashScreen(false); // Only stop loading after everything is done
+      setIsSplashScreen(false);
     };
 
     initSession();
 
-    // 3. Listen for Auth Changes (Login/Logout)
+    // Listen for Auth Changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user.email) {
-        // If a session exists (e.g. after login), fetch user
-        // Note: We check !user to avoid redundant fetches if already loaded
         await fetchUser(session.user.email);
       } else {
-        // If no session (logout), clear state
         setUser(null);
         setIsAuthenticated(false);
       }
@@ -85,15 +82,20 @@ const App: React.FC = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // --- ACTIONS ---
+  // --- 3. NAVIGATION HANDLER (Fixes the "Buy" button issue) ---
+  const handleTabChange = (tab: 'buy' | 'history' | 'assistant' | 'profile') => {
+    // If user clicks "Buy" while already on "Buy" tab, reset the dashboard
+    if (tab === 'buy' && activeTab === 'buy') {
+      setDashboardResetKey(prev => prev + 1);
+    }
+    setActiveTab(tab);
+  };
 
+  // --- 4. AUTH ACTIONS ---
   const handleLogin = async (email: string, pass: string) => {
     setIsProcessing(true);
     try {
-      // dbService.loginUser will trigger onAuthStateChange above, 
-      // but we can leave this here to catch errors directly.
       await dbService.loginUser(email, pass);
-      // The useEffect listener will handle fetching the profile and setting isAuthenticated
     } catch (e: any) { 
       alert(e.message || "Login Failed"); 
     } finally { 
@@ -105,7 +107,6 @@ const App: React.FC = () => {
     setIsProcessing(true);
     try {
       await dbService.registerUser(email, name, pass);
-      // Success: User registered. They need to verify email.
       setUser({ name: '', email: '', balance: 0 }); 
     } catch (e: any) { 
       alert(e.message || "Signup Failed"); 
@@ -115,7 +116,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Handle Password Reset
   const handleForgotPassword = async (email: string) => {
     try {
       await dbService.resetPasswordEmail(email);
@@ -127,7 +127,7 @@ const App: React.FC = () => {
 
   const handleLogout = async () => {
     if (confirm("Are you sure you want to logout?")) {
-      await supabase.auth.signOut(); // Use supabase auth to sign out
+      await supabase.auth.signOut();
       setIsAuthenticated(false);
       setUser(null);
       setActiveTab('buy');
@@ -135,10 +135,7 @@ const App: React.FC = () => {
   };
 
   const handleUpdateUser = async (updatedData: any) => {
-    setUser((prevUser: any) => ({
-        ...prevUser,
-        ...updatedData
-    }));
+    setUser((prevUser: any) => ({ ...prevUser, ...updatedData }));
   };
 
   const onUpdateBalance = (newBalance: number) => {
@@ -168,13 +165,17 @@ const App: React.FC = () => {
   return (
     <DashboardLayout 
       activeTab={activeTab} 
-      setActiveTab={setActiveTab} 
+      setActiveTab={handleTabChange} // Use the smart handler here
       userName={user?.name || ''} 
       language={language} 
       setLanguage={setLanguage}
     >
       {activeTab === 'buy' && user && (
-        <Dashboard user={user} onUpdateBalance={onUpdateBalance} />
+        <Dashboard 
+            key={dashboardResetKey} // This forces the reset
+            user={user} 
+            onUpdateBalance={onUpdateBalance} 
+        />
       )}
       
       {activeTab === 'history' && <History />}

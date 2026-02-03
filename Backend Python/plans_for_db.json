@@ -1,0 +1,932 @@
+[
+  {
+    "network_id": 4,
+    "plan_id": "182",
+    "network_name": "9MOBILE",
+    "plan_type": "ALL",
+    "plan_name": "500 MBGB - GIFTING (7 Days)",
+    "amount": 450,
+    "cost_price": 450.0,
+    "validity": "GIFTING (7 Days)"
+  },
+  {
+    "network_id": 4,
+    "plan_id": "337",
+    "network_name": "9MOBILE",
+    "plan_type": "ALL",
+    "plan_name": "500 MBGB - CG (30 DAYS)",
+    "amount": 220,
+    "cost_price": 150.0,
+    "validity": "CG (30 DAYS)"
+  },
+  {
+    "network_id": 4,
+    "plan_id": "277",
+    "network_name": "9MOBILE",
+    "plan_type": "ALL",
+    "plan_name": "1.0 GBGB - CG (30 DAYS)",
+    "amount": 445,
+    "cost_price": 300.0,
+    "validity": "CG (30 DAYS)"
+  },
+  {
+    "network_id": 4,
+    "plan_id": "278",
+    "network_name": "9MOBILE",
+    "plan_type": "ALL",
+    "plan_name": "1.5 GBGB - CG (30 DAYS)",
+    "amount": 744,
+    "cost_price": 450.0,
+    "validity": "CG (30 DAYS)"
+  },
+  {
+    "network_id": 4,
+    "plan_id": "278",
+    "network_name": "9MOBILE",
+    "plan_type": "ALL",
+    "plan_name": "1.5 GBGB - CG (30 DAYS)",
+    "amount": 744,
+    "cost_price": 525.0,
+    "validity": "CG (30 DAYS)"
+  },
+  {
+    "network_id": 4,
+    "plan_id": "279",
+    "network_name": "9MOBILE",
+    "plan_type": "ALL",
+    "plan_name": "2.0 GBGB - CG (30 DAYS)",
+    "amount": 895,
+    "cost_price": 600.0,
+    "validity": "CG (30 DAYS)"
+  },
+  {
+    "network_id": 4,
+    "plan_id": "279",
+    "network_name": "9MOBILE",
+    "plan_type": "ALL",
+    "plan_name": "2.0 GBGB - CG (30 DAYS)",
+    "amount": 895,
+    "cost_price": 700.0,
+    "validity": "CG (30 DAYS)"
+  },
+  {
+    "network_id": 4,
+    "plan_id": "280",
+    "network_name": "9MOBILE",
+    "plan_type": "ALL",
+    "plan_name": "3.0 GBGB - CG (30 DAYS)",
+    "amount": 1345,
+    "cost_price": 900.0,
+    "validity": "CG (30 DAYS)"
+  },
+  {
+    "network_id": 4,
+    "plan_id": "280",
+    "network_name": "9MOBILE",
+    "plan_type": "ALL",
+    "plan_name": "3.0 GBGB - CG (30 DAYS)",
+    "amount": 1345,
+    "cost_price": 1050.0,
+    "validity": "CG (30 DAYS)"
+  },
+  {
+    "network_id": 4,
+    "plan_id": "281",
+    "network_name": "9MOBILE",
+    "plan_type": "ALL",
+    "plan_name": "4.0 GBGB - CG (30 DAYS)",
+    "amount": 1795,
+    "cost_price": 1200.0,
+    "validity": "CG (30 DAYS)"
+  },
+  {
+    "network_id": 4,
+    "plan_id": "283",
+    "network_name": "9MOBILE",
+    "plan_type": "ALL",
+    "plan_name": "4.5 GBGB - CG (30 DAYS)",
+    "amount": 1895,
+    "cost_price": 1350.0,
+    "validity": "CG (30 DAYS)"
+  },
+  {
+    "network_id": 4,
+    "plan_id": "282",
+    "network_name": "9MOBILE",
+    "plan_type": "ALL",
+    "plan_name": "5.0 GBGB - CG (30 DAYS)",
+    "amount": 2245,
+    "cost_price": 1500.0,
+    "validity": "CG (30 DAYS)"
+  },
+  {
+    "network_id": 4,
+    "plan_id": "283",
+    "network_name": "9MOBILE",
+    "plan_type": "ALL",
+    "plan_name": "4.5 GBGB - CG (30 DAYS)",
+    "amount": 1895,
+    "cost_price": 1575.0,
+    "validity": "CG (30 DAYS)"
+  },
+  {
+    "network_id": 4,
+    "plan_id": "187",
+    "network_name": "9MOBILE",
+    "plan_type": "ALL",
+    "plan_name": "11.0 GBGB - GIFTING (30 Days)",
+    "amount": 4895,
+    "cost_price": 3300.0,
+    "validity": "GIFTING (30 Days)"
+  },
+  {
+    "network_id": 4,
+    "plan_id": "187",
+    "network_name": "9MOBILE",
+    "plan_type": "ALL",
+    "plan_name": "11.0 GBGB - GIFTING (30 Days)",
+    "amount": 4895,
+    "cost_price": 3400.0,
+    "validity": "GIFTING (30 Days)"
+  },
+  {
+    "network_id": 4,
+    "plan_id": "188",
+    "network_name": "9MOBILE",
+    "plan_type": "ALL",
+    "plan_name": "15.0 GBGB - GIFTING (30 Days)",
+    "amount": 6745,
+    "cost_price": 4250.0,
+    "validity": "GIFTING (30 Days)"
+  },
+  {
+    "network_id": 4,
+    "plan_id": "338",
+    "network_name": "9MOBILE",
+    "plan_type": "ALL",
+    "plan_name": "20.0 GBGB - CG (30 DAYS)",
+    "amount": 8995,
+    "cost_price": 6000.0,
+    "validity": "CG (30 DAYS)"
+  },
+  {
+    "network_id": 4,
+    "plan_id": "189",
+    "network_name": "9MOBILE",
+    "plan_type": "ALL",
+    "plan_name": "40.0 GBGB - GIFTING (30 Days)",
+    "amount": 19955,
+    "cost_price": 8500.0,
+    "validity": "GIFTING (30 Days)"
+  },
+  {
+    "network_id": 4,
+    "plan_id": "190",
+    "network_name": "9MOBILE",
+    "plan_type": "ALL",
+    "plan_name": "75.0 GBGB - GIFTING (30 Days)",
+    "amount": 12750,
+    "cost_price": 12750.0,
+    "validity": "GIFTING (30 Days)"
+  },
+  {
+    "network_id": 3,
+    "plan_id": "391",
+    "network_name": "AIRTEL",
+    "plan_type": "ALL",
+    "plan_name": "150 MBGB - AWOOF (1 DAY)",
+    "amount": 75,
+    "cost_price": 55.0,
+    "validity": "AWOOF (1 DAY)"
+  },
+  {
+    "network_id": 3,
+    "plan_id": "392",
+    "network_name": "AIRTEL",
+    "plan_type": "ALL",
+    "plan_name": "300 MBGB - AWOOF (2 DAYS)",
+    "amount": 120,
+    "cost_price": 98.0,
+    "validity": "AWOOF (2 DAYS)"
+  },
+  {
+    "network_id": 3,
+    "plan_id": "393",
+    "network_name": "AIRTEL",
+    "plan_type": "ALL",
+    "plan_name": "600 MBGB - AWOOF (2 DAYS)",
+    "amount": 245,
+    "cost_price": 195.0,
+    "validity": "AWOOF (2 DAYS)"
+  },
+  {
+    "network_id": 3,
+    "plan_id": "394",
+    "network_name": "AIRTEL",
+    "plan_type": "ALL",
+    "plan_name": "1.0 GBGB - AWOOF (3 DAYS)",
+    "amount": 294,
+    "cost_price": 288.0,
+    "validity": "AWOOF (3 DAYS)"
+  },
+  {
+    "network_id": 3,
+    "plan_id": "405",
+    "network_name": "AIRTEL",
+    "plan_type": "ALL",
+    "plan_name": "1.0 GBGB - GIFT (7 DAYS)",
+    "amount": 771,
+    "cost_price": 768.0,
+    "validity": "GIFT (7 DAYS)"
+  },
+  {
+    "network_id": 3,
+    "plan_id": "395",
+    "network_name": "AIRTEL",
+    "plan_type": "ALL",
+    "plan_name": "2.0 GBGB - GIFT (30 DAYS)",
+    "amount": 1450,
+    "cost_price": 1440.0,
+    "validity": "GIFT (30 DAYS)"
+  },
+  {
+    "network_id": 3,
+    "plan_id": "421",
+    "network_name": "AIRTEL",
+    "plan_type": "ALL",
+    "plan_name": "3.0 GBGB - GIFT (30 DAYS)",
+    "amount": 1935,
+    "cost_price": 1920.0,
+    "validity": "GIFT (30 DAYS)"
+  },
+  {
+    "network_id": 3,
+    "plan_id": "422",
+    "network_name": "AIRTEL",
+    "plan_type": "ALL",
+    "plan_name": "4.0 GBGB - GIFT (30 DAYS)",
+    "amount": 2420,
+    "cost_price": 2400.0,
+    "validity": "GIFT (30 DAYS)"
+  },
+  {
+    "network_id": 3,
+    "plan_id": "397",
+    "network_name": "AIRTEL",
+    "plan_type": "ALL",
+    "plan_name": "8.0 GBGB - GIFT (30 DAYS)",
+    "amount": 2880,
+    "cost_price": 2880.0,
+    "validity": "GIFT (30 DAYS)"
+  },
+  {
+    "network_id": 3,
+    "plan_id": "398",
+    "network_name": "AIRTEL",
+    "plan_type": "ALL",
+    "plan_name": "10.0 GBGB - AWOOF (30 DAYS)",
+    "amount": 3060,
+    "cost_price": 2880.0,
+    "validity": "AWOOF (30 DAYS)"
+  },
+  {
+    "network_id": 3,
+    "plan_id": "423",
+    "network_name": "AIRTEL",
+    "plan_type": "ALL",
+    "plan_name": "18.0 GBGB - GIFT (30 DAYS)",
+    "amount": 5815,
+    "cost_price": 5760.0,
+    "validity": "GIFT (30 DAYS)"
+  },
+  {
+    "network_id": 2,
+    "plan_id": "357",
+    "network_name": "GLO",
+    "plan_type": "ALL",
+    "plan_name": "750 MBGB - AWOOF GIFT (1 DAY)",
+    "amount": 195,
+    "cost_price": 190.0,
+    "validity": "AWOOF GIFT (1 DAY)"
+  },
+  {
+    "network_id": 2,
+    "plan_id": "358",
+    "network_name": "GLO",
+    "plan_type": "ALL",
+    "plan_name": "1.5 GBGB - AWOOF GIFT (1 DAY)",
+    "amount": 291,
+    "cost_price": 285.0,
+    "validity": "AWOOF GIFT (1 DAY)"
+  },
+  {
+    "network_id": 2,
+    "plan_id": "359",
+    "network_name": "GLO",
+    "plan_type": "ALL",
+    "plan_name": "2.5 GBGB - AWOOF GIFT (2 DAYS)",
+    "amount": 485,
+    "cost_price": 475.0,
+    "validity": "AWOOF GIFT (2 DAYS)"
+  },
+  {
+    "network_id": 2,
+    "plan_id": "360",
+    "network_name": "GLO",
+    "plan_type": "ALL",
+    "plan_name": "9.8 GBGB - AWOOF GIFT (7 DAYS)",
+    "amount": 1940,
+    "cost_price": 1880.0,
+    "validity": "AWOOF GIFT (7 DAYS)"
+  },
+  {
+    "network_id": 2,
+    "plan_id": "267",
+    "network_name": "GLO",
+    "plan_type": "ALL",
+    "plan_name": "200 MBGB - CG (30 DAYS)",
+    "amount": 100,
+    "cost_price": 90.0,
+    "validity": "CG (30 DAYS)"
+  },
+  {
+    "network_id": 2,
+    "plan_id": "268",
+    "network_name": "GLO",
+    "plan_type": "ALL",
+    "plan_name": "500 MBGB - CG (30 DAYS)",
+    "amount": 205,
+    "cost_price": 198.0,
+    "validity": "CG (30 DAYS)"
+  },
+  {
+    "network_id": 2,
+    "plan_id": "269",
+    "network_name": "GLO",
+    "plan_type": "ALL",
+    "plan_name": "1.024 GBGB - CG (30 DAYS)",
+    "amount": 420,
+    "cost_price": 400.0,
+    "validity": "CG (30 DAYS)"
+  },
+  {
+    "network_id": 2,
+    "plan_id": "270",
+    "network_name": "GLO",
+    "plan_type": "ALL",
+    "plan_name": "2.0 GBGB - CG (30 DAYS)",
+    "amount": 855,
+    "cost_price": 800.0,
+    "validity": "CG (30 DAYS)"
+  },
+  {
+    "network_id": 2,
+    "plan_id": "271",
+    "network_name": "GLO",
+    "plan_type": "ALL",
+    "plan_name": "3.072 GBGB - CG (30 DAYS)",
+    "amount": 1260,
+    "cost_price": 1200.0,
+    "validity": "CG (30 DAYS)"
+  },
+  {
+    "network_id": 2,
+    "plan_id": "196",
+    "network_name": "GLO",
+    "plan_type": "ALL",
+    "plan_name": "6.15 GBGB - GIFTING (30 DAYS)",
+    "amount": 1905,
+    "cost_price": 1880.0,
+    "validity": "GIFTING (30 DAYS)"
+  },
+  {
+    "network_id": 2,
+    "plan_id": "273",
+    "network_name": "GLO",
+    "plan_type": "ALL",
+    "plan_name": "5.12 GBGB - CG (30 DAYS)",
+    "amount": 2150,
+    "cost_price": 2000.0,
+    "validity": "CG (30 DAYS)"
+  },
+  {
+    "network_id": 2,
+    "plan_id": "198",
+    "network_name": "GLO",
+    "plan_type": "ALL",
+    "plan_name": "11.0 GBGB - GIFTING (30 DAYS)",
+    "amount": 2910,
+    "cost_price": 2820.0,
+    "validity": "GIFTING (30 DAYS)"
+  },
+  {
+    "network_id": 2,
+    "plan_id": "199",
+    "network_name": "GLO",
+    "plan_type": "ALL",
+    "plan_name": "14.5 GBGB - GIFTING (30 DAYS)",
+    "amount": 3880,
+    "cost_price": 3760.0,
+    "validity": "GIFTING (30 DAYS)"
+  },
+  {
+    "network_id": 2,
+    "plan_id": "272",
+    "network_name": "GLO",
+    "plan_type": "ALL",
+    "plan_name": "10.8 GBGB - CG (30 DAYS)",
+    "amount": 4200,
+    "cost_price": 4000.0,
+    "validity": "CG (30 DAYS)"
+  },
+  {
+    "network_id": 2,
+    "plan_id": "369",
+    "network_name": "GLO",
+    "plan_type": "ALL",
+    "plan_name": "18.5 GBGB - GIFTING (30 DAYS)",
+    "amount": 4850,
+    "cost_price": 4700.0,
+    "validity": "GIFTING (30 DAYS)"
+  },
+  {
+    "network_id": 2,
+    "plan_id": "202",
+    "network_name": "GLO",
+    "plan_type": "ALL",
+    "plan_name": "28.0 GBGB - GIFTING (30 DAYS)",
+    "amount": 7595,
+    "cost_price": 7520.0,
+    "validity": "GIFTING (30 DAYS)"
+  },
+  {
+    "network_id": 2,
+    "plan_id": "203",
+    "network_name": "GLO",
+    "plan_type": "ALL",
+    "plan_name": "38.0 GBGB - GIFTING (30 DAYS)",
+    "amount": 9495,
+    "cost_price": 9400.0,
+    "validity": "GIFTING (30 DAYS)"
+  },
+  {
+    "network_id": 2,
+    "plan_id": "263",
+    "network_name": "GLO",
+    "plan_type": "ALL",
+    "plan_name": "107.0 GBGB - GIFTING (30 DAYS)",
+    "amount": 18995,
+    "cost_price": 18800.0,
+    "validity": "GIFTING (30 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "427",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "3.5 GBGB - 1 DAY VALIDITY",
+    "amount": 980,
+    "cost_price": 970.0,
+    "validity": "1 DAY VALIDITY"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "363",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "1.5 GBGB - AWOOF (2 DAYS)",
+    "amount": 583,
+    "cost_price": 582.0,
+    "validity": "AWOOF (2 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "365",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "2.0 GBGB - AWOOF (2 DAYS)",
+    "amount": 900,
+    "cost_price": 882.0,
+    "validity": "AWOOF (2 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "340",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "3.2 GBGB - AWOOF DATA (2 DAYS)",
+    "amount": 970,
+    "cost_price": 970.0,
+    "validity": "AWOOF DATA (2 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "428",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "4.0 GBGB - 2 DAYS VALIDITY",
+    "amount": 1176,
+    "cost_price": 1164.0,
+    "validity": "2 DAYS VALIDITY"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "429",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "5.5 GBGB - 2 DAYS VALIDITY",
+    "amount": 1470,
+    "cost_price": 1455.0,
+    "validity": "2 DAYS VALIDITY"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "385",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "750 MBGB - GIFTING (3 DAYS)",
+    "amount": 437,
+    "cost_price": 437.0,
+    "validity": "GIFTING (3 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "417",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "1.0 GBGB - GIFT (7 DAYS)",
+    "amount": 562,
+    "cost_price": 409.0,
+    "validity": "GIFT (7 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "417",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "1.0 GBGB - GIFT (7 DAYS)",
+    "amount": 562,
+    "cost_price": 409.0,
+    "validity": "GIFT (7 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "382",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "1.2 GBGB - XTRA SPECIAL (7 DAYS)",
+    "amount": 735,
+    "cost_price": 728.0,
+    "validity": "XTRA SPECIAL (7 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "381",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "6.0 GBGB - GIFTING (7 DAYS)",
+    "amount": 2425,
+    "cost_price": 2425.0,
+    "validity": "GIFTING (7 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "341",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "11.0 GBGB - AWOOF DATA (7 DAYS)",
+    "amount": 3395,
+    "cost_price": 3395.0,
+    "validity": "AWOOF DATA (7 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "390",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "20.0 GBGB - SME (7 DAYS)",
+    "amount": 4850,
+    "cost_price": 4850.0,
+    "validity": "SME (7 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "342",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "500 MBGB - DATA SHARE (30 DAYS)",
+    "amount": 350,
+    "cost_price": 310.0,
+    "validity": "DATA SHARE (30 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "342",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "500 MBGB - DATA SHARE (30 DAYS)",
+    "amount": 350,
+    "cost_price": 310.0,
+    "validity": "DATA SHARE (30 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "342",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "500 MBGB - DATA SHARE (30 DAYS)",
+    "amount": 350,
+    "cost_price": 310.0,
+    "validity": "DATA SHARE (30 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "342",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "500 MBGB - DATA SHARE (30 DAYS)",
+    "amount": 425,
+    "cost_price": 350.0,
+    "validity": "DATA SHARE (30 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "403",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "1.0 GBGB - SME (30 DAYS)",
+    "amount": 510,
+    "cost_price": 409.0,
+    "validity": "SME (30 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "403",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "1.0 GBGB - SME (30 DAYS)",
+    "amount": 510,
+    "cost_price": 500.0,
+    "validity": "SME (30 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "403",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "1.0 GBGB - SME (30 DAYS)",
+    "amount": 510,
+    "cost_price": 500.0,
+    "validity": "SME (30 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "403",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "1.0 GBGB - SME (30 DAYS)",
+    "amount": 510,
+    "cost_price": 500.0,
+    "validity": "SME (30 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "403",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "1.0 GBGB - SME (30 DAYS)",
+    "amount": 510,
+    "cost_price": 500.0,
+    "validity": "SME (30 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "403",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "1.0 GBGB - SME (30 DAYS)",
+    "amount": 850,
+    "cost_price": 510.0,
+    "validity": "SME (30 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "344",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "2.0 GBGB - DATA SHARE (30 DAYS)",
+    "amount": 1450,
+    "cost_price": 900.0,
+    "validity": "DATA SHARE (30 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "344",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "2.0 GBGB - DATA SHARE (30 DAYS)",
+    "amount": 1450,
+    "cost_price": 900.0,
+    "validity": "DATA SHARE (30 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "344",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "2.0 GBGB - DATA SHARE (30 DAYS)",
+    "amount": 1450,
+    "cost_price": 950.0,
+    "validity": "DATA SHARE (30 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "344",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "2.0 GBGB - DATA SHARE (30 DAYS)",
+    "amount": 1450,
+    "cost_price": 950.0,
+    "validity": "DATA SHARE (30 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "44",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "3.0 GBGB - SME (30 DAYS)",
+    "amount": 1489,
+    "cost_price": 1300.0,
+    "validity": "SME (30 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "44",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "3.0 GBGB - SME (30 DAYS)",
+    "amount": 1489,
+    "cost_price": 1300.0,
+    "validity": "SME (30 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "44",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "3.0 GBGB - SME (30 DAYS)",
+    "amount": 1489,
+    "cost_price": 1300.0,
+    "validity": "SME (30 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "44",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "3.0 GBGB - SME (30 DAYS)",
+    "amount": 1489,
+    "cost_price": 1400.0,
+    "validity": "SME (30 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "44",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "3.0 GBGB - SME (30 DAYS)",
+    "amount": 1489,
+    "cost_price": 1400.0,
+    "validity": "SME (30 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "346",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "5.0 GBGB - DATA SHARE (30 DAYS)",
+    "amount": 1995,
+    "cost_price": 1800.0,
+    "validity": "DATA SHARE (30 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "346",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "5.0 GBGB - DATA SHARE (30 DAYS)",
+    "amount": 1995,
+    "cost_price": 1800.0,
+    "validity": "DATA SHARE (30 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "346",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "5.0 GBGB - DATA SHARE (30 DAYS)",
+    "amount": 1995,
+    "cost_price": 1800.0,
+    "validity": "DATA SHARE (30 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "346",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "5.0 GBGB - DATA SHARE (30 DAYS)",
+    "amount": 1995,
+    "cost_price": 1900.0,
+    "validity": "DATA SHARE (30 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "379",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "2.7 GBGB - GIFTING (30 DAYS)",
+    "amount": 1940,
+    "cost_price": 1940.0,
+    "validity": "GIFTING (30 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "384",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "3.5 GBGB - GIFTING (30 DAYS)",
+    "amount": 2425,
+    "cost_price": 2425.0,
+    "validity": "GIFTING (30 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "366",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "10.0 GBGB - GIFTING (30 DAYS)",
+    "amount": 4365,
+    "cost_price": 4365.0,
+    "validity": "GIFTING (30 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "366",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "10.0 GBGB - GIFTING (30 DAYS)",
+    "amount": 4365,
+    "cost_price": 4365.0,
+    "validity": "GIFTING (30 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "383",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "14.5 GBGB - XTRA SPECIAL (30 DAYS)",
+    "amount": 4900,
+    "cost_price": 4850.0,
+    "validity": "XTRA SPECIAL (30 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "375",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "12.5 GBGB - GIFTING (30 DAYS)",
+    "amount": 5335,
+    "cost_price": 5335.0,
+    "validity": "GIFTING (30 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "430",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "34.0 GBGB - 30 DAYS VALIDITY",
+    "amount": 9800,
+    "cost_price": 9700.0,
+    "validity": "30 DAYS VALIDITY"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "372",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "75.0 GBGB - GIFTING (30 DAYS)",
+    "amount": 17460,
+    "cost_price": 17460.0,
+    "validity": "GIFTING (30 DAYS)"
+  },
+  {
+    "network_id": 1,
+    "plan_id": "380",
+    "network_name": "MTN",
+    "plan_type": "ALL",
+    "plan_name": "250.0 GBGB - GIFTING (30 DAYS)",
+    "amount": 53350,
+    "cost_price": 53350.0,
+    "validity": "GIFTING (30 DAYS)"
+  }
+]

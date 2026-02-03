@@ -5,8 +5,7 @@ import {
   Wifi, 
   History as HistoryIcon, 
   MessageCircle, 
-  User as UserIcon,
-  Bell // Added Bell icon
+  Bell 
 } from 'lucide-react';
 import { LANGUAGES } from '../constants';
 
@@ -34,11 +33,10 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           <h1 className="text-xl font-black tracking-tight">NaijaConnect</h1>
         </div>
 
-        <div className="flex gap-3 items-center">
-          {/* NEW: Notification Bell with Red Dot */}
+        <div className="flex gap-4 items-center">
+          {/* Notification Bell */}
           <button className="p-2 bg-white/10 rounded-full relative hover:bg-white/20 transition-colors">
              <Bell size={20} />
-             {/* 🔴 Header Notification Dot */}
              <span className="absolute top-2 right-2.5 w-2 h-2 bg-rose-500 rounded-full border border-emerald-600"></span>
           </button>
 
@@ -59,62 +57,101 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             )}
           </div>
 
-          {/* User Avatar */}
-          <button onClick={() => setActiveTab('profile')} className="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center font-black border-2 border-white/20 uppercase shadow-inner text-white">
-            {userName.charAt(0)}
+          {/* User Profile (ME) */}
+          <button 
+            onClick={() => setActiveTab('profile')} 
+            className="flex flex-col items-center gap-0.5 transition-opacity hover:opacity-90"
+          >
+            <div className="w-9 h-9 bg-emerald-500 rounded-full flex items-center justify-center font-black border-2 border-white/20 uppercase shadow-inner text-white text-sm">
+              {userName.charAt(0)}
+            </div>
+            <span className="text-[8px] font-black uppercase text-emerald-100">Me</span>
           </button>
         </div>
       </header>
 
       {/* MAIN CONTENT */}
-      <main className="flex-1 overflow-y-auto p-4 pb-24">
+      <main className="flex-1 overflow-y-auto p-4 pb-28">
         {children}
       </main>
 
       {/* BOTTOM NAV */}
-      <nav className="fixed bottom-0 w-full max-w-lg bg-white/90 dark:bg-slate-800/90 backdrop-blur-md border-t dark:border-slate-700 p-5 flex justify-around shadow-2xl z-40">
-        <NavButton 
-            active={activeTab === 'buy'} 
-            onClick={() => setActiveTab('buy')} 
-            icon={<Wifi size={24} strokeWidth={3}/>} 
-            label="Buy" 
-        />
-        <NavButton 
-            active={activeTab === 'history'} 
-            onClick={() => setActiveTab('history')} 
-            icon={<HistoryIcon size={24} strokeWidth={3}/>} 
-            label="History" 
-        />
+      <nav className="fixed bottom-0 w-full max-w-lg bg-white/95 dark:bg-slate-800/95 backdrop-blur-md border-t dark:border-slate-700 pb-safe pt-2 px-10 flex justify-between items-end shadow-[0_-5px_20px_rgba(0,0,0,0.05)] z-40 h-[80px]">
+        
+        {/* 1. Ask AI (Left) */}
         <NavButton 
             active={activeTab === 'assistant'} 
             onClick={() => setActiveTab('assistant')} 
-            icon={<MessageCircle size={24} strokeWidth={3}/>} 
+            icon={<MessageCircle size={24} strokeWidth={2.5}/>} 
             label="Ask AI"
-            badge={true} // 🔴 ACTIVATES BADGE ON AI TAB
+            badge={true} 
         />
+
+        {/* 2. BIG BUY BUTTON (Middle) */}
+        <div className="relative -top-6">
+            <NavButton 
+                active={activeTab === 'buy'} 
+                onClick={() => setActiveTab('buy')} 
+                icon={<Wifi size={28} strokeWidth={3} />} 
+                label="Buy" 
+                isMain={true} 
+            />
+        </div>
+
+        {/* 3. History (Right) */}
         <NavButton 
-            active={activeTab === 'profile'} 
-            onClick={() => setActiveTab('profile')} 
-            icon={<UserIcon size={24} strokeWidth={3}/>} 
-            label="Me" 
+            active={activeTab === 'history'} 
+            onClick={() => setActiveTab('history')} 
+            icon={<HistoryIcon size={24} strokeWidth={2.5}/>} 
+            label="History" 
         />
+
       </nav>
     </div>
   );
 };
 
-// Updated NavButton to handle 'badge' prop
-const NavButton = ({ active, onClick, icon, label, badge }: any) => (
-  <button onClick={onClick} className={`relative flex flex-col items-center gap-1.5 transition-all ${active ? 'text-emerald-600 scale-110' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
-    <div className="relative">
+// --- NAV BUTTON COMPONENT ---
+const NavButton = ({ active, onClick, icon, label, badge, isMain }: any) => {
+  
+  // RENDER BIG FLOATING BUTTON
+  if (isMain) {
+    return (
+      <button 
+        onClick={onClick} 
+        className={`
+          flex items-center justify-center w-16 h-16 rounded-full shadow-xl transition-transform active:scale-95
+          border-[6px] border-slate-50 dark:border-slate-900
+          ${active 
+            ? 'bg-emerald-600 text-white shadow-emerald-200 dark:shadow-emerald-900/20' 
+            : 'bg-slate-800 text-slate-400'
+          }
+        `}
+      >
         {icon}
-        {/* 🔴 Footer Badge Logic */}
+      </button>
+    );
+  }
+
+  // RENDER STANDARD NAV BUTTON
+  return (
+    <button 
+      onClick={onClick} 
+      className={`relative flex flex-col items-center gap-1.5 pb-3 transition-all ${
+        active 
+          ? 'text-emerald-600 scale-105' 
+          : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+      }`}
+    >
+      <div className="relative">
+        {icon}
         {badge && !active && (
-            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white dark:border-slate-800 animate-pulse"></span>
+          <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white dark:border-slate-800 animate-pulse"></span>
         )}
-    </div>
-    <span className="text-[9px] font-black uppercase tracking-widest">{label}</span>
-  </button>
-);
+      </div>
+      <span className="text-[10px] font-bold uppercase tracking-wide">{label}</span>
+    </button>
+  );
+};
 
 export default DashboardLayout;
