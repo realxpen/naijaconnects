@@ -3,6 +3,7 @@ import { ArrowLeft, Loader2, Printer, Wallet } from "lucide-react";
 import { supabase } from "../../supabaseClient";
 import { dbService } from "../../services/dbService";
 import { CARRIERS, PIN_PRICING, RECHARGE_AMOUNTS } from "../../constants";
+import { useToast } from "../ui/ToastProvider";
 
 interface RechargePinProps {
   user: any;
@@ -11,6 +12,7 @@ interface RechargePinProps {
 }
 
 const RechargePin = ({ user, onUpdateBalance, onBack }: RechargePinProps) => {
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [networkId, setNetworkId] = useState(1);
   const [amount, setAmount] = useState("100");
@@ -28,11 +30,11 @@ const RechargePin = ({ user, onUpdateBalance, onBack }: RechargePinProps) => {
 
   // --- 2. PURCHASE LOGIC ---
   const handlePurchase = async () => {
-    if (!amount || !nameOnCard) return alert("Please fill all fields");
+    if (!amount || !nameOnCard) return showToast("Please fill all fields", "error");
     const cost = calculateTotalCost();
     
-    if (user.balance < cost) return alert("Insufficient Balance");
-    if (quantity > 10) return alert("Max 10 pins at a time");
+    if (user.balance < cost) return showToast("Insufficient Balance", "error");
+    if (quantity > 10) return showToast("Max 10 pins at a time", "error");
 
     setLoading(true);
     try {
@@ -68,14 +70,14 @@ const RechargePin = ({ user, onUpdateBalance, onBack }: RechargePinProps) => {
             denomination: amount
           }
         });
-        alert(`Success! Generated ${quantity} Pins.`);
+        showToast(`Success! Generated ${quantity} Pins.`, "success");
         setNameOnCard("");
         setQuantity(1);
       } else {
         throw new Error(data.message || "Failed to generate pins");
       }
     } catch (e: any) {
-      alert(e.message);
+      showToast(e.message || "Failed to generate pins", "error");
     } finally {
       setLoading(false);
     }

@@ -3,6 +3,7 @@ import { ArrowLeft, Loader2, Building2, ChevronRight, Check, Zap, Wallet, Histor
 import { supabase } from "../../supabaseClient";
 import { dbService } from "../../services/dbService";
 import { DISCOS } from "../../constants";
+import { useToast } from "../ui/ToastProvider";
 
 interface ElectricityProps {
   user: any;
@@ -11,6 +12,7 @@ interface ElectricityProps {
 }
 
 const Electricity = ({ user, onUpdateBalance, onBack }: ElectricityProps) => {
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [disco, setDisco] = useState<string | null>(null);
   const [meterNumber, setMeterNumber] = useState("");
@@ -66,7 +68,7 @@ const Electricity = ({ user, onUpdateBalance, onBack }: ElectricityProps) => {
   // --- 4. PURCHASE LOGIC ---
   const handlePurchase = async () => {
     if (!amount || !meterNumber || !disco || !customerName || customerName.includes("Invalid")) return;
-    if (user.balance < Number(amount)) return alert("Insufficient Balance");
+    if (user.balance < Number(amount)) return showToast("Insufficient Balance", "error");
 
     setLoading(true);
     try {
@@ -102,7 +104,7 @@ const Electricity = ({ user, onUpdateBalance, onBack }: ElectricityProps) => {
         
         saveRecentMeter(meterNumber);
 
-        alert(`Success! Token: ${data.token || data.metertoken || "Check receipt"}`);
+        showToast(`Success! Token: ${data.token || data.metertoken || "Check receipt"}`, "success", 6000);
         setMeterNumber("");
         setAmount("");
         setCustomerName("");
@@ -110,7 +112,7 @@ const Electricity = ({ user, onUpdateBalance, onBack }: ElectricityProps) => {
         throw new Error(data.message || "Transaction Failed");
       }
     } catch (e: any) {
-      alert(e.message);
+      showToast(e.message || "Transaction Failed", "error");
     } finally {
       setLoading(false);
     }

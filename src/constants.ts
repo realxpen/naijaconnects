@@ -35,6 +35,18 @@ import gotvLogo from './assets/logos/gotv.png';
 import startimesLogo from './assets/logos/startimescable.png';
 import showmaxLogo from './assets/logos/showmax.png';
 import ikejaLogo from './assets/logos/ikedc.png';
+import ekoLogo from './assets/logos/eko.png';
+import abujaLogo from './assets/logos/abuja.png';
+import kanoLogo from './assets/logos/kano.png';
+import portharcourtLogo from './assets/logos/portharcourt.png';
+import josLogo from './assets/logos/jos_jed.png';
+import ibedcLogo from './assets/logos/ibedc.png';
+import kadunaLogo from './assets/logos/kaduna.png';
+import enuguLogo from './assets/logos/enugu.png';
+import beninLogo from './assets/logos/benin.png';
+import yolaLogo from './assets/logos/yola.png';
+import abaLogo from './assets/logos/aba.png';
+import jambLogo from './assets/logos/jamb.png';
 
 // --- 3. MAPPINGS & DATA ---
 export const NETWORK_ID_MAP: Record<number, Carrier> = {
@@ -61,18 +73,18 @@ export const CABLE_PROVIDERS = [
 ];
 
 export const DISCOS = [
-  { id: '01', name: 'Eko', short: 'EKEDC', logo: 'https://via.placeholder.com/50?text=EKO' },
+  { id: '01', name: 'Eko', short: 'EKEDC', logo: ekoLogo },
   { id: '02', name: 'Ikeja', short: 'IKEDC', logo: ikejaLogo },
-  { id: '03', name: 'Abuja', short: 'AEDC', logo: 'https://via.placeholder.com/50?text=AEDC' },
-  { id: '04', name: 'Kano', short: 'KEDCO', logo: 'https://via.placeholder.com/50?text=KEDCO' },
-  { id: '05', name: 'P.Harcourt', short: 'PHED', logo: 'https://via.placeholder.com/50?text=PHED' },
-  { id: '06', name: 'Jos', short: 'JED', logo: 'https://via.placeholder.com/50?text=JOS' },
-  { id: '07', name: 'Ibadan', short: 'IBEDC', logo: 'https://via.placeholder.com/50?text=IBEDC' },
-  { id: '08', name: 'Kaduna', short: 'KAEDCO', logo: 'https://via.placeholder.com/50?text=KD' },
-  { id: '09', name: 'Enugu', short: 'EEDC', logo: 'https://via.placeholder.com/50?text=EEDC' },
-  { id: '10', name: 'Benin', short: 'BEDC', logo: 'https://via.placeholder.com/50?text=BENIN' },
-  { id: '11', name: 'Yola', short: 'YEDC', logo: 'https://via.placeholder.com/50?text=YOLA' },
-  { id: '12', name: 'Aba', short: 'APLE', logo: 'https://via.placeholder.com/50?text=ABA' },
+  { id: '03', name: 'Abuja', short: 'AEDC', logo: abujaLogo },
+  { id: '04', name: 'Kano', short: 'KEDCO', logo: kanoLogo },
+  { id: '05', name: 'P.Harcourt', short: 'PHED', logo: portharcourtLogo },
+  { id: '06', name: 'Jos', short: 'JED', logo: josLogo },
+  { id: '07', name: 'Ibadan', short: 'IBEDC', logo: ibedcLogo },
+  { id: '08', name: 'Kaduna', short: 'KAEDCO', logo: kadunaLogo },
+  { id: '09', name: 'Enugu', short: 'EEDC', logo: enuguLogo },
+  { id: '10', name: 'Benin', short: 'BEDC', logo: beninLogo },
+  { id: '11', name: 'Yola', short: 'YEDC', logo: yolaLogo },
+  { id: '12', name: 'Aba', short: 'APLE', logo: abaLogo },
 ];
 
 // --- 4. EXAM PRICING (Updated) ---
@@ -83,7 +95,7 @@ export const JAMB_VARIANTS = [
 ];
 
 export const EXAM_TYPES = [
-  { id: 'JAMB', name: 'JAMB e-PIN', price: 0, logo: null }, // Price calculated from variant
+  { id: 'JAMB', name: 'JAMB e-PIN', price: 0, logo: jambLogo }, // Price calculated from variant
   { id: 'WAEC', name: 'WAEC Result Checker', price: 3500, logo: waecLogo },
   { id: 'NECO', name: 'NECO Result Checker', price: 1300, logo: necoLogo },
 ];

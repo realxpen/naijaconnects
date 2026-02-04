@@ -3,6 +3,7 @@ import { Zap } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { dbService } from './services/dbService';
 import { I18nProvider, LanguageCode } from './i18n';
+import { ToastProvider, useToast } from './components/ui/ToastProvider';
 
 // Layouts & Pages
 import DashboardLayout from "./layouts/DashboardLayout"; // Adjusted path to components
@@ -47,6 +48,9 @@ const App: React.FC = () => {
           balance: data.wallet_balance || 0,
           phone: data.phone || ''
         });
+        if (data.preferred_language) {
+          setLanguage(data.preferred_language as LanguageCode);
+        }
         setIsAuthenticated(true);
       }
     } catch (error) {
@@ -96,24 +100,27 @@ const App: React.FC = () => {
   };
 
   // --- 4. AUTH ACTIONS ---
+  const { showToast } = useToast();
+
   const handleLogin = async (email: string, pass: string) => {
     setIsProcessing(true);
     try {
       await dbService.loginUser(email, pass);
     } catch (e: any) { 
-      alert(e.message || "Login Failed"); 
+      showToast(e.message || "Login Failed", "error");
     } finally { 
       setIsProcessing(false); 
     }
   };
 
-  const handleSignup = async (email: string, name: string, pass: string) => {
+  const handleSignup = async (email: string, name: string, phone: string, preferredLanguage: LanguageCode, pass: string) => {
     setIsProcessing(true);
     try {
-      await dbService.registerUser(email, name, pass);
-      setUser({ name: '', email: '', balance: 0 }); 
+      await dbService.registerUser(email, name, phone, preferredLanguage, pass);
+      setUser({ name: '', email: '', balance: 0, phone }); 
+      setLanguage(preferredLanguage);
     } catch (e: any) { 
-      alert(e.message || "Signup Failed"); 
+      showToast(e.message || "Signup Failed", "error");
       throw e; 
     } finally { 
       setIsProcessing(false); 
@@ -200,4 +207,10 @@ const App: React.FC = () => {
   );
 };
 
-export default App;
+const AppWithProviders: React.FC = () => (
+  <ToastProvider>
+    <App />
+  </ToastProvider>
+);
+
+export default AppWithProviders;

@@ -4,6 +4,7 @@ import { supabase } from "../../supabaseClient";
 import { dbService } from "../../services/dbService";
 import { CARRIERS } from "../../constants";
 import { useI18n } from "../../i18n";
+import { useToast } from "../ui/ToastProvider";
 
 interface DataBundleProps {
   user: any;
@@ -13,6 +14,7 @@ interface DataBundleProps {
 
 const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
   const { t } = useI18n();
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [networkId, setNetworkId] = useState(1);
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -152,7 +154,7 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
   // --- 6. PURCHASE LOGIC ---
   const handlePurchase = async () => {
     if (!selectedPlan || !phoneNumber) return;
-    if (user.balance < selectedPlan.amount) return alert(t("data.insufficient_balance"));
+    if (user.balance < selectedPlan.amount) return showToast(t("data.insufficient_balance"), "error");
 
     setLoading(true);
     try {
@@ -184,14 +186,14 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
         
         saveRecentNumber(phoneNumber);
 
-        alert(t("data.success_sent", { plan: selectedPlan.plan_name }));
+        showToast(t("data.success_sent", { plan: selectedPlan.plan_name }), "success");
         setPhoneNumber(userPhone); // Reset to user
         setSelectedPlan(null);
       } else {
         throw new Error(data.message || "Failed");
       }
     } catch (e: any) {
-      alert(e.message || t("data.transaction_failed"));
+      showToast(e.message || t("data.transaction_failed"), "error");
     } finally {
       setLoading(false);
     }

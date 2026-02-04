@@ -8,6 +8,7 @@ import { supabase } from "../supabaseClient";
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { useI18n } from '../i18n';
+import { useToast } from "../components/ui/ToastProvider";
 
 // --- LOGO IMPORTS ---
 import mtnLogo from '../assets/logos/mtn.png';
@@ -22,6 +23,18 @@ import gotvLogo from '../assets/logos/gotv.png';
 import startimesLogo from '../assets/logos/startimescable.png';
 import showmaxLogo from '../assets/logos/showmax.png';
 import ikejaLogo from '../assets/logos/ikedc.png';
+import ekoLogo from '../assets/logos/eko.png';
+import abujaLogo from '../assets/logos/abuja.png';
+import kanoLogo from '../assets/logos/kano.png';
+import portharcourtLogo from '../assets/logos/portharcourt.png';
+import josLogo from '../assets/logos/jos_jed.png';
+import ibedcLogo from '../assets/logos/ibedc.png';
+import kadunaLogo from '../assets/logos/kaduna.png';
+import enuguLogo from '../assets/logos/enugu.png';
+import beninLogo from '../assets/logos/benin.png';
+import yolaLogo from '../assets/logos/yola.png';
+import abaLogo from '../assets/logos/aba.png';
+import jambLogo from '../assets/logos/jamb.png';
 
 interface Transaction {
   id: number;
@@ -39,6 +52,7 @@ interface Transaction {
 
 const History = () => {
   const { t } = useI18n();
+  const { showToast } = useToast();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('All');
@@ -165,8 +179,20 @@ const History = () => {
       if (combined.includes("STARTIMES")) return <img src={startimesLogo} className="w-full h-full object-contain rounded-full" />;
       if (combined.includes("SHOWMAX")) return <img src={showmaxLogo} className="w-full h-full object-contain rounded-full" />;
       if (combined.includes("IKEJA") || combined.includes("IKEDC")) return <img src={ikejaLogo} className="w-full h-full object-contain rounded-full" />;
+      if (combined.includes("EKO") || combined.includes("EKEDC")) return <img src={ekoLogo} className="w-full h-full object-contain rounded-full" />;
+      if (combined.includes("ABUJA") || combined.includes("AEDC")) return <img src={abujaLogo} className="w-full h-full object-contain rounded-full" />;
+      if (combined.includes("KANO") || combined.includes("KEDCO")) return <img src={kanoLogo} className="w-full h-full object-contain rounded-full" />;
+      if (combined.includes("PORT") || combined.includes("PHED")) return <img src={portharcourtLogo} className="w-full h-full object-contain rounded-full" />;
+      if (combined.includes("JOS") || combined.includes("JED")) return <img src={josLogo} className="w-full h-full object-contain rounded-full" />;
+      if (combined.includes("IBADAN") || combined.includes("IBEDC")) return <img src={ibedcLogo} className="w-full h-full object-contain rounded-full" />;
+      if (combined.includes("KADUNA") || combined.includes("KAEDCO")) return <img src={kadunaLogo} className="w-full h-full object-contain rounded-full" />;
+      if (combined.includes("ENUGU") || combined.includes("EEDC")) return <img src={enuguLogo} className="w-full h-full object-contain rounded-full" />;
+      if (combined.includes("BENIN") || combined.includes("BEDC")) return <img src={beninLogo} className="w-full h-full object-contain rounded-full" />;
+      if (combined.includes("YOLA") || combined.includes("YEDC")) return <img src={yolaLogo} className="w-full h-full object-contain rounded-full" />;
+      if (combined.includes("ABA") || combined.includes("APLE")) return <img src={abaLogo} className="w-full h-full object-contain rounded-full" />;
       if (combined.includes("WAEC")) return <img src={waecLogo} className="w-full h-full object-contain rounded-full" />;
       if (combined.includes("NECO")) return <img src={necoLogo} className="w-full h-full object-contain rounded-full" />;
+      if (combined.includes("JAMB")) return <img src={jambLogo} className="w-full h-full object-contain rounded-full" />;
 
       switch(transaction.type) {
           case 'Airtime': return <Smartphone size={18} />;
@@ -231,7 +257,7 @@ const History = () => {
                     console.log("Share cancelled or failed", e);
                 }
             } else {
-                alert(t("history.share_not_supported"));
+                showToast(t("history.share_not_supported"), "info");
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
@@ -272,14 +298,14 @@ const History = () => {
             pdf.save(`receipt_${displayRef}.pdf`);
             setSaveMenuOpen(false);
         } catch (e) {
-            alert(t("dashboard.error_generating_pdf"));
+            showToast(t("dashboard.error_generating_pdf"), "error");
         }
         setIsGenerating(false);
     };
 
     const handleCopyRef = () => {
         navigator.clipboard.writeText(displayRef).then(() => {
-            alert(t("history.reference_copied_clipboard"));
+            showToast(t("history.reference_copied_clipboard"), "success");
         });
     };
 

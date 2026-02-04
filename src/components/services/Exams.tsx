@@ -4,6 +4,7 @@ import { supabase } from "../../supabaseClient";
 import { dbService } from "../../services/dbService";
 import { EXAM_TYPES, JAMB_VARIANTS } from "../../constants";
 import { useI18n } from "../../i18n";
+import { useToast } from "../ui/ToastProvider";
 
 interface ExamsProps {
   user: any;
@@ -13,6 +14,7 @@ interface ExamsProps {
 
 const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
   const { t } = useI18n();
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [selectedExam, setSelectedExam] = useState<any>(EXAM_TYPES[0]); // Default to first (usually JAMB or WAEC)
   const [quantity, setQuantity] = useState(1);
@@ -55,8 +57,8 @@ const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
     if (!selectedExam) return;
     const cost = calculateCost();
 
-    if (user.balance < cost) return alert(t("data.insufficient_balance"));
-    if (selectedExam.id === "JAMB" && (!jambProfileID || customerName.includes("Invalid"))) return alert(t("exam.verify_profile_id"));
+    if (user.balance < cost) return showToast(t("data.insufficient_balance"), "error");
+    if (selectedExam.id === "JAMB" && (!jambProfileID || customerName.includes("Invalid"))) return showToast(t("exam.verify_profile_id"), "error");
 
     setLoading(true);
     try {
@@ -105,7 +107,7 @@ const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
              details: `Exam: ${selectedExam.id}`
           }
         });
-        alert(t("exam.purchase_success"));
+        showToast(t("exam.purchase_success"), "success");
         setJambProfileID("");
         setCustomerName("");
         setQuantity(1);
@@ -113,7 +115,7 @@ const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
         throw new Error(data.message || t("exam.purchase_failed"));
       }
     } catch (e: any) {
-      alert(e.message);
+      showToast(e.message || t("exam.purchase_failed"), "error");
     } finally {
       setLoading(false);
     }

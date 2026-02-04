@@ -26,6 +26,15 @@ serve(async (req) => {
     try { body = await req.json(); } catch (e) {}
     const { action, account_number, bank_code, amount, email, reference } = body;
 
+    const makeReference = () => {
+      const ref = `wd_${crypto.randomUUID()}`;
+      return ref.toLowerCase();
+    };
+
+    const isValidReference = (ref: string) => {
+      return /^[a-z0-9_-]{16,50}$/.test(ref);
+    };
+
     // ============================================================
     // 1. LIST BANKS (This was missing!)
     // ============================================================
@@ -91,7 +100,7 @@ serve(async (req) => {
             if (!recipientData.status) throw new Error("Failed to create beneficiary");
 
             // D. Initiate Transfer
-            const uniqueRef = `wd-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+            const uniqueRef = reference && isValidReference(reference) ? reference : makeReference();
             const transferRes = await fetch("https://api.paystack.co/transfer", {
                 method: "POST",
                 headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`, "Content-Type": "application/json" },
@@ -108,9 +117,11 @@ serve(async (req) => {
             if (!finalData.status) throw new Error(finalData.message);
             if (finalData.data?.status === 'otp') throw new Error("Please disable Transfer OTP in Paystack Settings");
 
-            // E. Log Success
+            // E. Log Pending/Success
+            const transferStatus = finalData.data?.status || "pending";
+            const txStatus = transferStatus === "success" ? "Success" : "Pending";
             await supabaseAdmin.from('transactions').insert({
-                user_email: email, reference: uniqueRef, amount: amount, type: 'Withdrawal', status: 'Success'
+                user_email: email, reference: uniqueRef, amount: amount, type: 'Withdrawal', status: txStatus
             });
 
             return new Response(JSON.stringify(finalData), { 
@@ -124,6 +135,43 @@ serve(async (req) => {
             });
             throw error;
         }
+    }
+
+    // ============================================================
+    // 4. VERIFY TRANSFER (Polling)
+    // ============================================================
+    if (action === 'verify_transfer') {
+        if (!reference || !isValidReference(reference)) throw new Error("Invalid transfer reference");
+
+        const verifyRes = await fetch(`https://api.paystack.co/transfer/verify/${reference}`, {
+            headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` }
+        });
+        const verifyData = await verifyRes.json();
+        if (!verifyData.status) throw new Error(verifyData.message || "Verification failed");
+
+        const status = verifyData.data?.status || "pending";
+        const { data: tx } = await supabaseAdmin
+            .from('transactions')
+            .select('id, user_email, amount, status')
+            .eq('reference', reference)
+            .single();
+
+        if (tx) {
+            if (status === "success") {
+                await supabaseAdmin.from('transactions').update({ status: "Success" }).eq('id', tx.id);
+            } else if (status === "failed" || status === "reversed") {
+                if (tx.status !== "Failed" && tx.status !== "Reversed") {
+                    await supabaseAdmin.rpc('fund_wallet_secure', { 
+                        user_email_input: tx.user_email, amount_input: Number(tx.amount), ref_input: `refund-${Date.now()}` 
+                    });
+                }
+                await supabaseAdmin.from('transactions').update({ status: status === "reversed" ? "Reversed" : "Failed" }).eq('id', tx.id);
+            }
+        }
+
+        return new Response(JSON.stringify({ status: true, transfer_status: status }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200
+        });
     }
 
     // Default Fallback

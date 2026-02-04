@@ -3,6 +3,7 @@ import { ArrowLeft, Loader2, Tv, CheckCircle2, User, History, X, Wallet } from "
 import { supabase } from "../../supabaseClient";
 import { dbService } from "../../services/dbService";
 import { CABLE_PROVIDERS } from "../../constants";
+import { useToast } from "../ui/ToastProvider";
 
 interface CableTvProps {
   user: any;
@@ -11,6 +12,7 @@ interface CableTvProps {
 }
 
 const CableTv = ({ user, onUpdateBalance, onBack }: CableTvProps) => {
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [provider, setProvider] = useState("gotv");
   const [iuc, setIuc] = useState("");
@@ -105,7 +107,7 @@ const CableTv = ({ user, onUpdateBalance, onBack }: CableTvProps) => {
   const handlePurchase = async () => {
     if (!selectedPlan || !iuc || customerName.includes("Invalid")) return;
     const cost = parseFloat(selectedPlan.amount);
-    if (user.balance < cost) return alert("Insufficient Balance");
+    if (user.balance < cost) return showToast("Insufficient Balance", "error");
 
     setLoading(true);
     try {
@@ -140,7 +142,7 @@ const CableTv = ({ user, onUpdateBalance, onBack }: CableTvProps) => {
         
         saveRecentIuc(iuc);
 
-        alert("Cable Subscription Successful!");
+        showToast("Cable Subscription Successful!", "success");
         setIuc("");
         setCustomerName("");
         setSelectedPlan(null);
@@ -148,7 +150,7 @@ const CableTv = ({ user, onUpdateBalance, onBack }: CableTvProps) => {
         throw new Error(data.message || "Transaction Failed");
       }
     } catch (e: any) {
-      alert(e.message);
+      showToast(e.message || "Transaction Failed", "error");
     } finally {
       setLoading(false);
     }

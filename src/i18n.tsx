@@ -143,6 +143,8 @@ const translations: Translations = {
     "auth.secure_access": "Secure Access",
     "auth.reset_hint": "Enter your email to receive a password reset link.",
     "auth.full_name": "Full Name",
+    "auth.phone": "Phone Number",
+    "auth.preferred_language": "Preferred Language",
     "auth.email": "Email Address",
     "auth.password": "Password",
     "auth.forgot_password": "Forgot Password?",

@@ -3,6 +3,7 @@ import { ArrowLeft, Loader2, ArrowLeftRight, CheckCircle, Wallet, Smartphone, Al
 import { supabase } from "../../supabaseClient";
 import { CARRIERS } from "../../constants";
 import { useI18n } from "../../i18n";
+import { useToast } from "../ui/ToastProvider";
 
 interface AirtimeToCashProps {
   user: any; // Added user prop
@@ -11,6 +12,7 @@ interface AirtimeToCashProps {
 
 const AirtimeToCash = ({ user, onBack }: AirtimeToCashProps) => {
   const { t } = useI18n();
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [networkId, setNetworkId] = useState(1);
   const [phone, setPhone] = useState("");
@@ -86,7 +88,7 @@ const AirtimeToCash = ({ user, onBack }: AirtimeToCashProps) => {
       });
 
     } catch (e: any) {
-      alert(e.message || t("airtime_to_cash.failed_initiate"));
+      showToast(e.message || t("airtime_to_cash.failed_initiate"), "error");
     } finally {
       setLoading(false);
     }

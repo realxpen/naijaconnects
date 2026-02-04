@@ -5,12 +5,11 @@ import {
   Printer, Building2, CheckCircle2, Share2, Download, Copy,
   Image as ImageIcon, FileText, Activity
 } from "lucide-react";
-import { usePaystackPayment } from "react-paystack";
 import { supabase } from "../supabaseClient";
-import { dbService } from "../services/dbService";
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { useI18n } from "../i18n";
+import { useToast } from "../components/ui/ToastProvider";
 
 // --- SERVICE COMPONENTS ---
 import Airtime from "../components/services/Airtime";
@@ -34,6 +33,18 @@ import gotvLogo from '../assets/logos/gotv.png';
 import startimesLogo from '../assets/logos/startimescable.png';
 import showmaxLogo from '../assets/logos/showmax.png';
 import ikejaLogo from '../assets/logos/ikedc.png';
+import ekoLogo from '../assets/logos/eko.png';
+import abujaLogo from '../assets/logos/abuja.png';
+import kanoLogo from '../assets/logos/kano.png';
+import portharcourtLogo from '../assets/logos/portharcourt.png';
+import josLogo from '../assets/logos/jos_jed.png';
+import ibedcLogo from '../assets/logos/ibedc.png';
+import kadunaLogo from '../assets/logos/kaduna.png';
+import enuguLogo from '../assets/logos/enugu.png';
+import beninLogo from '../assets/logos/benin.png';
+import yolaLogo from '../assets/logos/yola.png';
+import abaLogo from '../assets/logos/aba.png';
+import jambLogo from '../assets/logos/jamb.png';
 
 // --- INTERFACES ---
 interface DashboardProps {
@@ -74,8 +85,20 @@ const getLogoOrIcon = (transaction: Transaction) => {
     if (combined.includes("STARTIMES")) return <img src={startimesLogo} className="w-full h-full object-contain rounded-full" />;
     if (combined.includes("SHOWMAX")) return <img src={showmaxLogo} className="w-full h-full object-contain rounded-full" />;
     if (combined.includes("IKEJA") || combined.includes("IKEDC")) return <img src={ikejaLogo} className="w-full h-full object-contain rounded-full" />;
+    if (combined.includes("EKO") || combined.includes("EKEDC")) return <img src={ekoLogo} className="w-full h-full object-contain rounded-full" />;
+    if (combined.includes("ABUJA") || combined.includes("AEDC")) return <img src={abujaLogo} className="w-full h-full object-contain rounded-full" />;
+    if (combined.includes("KANO") || combined.includes("KEDCO")) return <img src={kanoLogo} className="w-full h-full object-contain rounded-full" />;
+    if (combined.includes("PORT") || combined.includes("PHED")) return <img src={portharcourtLogo} className="w-full h-full object-contain rounded-full" />;
+    if (combined.includes("JOS") || combined.includes("JED")) return <img src={josLogo} className="w-full h-full object-contain rounded-full" />;
+    if (combined.includes("IBADAN") || combined.includes("IBEDC")) return <img src={ibedcLogo} className="w-full h-full object-contain rounded-full" />;
+    if (combined.includes("KADUNA") || combined.includes("KAEDCO")) return <img src={kadunaLogo} className="w-full h-full object-contain rounded-full" />;
+    if (combined.includes("ENUGU") || combined.includes("EEDC")) return <img src={enuguLogo} className="w-full h-full object-contain rounded-full" />;
+    if (combined.includes("BENIN") || combined.includes("BEDC")) return <img src={beninLogo} className="w-full h-full object-contain rounded-full" />;
+    if (combined.includes("YOLA") || combined.includes("YEDC")) return <img src={yolaLogo} className="w-full h-full object-contain rounded-full" />;
+    if (combined.includes("ABA") || combined.includes("APLE")) return <img src={abaLogo} className="w-full h-full object-contain rounded-full" />;
     if (combined.includes("WAEC")) return <img src={waecLogo} className="w-full h-full object-contain rounded-full" />;
     if (combined.includes("NECO")) return <img src={necoLogo} className="w-full h-full object-contain rounded-full" />;
+    if (combined.includes("JAMB")) return <img src={jambLogo} className="w-full h-full object-contain rounded-full" />;
 
     // Fallback Icons
     switch(transaction.type) {
@@ -95,6 +118,7 @@ const getLogoOrIcon = (transaction: Transaction) => {
 // --- COMPONENT: RECEIPT VIEW ---
 const ReceiptView = ({ tx, onClose }: { tx: Transaction; onClose: () => void }) => {
     const { t } = useI18n();
+    const { showToast } = useToast();
     const receiptRef = useRef<HTMLDivElement>(null);
     const [isGenerating, setIsGenerating] = useState(false);
     const [saveMenuOpen, setSaveMenuOpen] = useState(false);
@@ -187,13 +211,13 @@ const ReceiptView = ({ tx, onClose }: { tx: Transaction; onClose: () => void }) 
         pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
         pdf.save(`receipt_${displayRef}.pdf`);
         setSaveMenuOpen(false);
-      } catch (e) { alert(t("dashboard.error_generating_pdf")); }
+      } catch (e) { showToast(t("dashboard.error_generating_pdf"), "error"); }
       setIsGenerating(false);
     };
 
     const handleCopyRef = () => {
         navigator.clipboard.writeText(displayRef).then(() => {
-            alert(t("dashboard.reference_copied"));
+            showToast(t("dashboard.reference_copied"), "success");
         });
     };
   
@@ -330,6 +354,7 @@ const ReceiptView = ({ tx, onClose }: { tx: Transaction; onClose: () => void }) 
 // --- MAIN DASHBOARD COMPONENT ---
 const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
   const { t } = useI18n();
+  const { showToast } = useToast();
   const [view, setView] = useState<ViewState>("Dashboard");
   const [isRefreshingBalance, setIsRefreshingBalance] = useState(false);
   const [history, setHistory] = useState<Transaction[]>([]);
@@ -339,6 +364,18 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
   const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
   const [depositAmount, setDepositAmount] = useState("");
   const [currentTxRef, setCurrentTxRef] = useState<string>(`txn_${Date.now()}`);
+  const [isVerifyingDeposit, setIsVerifyingDeposit] = useState(false);
+
+  // Withdraw States
+  const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [bankCode, setBankCode] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [accountName, setAccountName] = useState("");
+  const [banks, setBanks] = useState<{ name: string; code: string }[]>([]);
+  const [isLoadingBanks, setIsLoadingBanks] = useState(false);
+  const [isResolvingAccount, setIsResolvingAccount] = useState(false);
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
 
   // --- DATA FETCHING ---
   const fetchUser = async () => {
@@ -362,33 +399,151 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
 
   useEffect(() => { fetchHistory(); fetchUser(); }, [user.email]);
 
-  // --- PAYSTACK LOGIC ---
-  const paystackConfig = {
-    email: user?.email,
-    amount: (Number(depositAmount) || 0) * 100,
-    publicKey: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || "",
-    reference: currentTxRef,
+  // --- OPay VERIFY (DEPOSIT) ---
+  const verifyDeposit = async (reference: string) => {
+    setIsVerifyingDeposit(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("verify-deposit", {
+        body: { reference }
+      });
+      if (error) throw new Error(error.message);
+      if (!data?.success) throw new Error(data?.error || "Verification failed");
+
+      if (typeof data.balance === "number") {
+        onUpdateBalance(data.balance);
+      } else {
+        await fetchUser();
+      }
+      showToast(t("dashboard.wallet_funded"), "success");
+      setIsDepositModalOpen(false);
+      setDepositAmount("");
+      setCurrentTxRef(`txn_${Date.now()}`);
+      fetchHistory();
+    } catch (e: any) {
+      showToast(e.message || "Verification failed", "error");
+    } finally {
+      setIsVerifyingDeposit(false);
+    }
   };
-  const initializePayment = usePaystackPayment(paystackConfig);
 
   const handleStartDeposit = () => {
-    if (!depositAmount || Number(depositAmount) < 100) return alert(t("dashboard.min_deposit"));
-    initializePayment({
-      onSuccess: async () => {
-         const newBal = user.balance + Number(depositAmount);
-         await dbService.updateBalance(user.email, newBal);
-         onUpdateBalance(newBal);
-         await dbService.addTransaction({
-             user_email: user.email, type: 'Deposit', amount: Number(depositAmount), status: 'Success', ref: currentTxRef
-         });
-         setIsDepositModalOpen(false);
-         setDepositAmount("");
-         setCurrentTxRef(`txn_${Date.now()}`);
-         alert(t("dashboard.wallet_funded"));
-         fetchHistory();
-      },
-      onClose: () => console.log("Closed")
-    } as any);
+    if (!depositAmount || Number(depositAmount) < 100) return showToast(t("dashboard.min_deposit"), "error");
+    showToast("Starting payment...", "info");
+    (async () => {
+      try {
+        const timeout = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("Payment init timed out. Check Edge Function deployment.")), 15000)
+        );
+        const invoke = supabase.functions.invoke("initialize-deposit", {
+          body: { email: user.email, amount: Number(depositAmount) }
+        });
+        const { data, error } = await Promise.race([invoke, timeout]);
+        if (error) throw new Error(error.message);
+        if (!data?.cashier_url) {
+          showToast(`Init response: ${JSON.stringify(data || {})}`, "error", 6000);
+          throw new Error("No cashier URL returned");
+        }
+
+        setCurrentTxRef(data.reference || currentTxRef);
+        window.location.assign(data.cashier_url);
+      } catch (e: any) {
+        showToast(e.message || "Failed to start payment", "error");
+      }
+    })();
+  };
+
+  // --- WITHDRAW LOGIC ---
+  const loadBanks = async () => {
+    setIsLoadingBanks(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("paystack-transfer", {
+        body: { action: "list_banks" }
+      });
+      if (error) throw new Error(error.message);
+      const list = data?.data || [];
+      setBanks(list.map((b: any) => ({ name: b.name, code: b.code })));
+    } catch (e: any) {
+      showToast(e.message || "Failed to load banks", "error");
+    } finally {
+      setIsLoadingBanks(false);
+    }
+  };
+
+  const resolveAccount = async (acct: string, bank: string) => {
+    if (acct.length !== 10 || !bank) return;
+    setIsResolvingAccount(true);
+    setAccountName("Resolving...");
+    try {
+      const { data, error } = await supabase.functions.invoke("paystack-transfer", {
+        body: { action: "verify", account_number: acct, bank_code: bank }
+      });
+      if (error) throw new Error(error.message);
+      if (!data?.status) throw new Error(data?.message || "Invalid account");
+      setAccountName(data.data?.account_name || "Verified");
+    } catch (e: any) {
+      setAccountName("Invalid Account");
+      showToast(e.message || "Invalid account", "error");
+    } finally {
+      setIsResolvingAccount(false);
+    }
+  };
+
+  const handleWithdraw = async () => {
+    const amountNum = Number(withdrawAmount);
+    if (!amountNum || amountNum < 100) return showToast("Minimum withdraw is ₦100", "error");
+    if (amountNum > user.balance) return showToast("Insufficient wallet balance", "error");
+    if (!bankCode || accountNumber.length !== 10 || accountName.includes("Invalid")) {
+      return showToast("Please enter valid bank details", "error");
+    }
+
+    setIsWithdrawing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("paystack-transfer", {
+        body: {
+          action: "transfer",
+          account_number: accountNumber,
+          bank_code: bankCode,
+          amount: amountNum,
+          email: user.email
+        }
+      });
+      if (error) throw new Error(error.message);
+      if (!data?.status) throw new Error(data?.message || "Withdrawal failed");
+
+      const reference = data?.data?.reference;
+      if (reference) {
+        try {
+          const verifyRes = await supabase.functions.invoke("paystack-transfer", {
+            body: { action: "verify_transfer", reference }
+          });
+          if (verifyRes.error) throw new Error(verifyRes.error.message);
+          const transferStatus = verifyRes.data?.transfer_status;
+          if (transferStatus === "success") {
+            showToast("Withdrawal successful", "success");
+          } else if (transferStatus === "failed" || transferStatus === "reversed") {
+            showToast("Withdrawal failed or reversed", "error");
+          } else {
+            showToast("Withdrawal pending. We'll update shortly.", "info");
+          }
+        } catch {
+          showToast("Withdrawal pending. You can verify later.", "info");
+        }
+      } else {
+        showToast("Withdrawal initiated successfully", "success");
+      }
+
+      await fetchUser();
+      fetchHistory();
+      setIsWithdrawModalOpen(false);
+      setWithdrawAmount("");
+      setAccountNumber("");
+      setBankCode("");
+      setAccountName("");
+    } catch (e: any) {
+      showToast(e.message || "Withdrawal failed", "error");
+    } finally {
+      setIsWithdrawing(false);
+    }
   };
 
   // --- RENDER CONTENT ---
@@ -430,10 +585,10 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
             </div>
             <h2 className="text-4xl font-black mb-6">₦{user.balance.toLocaleString()}</h2>
             <div className="flex gap-3">
-            <button onClick={() => setIsDepositModalOpen(true)} className="flex-1 bg-white text-emerald-700 py-4 rounded-2xl font-black text-xs uppercase shadow-lg flex items-center justify-center gap-2 hover:bg-emerald-50 transition-colors">
+            <button onClick={() => { setIsDepositModalOpen(true); setCurrentTxRef(`txn_${Date.now()}`); }} className="flex-1 bg-white text-emerald-700 py-4 rounded-2xl font-black text-xs uppercase shadow-lg flex items-center justify-center gap-2 hover:bg-emerald-50 transition-colors">
                 <CreditCard size={16} /> {t("dashboard.fund")}
             </button>
-            <button className="flex-1 bg-emerald-800/40 border border-emerald-400/30 text-emerald-100 py-4 rounded-2xl font-black text-xs uppercase cursor-not-allowed">
+            <button onClick={() => { setIsWithdrawModalOpen(true); if (banks.length === 0) loadBanks(); }} className="flex-1 bg-emerald-800/40 border border-emerald-400/30 text-emerald-100 py-4 rounded-2xl font-black text-xs uppercase hover:bg-emerald-800/60 transition-colors">
                 {t("dashboard.withdraw")}
             </button>
             </div>
@@ -533,7 +688,77 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
                  ))}
             </div>
             <input type="number" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl font-black mb-4 outline-none border border-slate-200 focus:border-emerald-500 transition-colors text-slate-800" placeholder={t("common.amount")} />
-            <button onClick={handleStartDeposit} className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black uppercase transition-colors shadow-lg shadow-emerald-200">{t("common.pay_securely")}</button>
+            <button type="button" onClick={handleStartDeposit} className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black uppercase transition-colors shadow-lg shadow-emerald-200">
+              {t("common.pay_securely")}
+            </button>
+            <button
+              type="button"
+              onClick={() => verifyDeposit(currentTxRef)}
+              disabled={isVerifyingDeposit}
+              className="w-full mt-3 py-3 bg-white border-2 border-emerald-600 text-emerald-700 rounded-2xl font-black uppercase transition-colors shadow-sm hover:bg-emerald-50 disabled:opacity-60"
+            >
+              {isVerifyingDeposit ? "Verifying..." : "Verify Payment"}
+            </button>
+            <p className="text-[10px] text-slate-400 font-bold text-center mt-3">
+              If you completed payment and the wallet didn’t update, tap Verify Payment.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* WITHDRAW MODAL */}
+      {isWithdrawModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-in fade-in">
+          <div className="bg-white w-full max-w-sm rounded-[35px] p-8 shadow-2xl relative">
+            <button onClick={() => setIsWithdrawModalOpen(false)} className="absolute top-6 right-6 p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"><X size={16} /></button>
+            <h3 className="text-xl font-black text-center mb-6 text-slate-800">{t("dashboard.withdraw")}</h3>
+
+            <label className="text-[10px] font-black uppercase text-slate-400">Bank</label>
+            <select
+              value={bankCode}
+              onChange={(e) => { setBankCode(e.target.value); setAccountName(""); }}
+              className="w-full p-4 bg-slate-50 rounded-2xl font-black mb-4 outline-none border border-slate-200 focus:border-emerald-500 transition-colors text-slate-800"
+            >
+              <option value="">{isLoadingBanks ? "Loading banks..." : "Select bank"}</option>
+              {banks.map((b) => (
+                <option key={b.code} value={b.code}>{b.name}</option>
+              ))}
+            </select>
+
+            <label className="text-[10px] font-black uppercase text-slate-400">Account Number</label>
+            <input
+              type="tel"
+              value={accountNumber}
+              onChange={(e) => {
+                const val = e.target.value.replace(/\D/g, "").slice(0, 10);
+                setAccountNumber(val);
+                if (val.length === 10 && bankCode) resolveAccount(val, bankCode);
+              }}
+              className="w-full p-4 bg-slate-50 rounded-2xl font-black mb-2 outline-none border border-slate-200 focus:border-emerald-500 transition-colors text-slate-800"
+              placeholder="0123456789"
+            />
+            {accountName && (
+              <p className={`text-[10px] font-black uppercase mb-4 ${accountName.includes("Invalid") ? "text-rose-500" : "text-emerald-600"}`}>
+                {isResolvingAccount ? "Resolving..." : accountName}
+              </p>
+            )}
+
+            <label className="text-[10px] font-black uppercase text-slate-400">Amount</label>
+            <input
+              type="number"
+              value={withdrawAmount}
+              onChange={(e) => setWithdrawAmount(e.target.value)}
+              className="w-full p-4 bg-slate-50 rounded-2xl font-black mb-4 outline-none border border-slate-200 focus:border-emerald-500 transition-colors text-slate-800"
+              placeholder="Amount"
+            />
+
+            <button
+              onClick={handleWithdraw}
+              disabled={isWithdrawing}
+              className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black uppercase transition-colors shadow-lg shadow-emerald-200 disabled:opacity-60"
+            >
+              {isWithdrawing ? "Processing..." : "Withdraw"}
+            </button>
           </div>
         </div>
       )}

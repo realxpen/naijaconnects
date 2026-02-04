@@ -5,21 +5,26 @@ import {
   ArrowLeft, Eye, EyeOff 
 } from 'lucide-react';
 import { useI18n } from '../i18n';
+import { LANGUAGES } from '../constants';
+import { useToast } from '../components/ui/ToastProvider';
 
 interface AuthProps {
   onLogin: (email: string, pass: string) => Promise<void>;
-  onSignup: (email: string, name: string, pass: string) => Promise<void>;
+  onSignup: (email: string, name: string, phone: string, preferredLanguage: string, pass: string) => Promise<void>;
   onForgotPassword: (email: string) => Promise<void>;
   isProcessing: boolean;
 }
 
 const Auth: React.FC<AuthProps> = ({ onLogin, onSignup, onForgotPassword, isProcessing }) => {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const { showToast } = useToast();
   const [view, setView] = useState<'login' | 'signup' | 'forgot-password'>('login');
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [preferredLanguage, setPreferredLanguage] = useState<string>(language);
   const [activeSlide, setActiveSlide] = useState(0);
   
   // New state for password visibility
@@ -65,15 +70,15 @@ const Auth: React.FC<AuthProps> = ({ onLogin, onSignup, onForgotPassword, isProc
       if (view === 'login') {
         await onLogin(email, password);
       } else if (view === 'signup') {
-        await onSignup(email, name, password);
-        alert(t("auth.alert.account_created"));
+        await onSignup(email, name, phone, preferredLanguage, password);
+        showToast(t("auth.alert.account_created"), "success");
       } else if (view === 'forgot-password') {
         await onForgotPassword(email);
-        alert(t("auth.alert.reset_link_sent"));
+        showToast(t("auth.alert.reset_link_sent"), "success");
         setView('login'); 
       }
     } catch (err: any) {
-      alert(err.message || t("auth.alert.generic_error"));
+      showToast(err.message || t("auth.alert.generic_error"), "error");
     }
   };
 
@@ -159,6 +164,34 @@ const Auth: React.FC<AuthProps> = ({ onLogin, onSignup, onForgotPassword, isProc
               <div className="relative animate-in slide-in-from-bottom-2">
                 <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                 <input type="text" required placeholder={t("auth.full_name")} value={name} onChange={e => setName(e.target.value)} className="w-full pl-12 p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 dark:bg-slate-950 dark:text-white font-bold outline-none focus:border-emerald-500 transition-all text-sm" />
+              </div>
+            )}
+
+            {/* PHONE INPUT (Signup Only) */}
+            {view === 'signup' && (
+              <div className="relative animate-in slide-in-from-bottom-2">
+                <Smartphone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <input type="tel" required placeholder={t("auth.phone")} value={phone} onChange={e => setPhone(e.target.value)} className="w-full pl-12 p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 dark:bg-slate-950 dark:text-white font-bold outline-none focus:border-emerald-500 transition-all text-sm" />
+              </div>
+            )}
+
+            {/* LANGUAGE INPUT (Signup Only) */}
+            {view === 'signup' && (
+              <div className="relative animate-in slide-in-from-bottom-2">
+                <Globe className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <select
+                  required
+                  value={preferredLanguage}
+                  onChange={e => setPreferredLanguage(e.target.value)}
+                  aria-label={t("auth.preferred_language")}
+                  className="w-full pl-12 p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 dark:bg-slate-950 dark:text-white font-bold outline-none focus:border-emerald-500 transition-all text-sm appearance-none"
+                >
+                  {LANGUAGES.map((lang) => (
+                    <option key={lang.id} value={lang.id}>
+                      {lang.name}
+                    </option>
+                  ))}
+                </select>
               </div>
             )}
             

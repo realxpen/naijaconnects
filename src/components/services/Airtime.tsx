@@ -4,6 +4,7 @@ import { supabase } from "../../supabaseClient";
 import { dbService } from "../../services/dbService";
 import { CARRIERS } from "../../constants";
 import { useI18n } from "../../i18n";
+import { useToast } from "../ui/ToastProvider";
 
 interface AirtimeProps {
   user: any;
@@ -13,6 +14,7 @@ interface AirtimeProps {
 
 const Airtime = ({ user, onUpdateBalance, onBack }: AirtimeProps) => {
   const { t } = useI18n();
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [networkId, setNetworkId] = useState(1);
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -100,7 +102,7 @@ const Airtime = ({ user, onUpdateBalance, onBack }: AirtimeProps) => {
   // --- 4. PURCHASE LOGIC ---
   const handlePurchase = async () => {
     if (!amount || !phoneNumber) return;
-    if (Number(amount) > user.balance) return alert(t("airtime.insufficient_balance"));
+    if (Number(amount) > user.balance) return showToast(t("airtime.insufficient_balance"), "error");
     
     setLoading(true);
     try {
@@ -139,14 +141,14 @@ const Airtime = ({ user, onUpdateBalance, onBack }: AirtimeProps) => {
         // Save to Recents
         saveRecentNumber(phoneNumber);
 
-        alert(t("airtime.sent_success"));
+        showToast(t("airtime.sent_success"), "success");
         setPhoneNumber(userPhone); // Reset to user phone
         setAmount("");
       } else {
         throw new Error(data?.message || "Transaction Failed");
       }
     } catch (e: any) {
-      alert(e.message || t("airtime.failed"));
+      showToast(e.message || t("airtime.failed"), "error");
     } finally {
       setLoading(false);
     }
