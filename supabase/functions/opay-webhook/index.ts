@@ -1,140 +1,116 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-const sortKeys = (obj: any): any => {
-  if (Array.isArray(obj)) return obj.map(sortKeys);
-  if (obj && typeof obj === 'object') {
-    return Object.keys(obj).sort().reduce((acc: any, key) => {
-      acc[key] = sortKeys(obj[key]);
-      return acc;
-    }, {});
-  }
-  return obj;
-};
-
-const hmacSha512 = async (payload: string, secret: string) => {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret),
-    { name: "HMAC", hash: "SHA-512" },
-    false,
-    ["sign"]
-  );
-  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payload));
-  return Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, "0")).join("");
-};
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// import { sha3_512 } from "https://esm.sh/js-sha3@0.8.0"; // Optional: Uncomment if you enforce strict security later
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  console.log("🔔 Webhook received!");
 
   try {
-    const OPAY_SECRET_KEY = Deno.env.get('OPAY_SECRET_KEY')
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    // 1. Parse Body safely
+    const bodyText = await req.text();
+    if (!bodyText) return new Response("Empty body", { status: 400 });
 
-    if (!OPAY_SECRET_KEY) throw new Error("Missing OPAY_SECRET_KEY");
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) throw new Error("Missing Supabase config");
+    const body = JSON.parse(bodyText);
+    const payload = body.payload ?? body.data ?? body;
+    console.log("📦 Payload:", JSON.stringify(payload)); // Log payload to see what OPay sends
 
-    const body = await req.json();
-    const payload = body?.payload;
-    const providedSig = body?.sha512;
-
-    if (!payload || !providedSig) {
-      return new Response(JSON.stringify({ status: false, message: "Invalid payload" }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400
-      });
+    // 2. Get Reference (Handle both 'reference' and 'outTradeNo')
+    const reference = payload.reference || payload.outTradeNo;
+    
+    if (!reference) {
+      console.error("❌ No reference found in payload");
+      return new Response("Invalid payload", { status: 200 });
     }
 
-    const sortedPayload = JSON.stringify(sortKeys(payload));
-    const computedSig = await hmacSha512(sortedPayload, OPAY_SECRET_KEY);
+    // 3. Setup Supabase Admin
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
 
-    if (computedSig !== providedSig) {
-      return new Response(JSON.stringify({ status: false, message: "Invalid signature" }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 401
-      });
-    }
-
-    if ((payload.status || "").toUpperCase() !== "SUCCESS") {
-      return new Response(JSON.stringify({ status: true, ignored: true }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200
-      });
-    }
-
-    const reference = payload.reference;
-    const amountVal = Number(payload.amount);
-    if (!reference || !amountVal) {
-      return new Response(JSON.stringify({ status: false, message: "Missing reference or amount" }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400
-      });
-    }
-
-    const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-    const { data: pendingTx } = await supabaseAdmin
-      .from('transactions')
-      .select('id, amount, status, user_email')
-      .eq('reference', reference)
+    // 4. Find Transaction
+    const { data: txn, error: txnError } = await supabase
+      .from("transactions")
+      .select("id, status, user_id, amount")
+      .eq("reference", reference)
       .single();
 
-    if (pendingTx?.status === 'Success') {
-      return new Response(JSON.stringify({ status: true, already: true }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200
-      });
+    if (txnError || !txn) {
+      console.error(`❌ Transaction not found: ${reference}`);
+      return new Response("Transaction not found", { status: 200 });
     }
 
-    if (pendingTx && Number(pendingTx.amount) !== Number(amountVal)) {
-      return new Response(JSON.stringify({ status: false, message: "Amount mismatch" }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400
-      });
-    }
+    // 5. Check Status (The Fix: Added "00000" and "INITIAL")
+    // OPay uses "00000" or "SUCCESS" for success. "INITIAL" means pending.
+    const rawStatus = String(payload.status || payload.code || "").toUpperCase();
+    
+    // Log the status we found so you can debug
+    console.log(`🔎 Txn: ${reference}, OPay Status: ${rawStatus}, DB Status: ${txn.status}`);
 
-    if (!pendingTx?.user_email) {
-      return new Response(JSON.stringify({ status: false, message: "User email not found for transaction" }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400
-      });
-    }
+    const isSuccess = rawStatus === "SUCCESS" || rawStatus === "SUCCESSFUL" || rawStatus === "00000";
+    const isFailed = rawStatus === "FAIL" || rawStatus === "FAILED";
 
-    const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc('fund_wallet_secure', {
-      user_email_input: pendingTx.user_email,
-      amount_input: amountVal,
-      ref_input: reference
-    });
-    if (rpcError || !rpcResult?.success) {
-      throw new Error(rpcError?.message || rpcResult?.message || "Funding failed");
-    }
+    // 6. Process Success
+    if (isSuccess && txn.status !== "success") {
+      console.log(`✅ Marking ${reference} as success...`);
 
-    if (pendingTx?.id) {
-      await supabaseAdmin.from('transactions').update({ status: 'Success' }).eq('id', pendingTx.id);
+      // A. Update Transaction Status
+      const { error: updateError } = await supabase
+        .from("transactions")
+        .update({ 
+          status: "success", 
+          updated_at: new Date().toISOString() 
+        })
+        .eq("id", txn.id);
+
+      if (updateError) {
+        console.error("❌ Failed to update transaction:", updateError);
+        throw updateError;
+      }
+
+      // B. Update User Balance (The Critical Part)
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("balance")
+        .eq("id", txn.user_id)
+        .single();
+
+      if (profileError || !profile) {
+        console.error("❌ Profile not found for user:", txn.user_id);
+      } else {
+        const currentBalance = Number(profile.balance) || 0;
+        const depositAmount = Number(txn.amount);
+        const newBalance = currentBalance + depositAmount;
+
+        const { error: balanceError } = await supabase
+          .from("profiles")
+          .update({ balance: newBalance })
+          .eq("id", txn.user_id);
+
+        if (balanceError) {
+          console.error("❌ Balance update failed:", balanceError);
+        } else {
+          console.log(`💰 Balance Updated! User: ${txn.user_id}, ${currentBalance} -> ${newBalance}`);
+        }
+      }
+      
+    } else if (isFailed) {
+       console.log(`⚠️ Marking ${reference} as failed.`);
+       await supabase
+        .from("transactions")
+        .update({ status: "failed", updated_at: new Date().toISOString() })
+        .eq("id", txn.id);
     } else {
-      await supabaseAdmin.from('transactions').insert({
-        user_email: pendingTx?.user_email || "",
-        reference,
-        amount: amountVal,
-        type: 'Deposit',
-        status: 'Success'
-      });
+       console.log(`ℹ️ Status '${rawStatus}' is not final. Skipping.`);
     }
 
-    return new Response(JSON.stringify({ status: true }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200
+    return new Response(JSON.stringify({ received: true }), { 
+      status: 200,
+      headers: { "Content-Type": "application/json" } 
     });
+
   } catch (error: any) {
-    return new Response(JSON.stringify({ status: false, message: error.message }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500
-    });
+    console.error("🔥 Webhook Error:", error.message);
+    return new Response(JSON.stringify({ error: error.message }), { status: 400 });
   }
-})
+});

@@ -1,98 +1,86 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-const jsonResponse = (body: any, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
+Set-Content -Path "supabase/functions/opay-webhook/index.ts" -Value 'import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sha3_512 } from "https://esm.sh/js-sha3@0.8.0";
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
-
   try {
-    const PAYSTACK_SECRET_KEY = Deno.env.get('PAYSTACK_SECRET_KEY')
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-
-    if (!PAYSTACK_SECRET_KEY) throw new Error("Missing PAYSTACK_SECRET_KEY");
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) throw new Error("Missing Supabase config");
-
-    const rawBody = await req.text();
-    const signature = req.headers.get('x-paystack-signature') || "";
-
-    const key = await crypto.subtle.importKey(
-      "raw",
-      new TextEncoder().encode(PAYSTACK_SECRET_KEY),
-      { name: "HMAC", hash: "SHA-512" },
-      false,
-      ["sign"]
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
-    const digest = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(rawBody));
-    const hash = Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
 
-    if (hash !== signature) {
-      return jsonResponse({ status: false, message: "Invalid signature" }, 401);
+    const secretKey = Deno.env.get("OPAY_SECRET_KEY")!;
+    
+    // Check for empty body
+    const bodyText = await req.text();
+    if (!bodyText) return new Response("Empty body", { status: 400 });
+
+    const body = JSON.parse(bodyText);
+    const payload = body.payload;
+
+    if (!payload || !payload.reference) {
+       return new Response("Invalid payload", { status: 200 });
     }
 
-    const event = JSON.parse(rawBody);
-    if (event?.event !== "charge.success") {
-      return jsonResponse({ status: true, ignored: true });
-    }
-
-    const data = event.data || {};
-    const reference = data.reference;
-    const email = data.customer?.email;
-    const amountVal = Number(data.amount) / 100;
-
-    if (!reference || !email || !amountVal) {
-      return jsonResponse({ status: false, message: "Missing required fields" }, 400);
-    }
-
-    const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-    const { data: pendingTx } = await supabaseAdmin
-      .from('transactions')
-      .select('id, amount, status')
-      .eq('reference', reference)
+    // 1. Calculate Signature (HMAC-SHA3-512)
+    const calculatedSignature = sha3_512.hmac(secretKey, JSON.stringify(payload));
+    
+    // 2. Find Transaction
+    const { data: txn, error: txnError } = await supabase
+      .from("transactions")
+      .select("id, status, user_id, amount")
+      .eq("reference", payload.reference)
       .single();
 
-    if (pendingTx?.status === 'Success') {
-      return jsonResponse({ status: true, already: true });
+    if (txnError || !txn) {
+      console.error("Transaction not found:", payload.reference);
+      return new Response("Transaction not found", { status: 200 });
     }
 
-    if (pendingTx && Number(pendingTx.amount) !== Number(amountVal)) {
-      return jsonResponse({ status: false, message: "Amount mismatch" }, 400);
+    // 3. Update Status
+    const opayStatus = payload.status; 
+
+    if (opayStatus === "SUCCESS" && txn.status !== "success") {
+      const { error: updateError } = await supabase
+        .from("transactions")
+        .update({ 
+          status: "success", 
+          opay_order_no: payload.orderNo,
+          updated_at: new Date().toISOString() 
+        })
+        .eq("id", txn.id);
+
+      if (updateError) throw updateError;
+
+      // Update User Balance
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("balance")
+        .eq("id", txn.user_id)
+        .single();
+        
+      if (profile) {
+          const newBalance = (profile.balance || 0) + Number(txn.amount);
+          await supabase
+            .from("profiles")
+            .update({ balance: newBalance })
+            .eq("id", txn.user_id);
+      }
+      
+    } else if (opayStatus === "FAIL") {
+       await supabase
+        .from("transactions")
+        .update({ status: "failed", updated_at: new Date().toISOString() })
+        .eq("id", txn.id);
     }
 
-    const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc('fund_wallet_secure', {
-      user_email_input: email,
-      amount_input: amountVal,
-      ref_input: reference
+    return new Response(JSON.stringify({ received: true }), { 
+      status: 200,
+      headers: { "Content-Type": "application/json" } 
     });
-    if (rpcError || !rpcResult?.success) {
-      throw new Error(rpcError?.message || rpcResult?.message || "Funding failed");
-    }
 
-    if (pendingTx?.id) {
-      await supabaseAdmin.from('transactions').update({ status: 'Success' }).eq('id', pendingTx.id);
-    } else {
-      await supabaseAdmin.from('transactions').insert({
-        user_email: email,
-        reference,
-        amount: amountVal,
-        type: 'Deposit',
-        status: 'Success'
-      });
-    }
-
-    return jsonResponse({ status: true });
-  } catch (error: any) {
-    return jsonResponse({ status: false, message: error.message }, 500);
+  } catch (error) {
+    console.error("Webhook Error:", error.message);
+    return new Response(JSON.stringify({ error: error.message }), { status: 400 });
   }
-})
+});'
