@@ -205,7 +205,46 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
         showToast(e.message || "Failed to start payment", "error");
     }
   };
+// --- REALTIME BALANCE UPDATE ---
+  useEffect(() => {
+    // Prevent subscribing if no user ID exists yet
+    if (!user.id) return;
 
+    console.log("🔌 Subscribing to realtime balance changes...");
+
+    const channel = supabase
+      .channel('realtime-balance')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${user.id}`, // Only listen for THIS user's changes
+        },
+        (payload) => {
+          console.log("⚡ Realtime update received:", payload);
+          
+          // The 'payload.new' contains the updated row
+          const newBalance = payload.new.balance;
+          
+          // Update the frontend state immediately
+          onUpdateBalance(newBalance);
+          
+          // Optional: Show a nice toast
+          showToast(`Balance updated: ₦${newBalance.toLocaleString()}`, "success");
+          
+          // Also refresh history to see the new transaction record
+          fetchHistory();
+        }
+      )
+      .subscribe();
+
+    // Cleanup when component unmounts
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user.id]);
   // --- VERIFY DEPOSIT (Direct DB Check) ---
   const verifyDeposit = async (reference: string) => {
     if(!reference) return showToast("No transaction reference found", "error");
