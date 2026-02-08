@@ -49,12 +49,13 @@ export const getPlans = async (): Promise<DataPlan[]> => {
          return p.network && p.plan_type && !isCrazyPrice;
       }) 
       .map((p: any) => ({
-        id: p.id.toString(),        
+        id: Number(p.id),             // <--- FIXED: Converted to Number to match 'DataPlan' interface
         network: Number(p.network), 
         plan_type: normalizePlanType(p.plan_type), 
-        amount: Number(p.amount),   
+        amount: p.amount.toString(),  // <--- FIXED: Converted to String to match 'DataPlan' interface
         size: p.size || p.dataplan || p.name || 'Unknown', 
-        validity: p.validity || '30 Days'
+        validity: p.validity || '30 Days',
+        price: Number(p.amount)       // Helper for UI calculations if needed
       }));
 
     console.log(`✅ Successfully loaded ${mappedPlans.length} plans.`);

@@ -24,8 +24,8 @@ const App: React.FC = () => {
   // Navigation Reset Key (To force Dashboard reload when clicking "Buy")
   const [dashboardResetKey, setDashboardResetKey] = useState(0);
 
-  // UPDATED: Added 'role' to the user interface definition
-  const [user, setUser] = useState<{name: string, email: string, balance: number, phone?: string, role?: string} | null>(null);
+  // UPDATED: Added 'id' to the user interface definition to fix "Property 'id' is missing"
+  const [user, setUser] = useState<{id: string, name: string, email: string, balance: number, phone?: string, role?: string} | null>(null);
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [language, setLanguage] = useState<LanguageCode>(() => {
@@ -47,11 +47,12 @@ const App: React.FC = () => {
       
       if (data) {
         setUser({
+          id: data.id, // <--- ADDED: Map the ID from the DB result
           name: data.full_name || '',
           email: data.email || email,
           balance: data.wallet_balance || 0,
           phone: data.phone || '',
-          role: data.role || 'user' // UPDATED: Map the role from DB
+          role: data.role || 'user'
         });
         if (data.preferred_language) {
           setLanguage(data.preferred_language as LanguageCode);
@@ -118,12 +119,14 @@ const App: React.FC = () => {
     }
   };
 
-  const handleSignup = async (email: string, name: string, phone: string, preferredLanguage: LanguageCode, pass: string) => {
+  // UPDATED: Changed preferredLanguage type from LanguageCode to string
+  const handleSignup = async (email: string, name: string, phone: string, preferredLanguage: string, pass: string) => {
     setIsProcessing(true);
     try {
-      await dbService.registerUser(email, name, phone, preferredLanguage, pass);
-      setUser({ name: '', email: '', balance: 0, phone, role: 'user' }); 
-      setLanguage(preferredLanguage);
+      await dbService.registerUser(email, name, phone, preferredLanguage as LanguageCode, pass);
+      // We set a temporary ID here. The real ID will be fetched by the Auth Listener immediately after.
+      setUser({ id: '', name: '', email: '', balance: 0, phone, role: 'user' }); 
+      setLanguage(preferredLanguage as LanguageCode);
     } catch (e: any) { 
       showToast(e.message || "Signup Failed", "error");
       throw e; 

@@ -61,3 +61,18 @@ export interface DataPayload {
   plan: number;
   Ported_number: boolean;
 }
+
+// 4. Utility Payments Payloads (NEW)
+export interface ElectricityPayload {
+  disco: string;
+  meter_number: string;
+  amount: number;
+  meter_type: string;
+  phone: string;
+}
+
+export interface CablePayload {
+  cablename: string;
+  cableplan: string;
+  smart_card_number: string;
+}
