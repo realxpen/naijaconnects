@@ -6,7 +6,7 @@ import { I18nProvider, LanguageCode } from './i18n';
 import { ToastProvider, useToast } from './components/ui/ToastProvider';
 
 // Layouts & Pages
-import DashboardLayout from "./layouts/DashboardLayout"; // Adjusted path to components
+import DashboardLayout from "./layouts/DashboardLayout"; 
 import Auth from './pages/Auth';
 import Dashboard from './pages/Dashboard';
 // Placeholders for now - ensure these files exist or comment them out
@@ -22,7 +22,8 @@ const App: React.FC = () => {
   // Navigation Reset Key (To force Dashboard reload when clicking "Buy")
   const [dashboardResetKey, setDashboardResetKey] = useState(0);
 
-  const [user, setUser] = useState<{name: string, email: string, balance: number, phone?: string} | null>(null);
+  // UPDATED: Added 'role' to the user interface definition
+  const [user, setUser] = useState<{name: string, email: string, balance: number, phone?: string, role?: string} | null>(null);
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [language, setLanguage] = useState<LanguageCode>(() => {
@@ -35,7 +36,8 @@ const App: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('*')
+        // We use '*' to ensure we get full_name, wallet_balance, AND the new role column
+        .select('*') 
         .eq('email', email)
         .single();
 
@@ -46,7 +48,8 @@ const App: React.FC = () => {
           name: data.full_name || '',
           email: data.email || email,
           balance: data.wallet_balance || 0,
-          phone: data.phone || ''
+          phone: data.phone || '',
+          role: data.role || 'user' // UPDATED: Map the role from DB
         });
         if (data.preferred_language) {
           setLanguage(data.preferred_language as LanguageCode);
@@ -117,7 +120,7 @@ const App: React.FC = () => {
     setIsProcessing(true);
     try {
       await dbService.registerUser(email, name, phone, preferredLanguage, pass);
-      setUser({ name: '', email: '', balance: 0, phone }); 
+      setUser({ name: '', email: '', balance: 0, phone, role: 'user' }); 
       setLanguage(preferredLanguage);
     } catch (e: any) { 
       showToast(e.message || "Signup Failed", "error");

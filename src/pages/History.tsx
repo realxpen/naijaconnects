@@ -37,7 +37,7 @@ import abaLogo from '../assets/logos/aba.png';
 import jambLogo from '../assets/logos/jamb.png';
 
 interface Transaction {
-  id: number;
+  id: string; // Changed to string to match UUID
   created_at: string;
   type: string;
   amount: number;
@@ -45,7 +45,7 @@ interface Transaction {
   ref?: string;
   reference?: string;
   request_id?: string;
-  user_email?: string;
+  user_id?: string;
   description?: string; 
   meta?: any; 
 }
@@ -64,41 +64,54 @@ const History = () => {
   // --- RECEIPT STATE ---
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
 
-  // --- FETCH DATA ---
+  // --- FETCH DATA (FIXED) ---
+  const fetchTransactions = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // 1. Fetch by user_id instead of email
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('user_id', user.id) 
+        .order('created_at', { ascending: false }); // No limit = show all
+
+      if (error) throw error;
+      setTransactions(data || []);
+    } catch (error) {
+      console.error("Error fetching history:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const loadHistory = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user || !user.email) {
-          setLoading(false);
-          return; 
+    fetchTransactions();
+
+    // 2. Add Realtime Listener (Updates history instantly)
+    const channel = supabase
+      .channel('history_changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'transactions' },
+        (payload) => {
+            // Only refresh if it affects the current user (optional check, or just refresh)
+            fetchTransactions();
         }
+      )
+      .subscribe();
 
-        const { data, error } = await supabase
-          .from('transactions')
-          .select('*')
-          .eq('user_email', user.email)
-          .order('created_at', { ascending: false })
-          .limit(100);
-
-        if (error) throw error;
-        setTransactions(data || []);
-      } catch (error) {
-        console.error("Error fetching history:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadHistory();
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
-  // --- STATISTICS ---
+  // --- STATISTICS (Case Insensitive) ---
   const stats = useMemo(() => {
     const totalSpent = transactions
-      .filter(t => t.type !== 'Deposit' && t.status === 'Success')
+      .filter(t => t.type.toLowerCase() !== 'deposit' && t.status.toLowerCase() === 'success')
       .reduce((acc, curr) => acc + curr.amount, 0);
 
-    const successCount = transactions.filter(t => t.status === 'Success').length;
+    const successCount = transactions.filter(t => t.status.toLowerCase() === 'success').length;
     const totalCount = transactions.length;
     const successRate = totalCount > 0 ? Math.round((successCount / totalCount) * 100) : 0;
 
@@ -106,8 +119,6 @@ const History = () => {
   }, [transactions]);
 
   // --- PREPARE CHART DATA ---
-  
-  // 1. Weekly Data (For Bar/Line)
   const weeklyData = useMemo(() => {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const today = new Date();
@@ -123,7 +134,7 @@ const History = () => {
       const dailyAmount = transactions
         .filter(t => {
             const tDate = new Date(t.created_at).toLocaleDateString();
-            return tDate === dayStr && t.type !== 'Deposit' && t.status === 'Success';
+            return tDate === dayStr && t.type.toLowerCase() !== 'deposit' && t.status.toLowerCase() === 'success';
         })
         .reduce((sum, t) => sum + t.amount, 0);
 
@@ -131,19 +142,17 @@ const History = () => {
     });
   }, [transactions]);
 
-  // 2. Category Data (For Donut)
   const categoryData = useMemo(() => {
     const categories: Record<string, number> = {};
     let total = 0;
 
     transactions.forEach(t => {
-        if (t.type !== 'Deposit' && t.status === 'Success') {
+        if (t.type.toLowerCase() !== 'deposit' && t.status.toLowerCase() === 'success') {
             categories[t.type] = (categories[t.type] || 0) + t.amount;
             total += t.amount;
         }
     });
 
-    // Convert to array and sort
     return Object.keys(categories).map(key => ({
         name: key,
         value: categories[key],
@@ -155,7 +164,7 @@ const History = () => {
 
   // --- FILTERING ---
   const filteredList = transactions.filter(t => {
-    const matchesType = filter === 'All' || t.type === filter;
+    const matchesType = filter === 'All' || t.type.toLowerCase() === filter.toLowerCase();
     const ref = t.ref || t.reference || "";
     const matchesSearch = 
         ref.toLowerCase().includes(search.toLowerCase()) || 
@@ -202,6 +211,7 @@ const History = () => {
           case 'Exam': return <GraduationCap size={18} />;
           case 'RechargePin': return <Printer size={18} />;
           case 'Deposit': return <ArrowDownLeft size={18} />;
+          case 'withdrawal': // Lowercase match
           case 'Withdrawal': return <ArrowUpRight size={18} />;
           case 'AirtimeToCash': return <ArrowLeftRight size={18} />;
           default: return <Activity size={18} />;
@@ -209,9 +219,10 @@ const History = () => {
   };
 
   const getColorClass = (type: string) => {
-      if (type === 'Deposit') return 'bg-emerald-100 text-emerald-600';
-      if (type === 'Withdrawal') return 'bg-rose-100 text-rose-600';
-      if (type === 'AirtimeToCash') return 'bg-orange-100 text-orange-600';
+      const t = type.toLowerCase();
+      if (t === 'deposit') return 'bg-emerald-100 text-emerald-600';
+      if (t === 'withdrawal') return 'bg-rose-100 text-rose-600';
+      if (t === 'airtimetocash') return 'bg-orange-100 text-orange-600';
       return 'bg-slate-100 text-slate-600';
   };
 
@@ -332,8 +343,8 @@ const History = () => {
                             <h2 className="text-3xl font-black text-slate-800">₦{tx.amount.toLocaleString()}</h2>
                             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">{tx.type}</p>
                             
-                            <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase ${tx.status === 'Success' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
-                                {tx.status === 'Success' ? <CheckCircle2 size={12}/> : <X size={12}/>}
+                            <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase ${tx.status.toLowerCase() === 'success' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+                                {tx.status.toLowerCase() === 'success' ? <CheckCircle2 size={12}/> : <X size={12}/>}
                                 {tx.status}
                             </div>
                         </div>
@@ -492,7 +503,7 @@ const History = () => {
                                 </div>
                             )}
                         </div>
-                        <span className="text-[9px] font-bold text-slate-400 uppercase">{day.day}</span>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase">{day.day.charAt(0)}</span>
                     </div>
                     ))}
                 </div>
@@ -519,7 +530,7 @@ const History = () => {
                                 key={i}
                                 cx={(i / (weeklyData.length - 1)) * 100}
                                 cy={100 - ((d.amount / (maxChartValue || 1)) * 100)}
-                                r="1.5" // visual size depends on scaling, using small value
+                                r="1.5" 
                                 fill="white"
                                 stroke="#10b981"
                                 strokeWidth="0.5"
@@ -638,10 +649,10 @@ const History = () => {
                       </div>
                   </div>
                   <div className="text-right">
-                      <p className={`font-black text-sm ${tx.type === 'Deposit' ? 'text-emerald-600' : 'text-slate-800 dark:text-white'}`}>
-                          {tx.type === 'Deposit' ? '+' : '-'}₦{tx.amount.toLocaleString()}
+                      <p className={`font-black text-sm ${tx.type.toLowerCase() === 'deposit' ? 'text-emerald-600' : 'text-slate-800 dark:text-white'}`}>
+                          {tx.type.toLowerCase() === 'deposit' ? '+' : '-'}₦{tx.amount.toLocaleString()}
                       </p>
-                      <p className={`text-[8px] font-black uppercase tracking-widest ${tx.status === 'Success' ? 'text-emerald-500' : tx.status === 'Pending' ? 'text-orange-400' : 'text-rose-500'}`}>
+                      <p className={`text-[8px] font-black uppercase tracking-widest ${tx.status.toLowerCase() === 'success' ? 'text-emerald-500' : tx.status.toLowerCase() === 'pending' ? 'text-orange-400' : 'text-rose-500'}`}>
                           {tx.status}
                       </p>
                   </div>

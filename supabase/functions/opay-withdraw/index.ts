@@ -1,17 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// Helper for HMAC-SHA512 (Standard SHA-512 for Requests)
-async function generateHmacSha512(key: string, data: string) {
-  const encoder = new TextEncoder();
-  const keyData = encoder.encode(key);
-  const cryptoKey = await crypto.subtle.importKey(
-    "raw", keyData, { name: "HMAC", hash: "SHA-512" }, false, ["sign"]
-  );
-  const signature = await crypto.subtle.sign("HMAC", cryptoKey, encoder.encode(data));
-  return Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -26,75 +15,68 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // 1. Auth Check
-    const authHeader = req.headers.get('Authorization')!
-    const { data: { user }, error: userError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) throw new Error("No Authorization header");
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
     if (userError || !user) throw new Error("Unauthorized");
 
-    // Input: original_reference (The deposit ID to refund back to)
-    const { amount, original_reference } = await req.json();
-
-    const merchantId = Deno.env.get("OPAY_MERCHANT_ID")!;
-    const secretKey = Deno.env.get("OPAY_SECRET_KEY")!;
-    const baseUrl = Deno.env.get("OPAY_BASE_URL")!;
+    const { amount, account_number, bank_code, bank_name, account_name } = await req.json();
+    const withdrawAmount = Number(amount);
     
-    const newReference = `REFUND-${Date.now()}`;
-    const amountInKobo = (parseFloat(amount) * 100);
+    // --- FEE LOGIC ---
+    const FEE = 20; // Set your withdrawal fee here
+    const totalDeduction = withdrawAmount + FEE; 
 
-    // 2. Prepare Payload
-    // Keys MUST be sorted alphabetically for OPay signature verification usually, 
-    // but the library handles standard JSON. 
-    // Note: The Docs for Refund imply specific parameter ordering isn't strictly enforced for JSON bodies 
-    // unless using specific SDKs, but best practice is to keep it clean.
-    const payloadData = {
-      amount: {
-        currency: "NGN",
-        total: amountInKobo
-      },
-      callbackUrl: `${Deno.env.get("SUPABASE_URL")}/functions/v1/opay-webhook`,
-      country: "NG",
-      originalReference: original_reference,
-      reference: newReference,
-      refundWay: "Original"
-    };
+    if (withdrawAmount < 100) throw new Error("Minimum withdrawal is ₦100");
 
-    const payloadString = JSON.stringify(payloadData);
+    // 1. Check Balance
+    const { data: profile } = await supabase.from("profiles").select("balance").eq("id", user.id).single();
 
-    // 3. Generate Signature (HMAC-SHA512)
-    const signature = await generateHmacSha512(secretKey, payloadString);
-
-    // 4. Record in DB
-    await supabase.from('transactions').insert({
-      user_id: user.id,
-      reference: newReference,
-      original_reference: original_reference,
-      amount: amount,
-      type: 'withdrawal', // Actually a refund
-      status: 'pending',
-      currency: 'NGN'
-    });
-
-    // 5. Call OPay Refund API
-    const response = await fetch(`${baseUrl}/api/v1/international/payment/refund/create`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${signature}`,
-        "MerchantId": merchantId,
-      },
-      body: payloadString,
-    });
-
-    const data = await response.json();
-
-    if (data.code !== "00000") {
-      await supabase.from('transactions').update({ status: 'failed' }).eq('reference', newReference);
-      throw new Error(data.message || "Refund Failed");
+    if (!profile) throw new Error("Profile not found");
+    
+    // Check if they have enough for Amount + Fee
+    if (profile.balance < totalDeduction) {
+      throw new Error(`Insufficient balance. You need ₦${totalDeduction} (Amount + ₦${FEE} Fee)`);
     }
 
-    return new Response(JSON.stringify(data), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    // 2. Deduct TOTAL (Amount + Fee)
+    const newBalance = profile.balance - totalDeduction;
+    
+    const { error: updateError } = await supabase
+      .from("profiles")
+      .update({ balance: newBalance })
+      .eq("id", user.id);
+
+    if (updateError) throw new Error("Failed to update balance");
+
+    // 3. Record Transaction
+    const reference = `WTH-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    
+    const { error: txError } = await supabase.from("transactions").insert({
+      user_id: user.id,
+      reference: reference,
+      amount: withdrawAmount, // We record the amount they get
+      type: "withdrawal",
+      status: "pending",
+      description: `Withdrawal to ${bank_name}`,
+      meta: { 
+        bank_code, 
+        bank_name, 
+        account_name, 
+        account_number,
+        fee: FEE,                 // Save fee in metadata
+        total_deducted: totalDeduction 
+      }
     });
+
+    if (txError) throw new Error("Failed to log transaction");
+
+    return new Response(JSON.stringify({ 
+      success: true, 
+      message: "Withdrawal placed", 
+      new_balance: newBalance 
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   } catch (error) {
     return new Response(JSON.stringify({ error: error.message }), {

@@ -33,7 +33,6 @@ serve(async (req) => {
     }
 
     // 4. Create User-Scoped Supabase Client (For Auth Verification)
-    // This is the standard way to verify the user in Edge Functions
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
@@ -44,7 +43,7 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
 
     if (userError || !user) {
-      console.error("Auth Error Details:", userError); // Log to Supabase Dashboard
+      console.error("Auth Error Details:", userError); 
       return new Response(JSON.stringify({ 
         error: "User Validation Failed", 
         details: userError?.message || "Unknown auth error" 
@@ -55,27 +54,48 @@ serve(async (req) => {
     }
 
     // 6. Create Admin Client (For Database Inserts)
-    // We use the Service Role key here to bypass RLS when creating the transaction
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // 7. Parse Body
-    const { amount, email, name } = await req.json();
+    // 7. Parse Body & Payment Method
+    const { amount, email, name, method } = await req.json();
     if (!amount) throw new Error("Amount is required");
+
+    const depositAmount = parseFloat(amount);
+
+    // --- FEE CALCULATION LOGIC ---
+    // Change this value if you want to charge a fee (e.g. 50 Naira)
+    const FEE = 0; 
+    
+    // User pays: Amount + Fee
+    const totalPayable = depositAmount + FEE; 
+    
+    // OPay expects Kobo (Total Amount)
+    const amountInKobo = (totalPayable * 100).toFixed(0); 
+    // -----------------------------
+
+    // Validate Method (Default to BankCard if invalid or missing)
+    const validMethods = ["BankCard", "BankTransfer", "BankUssd", "OpayWalletNgQR"];
+    const payMethod = validMethods.includes(method) ? method : "BankCard";
 
     // 8. Generate Reference
     const reference = `DEP-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    const amountInKobo = (parseFloat(amount) * 100).toString();
 
     // 9. Create Pending Transaction Record
     const { error: dbError } = await supabaseAdmin.from("transactions").insert({
       user_id: user.id,
       reference: reference,
-      amount: amount,
+      amount: depositAmount, // We credit the User ONLY the amount they asked for (excluding fee)
       type: "deposit",
-      status: "pending"
+      status: "pending",
+      description: `Deposit via ${payMethod}`,
+      meta: {
+        fee: FEE,
+        total_paid: totalPayable,
+        gateway: "opay"
+      }
     });
 
     if (dbError) {
@@ -88,20 +108,20 @@ serve(async (req) => {
       country: "NG",
       reference: reference,
       amount: {
-        total: amountInKobo,
+        total: amountInKobo, // Charging Amount + Fee
         currency: "NGN",
       },
       returnUrl: req.headers.get("origin") || "http://localhost:3000",
-      callbackUrl: "https://xsidcywceipiyybqeouc.supabase.co/functions/v1/opay-webhook",
+      callbackUrl: `${Deno.env.get("SUPABASE_URL")}/functions/v1/opay-webhook`,
       userInfo: {
         userEmail: email || user.email,
         userId: user.id,
         userName: name || "Customer"
       },
-      payMethod: "BankCard",
+      payMethod: payMethod,
       product: {
         name: "Wallet Topup",
-        description: "Deposit to user wallet"
+        description: `Fund wallet with NGN ${depositAmount}`
       }
     };
 
@@ -119,7 +139,6 @@ serve(async (req) => {
 
     const data = await response.json();
     
-    // Log OPay response for debugging
     console.log("OPay API Response:", data);
 
     if (data.code !== "00000") {
