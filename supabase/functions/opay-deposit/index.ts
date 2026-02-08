@@ -30,31 +30,43 @@ serve(async (req) => {
     const { amount, email, name, method } = await req.json();
     if (!amount) throw new Error("Amount is required");
 
-    // --- NO FEE CALCULATION HERE ---
-    // We just pass exactly what the user wants to pay.
-    // The fee deduction happens during VERIFICATION.
     const depositAmount = parseFloat(amount);
+    
+    // --- CALCULATE ESTIMATED FEE (For Record Keeping) ---
+    // 1.5% Capped at N2000
+    let estimatedFee = depositAmount * 0.015; 
+    if (estimatedFee > 2000) estimatedFee = 2000;
+    
+    // Round to 2 decimals
+    estimatedFee = Math.round(estimatedFee * 100) / 100;
+
+    // We do NOT deduct it yet. The user pays the full amount.
+    // We just record what the fee WILL be.
+    // ----------------------------------------------------
+
     const amountInKobo = (depositAmount * 100).toFixed(0); 
     const payMethod = method || "BankCard";
     const reference = `DEP-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-    // Record as PENDING (Full Amount)
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
+    // Record as PENDING
     await supabaseAdmin.from("transactions").insert({
       user_id: user.id,
       reference: reference,
-      amount: depositAmount, // e.g. 1000
+      amount: depositAmount, // Record full amount for now
       type: "deposit",
       status: "pending",
       description: `Deposit via ${payMethod}`,
-      meta: { gateway: "opay" }
+      meta: { 
+        gateway: "opay",
+        estimated_fee: estimatedFee // <--- Save the expected fee here
+      }
     });
 
-    // Send to OPay
     const payload = {
       country: "NG",
       reference: reference,

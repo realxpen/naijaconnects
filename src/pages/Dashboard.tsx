@@ -3,7 +3,7 @@ import {
   Smartphone, Tv, Zap, ArrowRight, ArrowLeftRight, X, Loader2,
   RotateCcw, CreditCard, GraduationCap, 
   Printer, Building2, CheckCircle2, Share2, Download, Copy,
-  Image as ImageIcon, FileText, Activity, ShieldCheck
+  Image as ImageIcon, FileText, Activity, ShieldCheck, AlertCircle
 } from "lucide-react";
 import { supabase } from "../supabaseClient";
 import html2canvas from 'html2canvas';
@@ -196,6 +196,22 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
   const [accountName, setAccountName] = useState("");
   const [isResolving, setIsResolving] = useState(false);
 
+  // --- DYNAMIC FEE CALCULATORS ---
+  const getWithdrawalFee = (amount: number) => {
+    if (!amount) return 0;
+    if (amount <= 5000) return 10;
+    if (amount <= 50000) return 25;
+    return 50;
+  };
+
+  // New: Deposit Fee Logic
+  const getDepositFee = (amount: number, method: string) => {
+    if (!amount) return 0;
+    // Example: 1.5% for Cards, 50 Naira flat for others
+    if (method === "BankCard") return Math.ceil(amount * 0.015); 
+    return 50; 
+  };
+
   // --- DATA FETCHING ---
   const fetchUser = async () => {
     try {
@@ -232,9 +248,17 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
 
   // --- OPay DEPOSIT LOGIC ---
   const handleStartDeposit = async () => {
-    if (!depositAmount || Number(depositAmount) < 100) return showToast(t("dashboard.min_deposit"), "error");
+    const amountNum = Number(depositAmount);
+    if (!depositAmount || amountNum < 100) return showToast(t("dashboard.min_deposit"), "error");
     
-    showToast("Initializing OPay...", "info");
+    // We send the full amount (including fee) to the payment gateway
+    // But usually, we only credit the wallet with the 'base' amount.
+    // However, to keep it simple for the user, let's assume they want to fund 'X' amount
+    // and we charge them 'X + fee'.
+    const fee = getDepositFee(amountNum, depositMethod);
+    const totalToPay = amountNum + fee;
+
+    showToast("Initializing Payment...", "info");
     
     try {
         const { data: sessionData } = await supabase.auth.getSession();
@@ -244,7 +268,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
         const { data, error } = await supabase.functions.invoke("opay-deposit", {
             headers: { Authorization: `Bearer ${accessToken}` },
             body: { 
-                amount: depositAmount,
+                amount: totalToPay.toString(), // Send the Total Payable to gateway
                 email: user.email,
                 name: user.name,
                 method: depositMethod
@@ -481,7 +505,16 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
     }
   };
 
-  const renderDashboardHome = () => (
+  const renderDashboardHome = () => {
+    // Dynamic Fee Calculation for UI
+    const amountNum = Number(withdrawAmount) || 0;
+    const currentWithdrawFee = getWithdrawalFee(amountNum);
+
+    // Dynamic Deposit Fee for UI
+    const depositAmountNum = Number(depositAmount) || 0;
+    const currentDepositFee = getDepositFee(depositAmountNum, depositMethod);
+
+    return (
     <div className="space-y-6 pb-24 animate-in fade-in">
       {/* WALLET CARD */}
       <section className="bg-emerald-600 p-6 rounded-[35px] text-white shadow-xl relative overflow-hidden">
@@ -514,7 +547,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
             onClick={() => setView("Admin")}
             className="w-full bg-slate-900 text-white p-5 rounded-[25px] flex items-center justify-between shadow-xl shadow-slate-200 hover:shadow-2xl transition-all active:scale-[0.98] mb-6 border border-slate-800"
           >
-             <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4">
                 <div className="p-3 bg-slate-800 rounded-2xl border border-slate-700">
                     <ShieldCheck size={24} className="text-emerald-400"/>
                 </div>
@@ -522,10 +555,10 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
                     <h3 className="font-black text-lg text-white">Admin Panel</h3>
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Manage Withdrawals</p>
                 </div>
-             </div>
-             <div className="bg-slate-800 p-2 rounded-full">
+              </div>
+              <div className="bg-slate-800 p-2 rounded-full">
                 <ArrowRight size={20} className="text-emerald-400"/>
-             </div>
+              </div>
           </button>
       )}
 
@@ -614,10 +647,10 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
             
             <div className="grid grid-cols-2 gap-3 mb-4">
                 {[
-                    { id: "BankCard", label: "Card", icon: <CreditCard size={18}/> },
-                    { id: "BankTransfer", label: "Transfer", icon: <Building2 size={18}/> },
-                    { id: "BankUssd", label: "USSD", icon: <Smartphone size={18}/> },
-                    { id: "OpayWalletNgQR", label: "QR Code", icon: <RotateCcw size={18}/> }
+                    { id: "BankCard", label: "Card (1.5%)", icon: <CreditCard size={18}/> },
+                    { id: "BankTransfer", label: "Transfer (₦50)", icon: <Building2 size={18}/> },
+                    { id: "BankUssd", label: "USSD (₦50)", icon: <Smartphone size={18}/> },
+                    { id: "OpayWalletNgQR", label: "QR Code (₦50)", icon: <RotateCcw size={18}/> }
                 ].map((m) => (
                     <button
                         key={m.id}
@@ -629,7 +662,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
                         }`}
                     >
                         {m.icon}
-                        <span className="text-xs mt-1">{m.label}</span>
+                        <span className="text-xs mt-1 text-center">{m.label}</span>
                     </button>
                 ))}
             </div>
@@ -643,22 +676,23 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
             {/* Amount Input */}
             <input type="number" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl font-black mb-4 outline-none border border-slate-200 focus:border-emerald-500 transition-colors text-slate-800" placeholder={t("common.amount")} />
             
+            {/* ADDED: DEPOSIT FEE DISPLAY */}
+            <div className="bg-slate-50 p-3 rounded-xl mb-4 text-xs text-slate-600 flex justify-between items-center border border-slate-100">
+                <span>Processing Fee:</span>
+                <span className="font-bold">₦{currentDepositFee}</span>
+            </div>
+            <div className="flex justify-between items-center mb-4 text-sm font-bold text-slate-800 px-1">
+                <span>Total Payable:</span>
+                <span>₦{(depositAmountNum + currentDepositFee).toLocaleString()}</span>
+            </div>
+
             <button
                 onClick={handleStartDeposit}
                 disabled={isVerifyingDeposit}
                 className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-emerald-600/20 hover:bg-emerald-700 transition flex justify-center items-center gap-2 disabled:opacity-70"
             >
-                {isVerifyingDeposit ? <Loader2 className="animate-spin" /> : `Pay with ${depositMethod.replace("Bank", "").replace("OpayWalletNgQR", "QR")}`}
+                {isVerifyingDeposit ? <Loader2 className="animate-spin" /> : `Pay ₦${(depositAmountNum + currentDepositFee).toLocaleString()}`}
             </button>
-            
-            {/* <button
-              type="button"
-              onClick={() => verifyDeposit(currentTxRef)}
-              disabled={isVerifyingDeposit}
-              className="w-full mt-3 py-3 bg-white border-2 border-emerald-600 text-emerald-700 rounded-2xl font-black uppercase transition-colors shadow-sm hover:bg-emerald-50 disabled:opacity-60"
-            >
-              {isVerifyingDeposit ? "Verifying..." : "I have paid, Verify"}
-            </button> */}
           </div>
         </div>
       )}
@@ -728,15 +762,37 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
               className="w-full p-4 bg-slate-50 rounded-2xl font-black mb-4 outline-none border border-slate-200 focus:border-emerald-500 transition-colors text-slate-800"
               placeholder="Amount"
             />
+            
+            {/* NEW FEE STRUCTURE INFO - FIXED > */}
+            <div className="mb-3 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                <div className="flex items-center gap-2 mb-1 text-slate-500">
+                    <AlertCircle size={12} />
+                    <span className="text-[10px] font-bold uppercase">Fee Structure</span>
+                </div>
+                <div className="text-[10px] text-slate-600 grid grid-cols-3 gap-1">
+                    <div className="bg-white px-2 py-1 rounded border border-slate-100 text-center">
+                        <span className="block text-slate-400">≤ 5k</span>
+                        <span className="font-bold">₦10</span>
+                    </div>
+                    <div className="bg-white px-2 py-1 rounded border border-slate-100 text-center">
+                        <span className="block text-slate-400">≤ 50k</span>
+                        <span className="font-bold">₦25</span>
+                    </div>
+                    <div className="bg-white px-2 py-1 rounded border border-slate-100 text-center">
+                        <span className="block text-slate-400">&gt; 50k</span>
+                        <span className="font-bold">₦50</span>
+                    </div>
+                </div>
+            </div>
 
-            {/* ADDED: FEE CALCULATION & TOTAL DEDUCTION */}
+            {/* DYNAMIC FEE CALCULATION & TOTAL DEDUCTION */}
             <div className="bg-slate-50 p-3 rounded-xl mb-4 text-xs text-slate-600 flex justify-between items-center border border-slate-100">
                 <span>Withdrawal Fee:</span>
-                <span className="font-bold">₦10.00</span>
+                <span className="font-bold">₦{currentWithdrawFee}</span>
             </div>
             <div className="flex justify-between items-center mb-4 text-sm font-bold text-slate-800 px-1">
                 <span>Total Deduction:</span>
-                <span>₦{((Number(withdrawAmount) || 0) + 10).toLocaleString()}</span>
+                <span>₦{(amountNum + currentWithdrawFee).toLocaleString()}</span>
             </div>
 
             {/* WITHDRAW BUTTON */}
@@ -752,6 +808,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
       )}
     </div>
   );
+  }
 
   return renderContent();
 };

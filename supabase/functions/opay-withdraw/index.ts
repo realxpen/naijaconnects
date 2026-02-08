@@ -23,24 +23,32 @@ serve(async (req) => {
 
     const { amount, account_number, bank_code, bank_name, account_name } = await req.json();
     const withdrawAmount = Number(amount);
-    
-    // --- FEE LOGIC ---
-    const FEE = 20; // Set your withdrawal fee here
-    const totalDeduction = withdrawAmount + FEE; 
 
     if (withdrawAmount < 100) throw new Error("Minimum withdrawal is ₦100");
 
-    // 1. Check Balance
+    // --- OFFICIAL TIERED FEE LOGIC ---
+    let FEE = 0;
+
+    if (withdrawAmount <= 5000) {
+        FEE = 10;
+    } else if (withdrawAmount <= 50000) {
+        FEE = 25;
+    } else {
+        FEE = 50; // Above 50,000
+    }
+    
+    const totalDeduction = withdrawAmount + FEE; 
+    // ---------------------------------
+
+    // Check Balance
     const { data: profile } = await supabase.from("profiles").select("balance").eq("id", user.id).single();
 
     if (!profile) throw new Error("Profile not found");
-    
-    // Check if they have enough for Amount + Fee
     if (profile.balance < totalDeduction) {
-      throw new Error(`Insufficient balance. You need ₦${totalDeduction} (Amount + ₦${FEE} Fee)`);
+      throw new Error(`Insufficient balance. You need ₦${totalDeduction} (incl. ₦${FEE} fee)`);
     }
 
-    // 2. Deduct TOTAL (Amount + Fee)
+    // Deduct Balance (Amount + Fee)
     const newBalance = profile.balance - totalDeduction;
     
     const { error: updateError } = await supabase
@@ -50,31 +58,26 @@ serve(async (req) => {
 
     if (updateError) throw new Error("Failed to update balance");
 
-    // 3. Record Transaction
+    // Record Transaction
     const reference = `WTH-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     
-    const { error: txError } = await supabase.from("transactions").insert({
+    await supabase.from("transactions").insert({
       user_id: user.id,
       reference: reference,
-      amount: withdrawAmount, // We record the amount they get
+      amount: withdrawAmount, // Amount Requested
       type: "withdrawal",
       status: "pending",
       description: `Withdrawal to ${bank_name}`,
       meta: { 
-        bank_code, 
-        bank_name, 
-        account_name, 
-        account_number,
-        fee: FEE,                 // Save fee in metadata
-        total_deducted: totalDeduction 
+        bank_code, bank_name, account_name, account_number,
+        fee: FEE,
+        total_deducted: totalDeduction
       }
     });
 
-    if (txError) throw new Error("Failed to log transaction");
-
     return new Response(JSON.stringify({ 
       success: true, 
-      message: "Withdrawal placed", 
+      message: "Withdrawal request submitted", 
       new_balance: newBalance 
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
