@@ -1,13 +1,11 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Smartphone, Tv, Zap, ArrowRight, ArrowLeftRight, X, Loader2,
   RotateCcw, CreditCard, GraduationCap, 
-  Printer, Building2, CheckCircle2, Share2, Download, Copy,
-  Image as ImageIcon, FileText, Activity, ShieldCheck, AlertCircle
+  Printer, Building2, Activity, ShieldCheck, AlertCircle
+  // Removed 'Bell' to prevent duplication
 } from "lucide-react";
 import { supabase } from "../supabaseClient";
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
 import { useI18n } from "../i18n";
 import { useToast } from "../components/ui/ToastProvider";
 
@@ -22,7 +20,6 @@ import AirtimeToCash from "../components/services/AirtimeToCash";
 import AdminDashboard from "./AdminDashboard";
 
 // --- CONSTANTS ---
-// Define banks for the dropdown
 const BANKS = [
   { code: "", name: "Select Bank" },
   { code: "120001", name: "9mobile 9Payment Service Bank" },
@@ -196,6 +193,72 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
   const [accountName, setAccountName] = useState("");
   const [isResolving, setIsResolving] = useState(false);
 
+  // --- DYNAMIC GREETING STATE (FIXED LOGIC) ---
+  const [greeting, setGreeting] = useState("");
+  const [fade, setFade] = useState(true);
+
+  useEffect(() => {
+    const hour = new Date().getHours();
+    const firstName = user?.name?.split(' ')[0] || 'User';
+
+    let messages: string[] = [];
+
+    // FIXED TIME LOGIC: 00:00 to 04:59 is "Night", 05:00 to 11:59 is "Morning"
+    if (hour < 5) {
+      // Late Night (00:00 - 04:59)
+      messages = [
+        `Good Night, ${firstName}! 🌙`,
+        "You're up late! 🦉",
+        "Don't forget to rest. 💤",
+        "Tomorrow will be a great day. ✨"
+      ];
+    } else if (hour < 12) {
+      // Morning (05:00 - 11:59)
+      messages = [
+        `Good Morning, ${firstName}! ☀️`,
+        "Hope you had a good night rest? 🌿",
+        "Let's make today productive! 🚀"
+      ];
+    } else if (hour < 17) {
+      // Afternoon (12:00 - 16:59)
+      messages = [
+        `Good Afternoon, ${firstName}! 🌤️`,
+        "How is your day going? 💼",
+        "Stay hydrated and focused! 💧"
+      ];
+    } else if (hour < 21) {
+      // Evening (17:00 - 20:59)
+      messages = [
+        `Good Evening, ${firstName}! 🌇`,
+        "Hope you're winding down. 🍵",
+        "Review your wins for the day. 🏆"
+      ];
+    } else {
+      // Night (21:00 - 23:59)
+      messages = [
+        `Good Night, ${firstName}! 🌙`,
+        "Get some rest... 💤",
+        "A good night rest heals the body. 🛌"
+      ];
+    }
+
+    let currentIndex = 0;
+    setGreeting(messages[0]);
+
+    const interval = setInterval(() => {
+      setFade(false); 
+      setTimeout(() => {
+        currentIndex = (currentIndex + 1) % messages.length;
+        setGreeting(messages[currentIndex]);
+        setFade(true); 
+      }, 500); 
+    }, 4000); 
+
+    return () => clearInterval(interval);
+  }, [user]);
+  // --- END DYNAMIC GREETING STATE ---
+
+
   // --- DYNAMIC FEE CALCULATORS ---
   const getWithdrawalFee = (amount: number) => {
     if (!amount) return 0;
@@ -204,10 +267,8 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
     return 50;
   };
 
-  // New: Deposit Fee Logic
   const getDepositFee = (amount: number, method: string) => {
     if (!amount) return 0;
-    // Example: 1.5% for Cards, 50 Naira flat for others
     if (method === "BankCard") return Math.ceil(amount * 0.015); 
     return 50; 
   };
@@ -220,15 +281,10 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
     } catch (e) { console.error(e); }
   };
 
-  // --- REPLACED: fetchHistory ---
-  // Fixes "400 Bad Request" by checking user ID existence
  const fetchHistory = async () => {
-    // FIX: Stop if user ID is missing
     if (!user || !user.id) {
-        console.log("User ID missing, skipping history fetch.");
         return; 
     }
-
     try {
       const { data, error } = await supabase
         .from("transactions")
@@ -251,10 +307,6 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
     const amountNum = Number(depositAmount);
     if (!depositAmount || amountNum < 100) return showToast(t("dashboard.min_deposit"), "error");
     
-    // We send the full amount (including fee) to the payment gateway
-    // But usually, we only credit the wallet with the 'base' amount.
-    // However, to keep it simple for the user, let's assume they want to fund 'X' amount
-    // and we charge them 'X + fee'.
     const fee = getDepositFee(amountNum, depositMethod);
     const totalToPay = amountNum + fee;
 
@@ -268,7 +320,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
         const { data, error } = await supabase.functions.invoke("opay-deposit", {
             headers: { Authorization: `Bearer ${accessToken}` },
             body: { 
-                amount: totalToPay.toString(), // Send the Total Payable to gateway
+                amount: totalToPay.toString(), 
                 email: user.email,
                 name: user.name,
                 method: depositMethod
@@ -297,8 +349,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
         }
         
         if (data?.url) {
-            setCurrentTxRef(data.reference); // Save reference to verify later
-            // Redirect user to OPay Cashier
+            setCurrentTxRef(data.reference); 
             window.location.href = data.url;
         } else {
             throw new Error("Failed to get payment URL");
@@ -368,8 +419,6 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
     }
   };
 
-  // --- REPLACED: resolveAccount ---
-  // Adds detailed logging to debug verification failures
   // --- VERIFY ACCOUNT (PAYSTACK) ---
   const resolveAccount = async (acct: string, bank: string) => {
     if (acct.length !== 10 || !bank) return;
@@ -377,14 +426,13 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
     setIsResolving(true);
     setAccountName(""); 
 
-    console.log(`Verifying: ${acct} with Bank: ${bank}`); // Debug Log
+    console.log(`Verifying: ${acct} with Bank: ${bank}`); 
 
     try {
         const { data, error } = await supabase.functions.invoke("verify-account", {
             body: { account_number: acct, bank_code: bank }
         });
 
-        // Debug: See exactly what the server says
         console.log("Verification Response:", data, error);
 
         if (error) throw new Error(error.message);
@@ -393,7 +441,6 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
             setAccountName(data.account_name);
             showToast(`Verified: ${data.account_name}`, "success");
         } else {
-            // Show the actual error message from server
             const errorMsg = data?.message || "Account not found";
             console.error("Verification failed:", errorMsg);
             setAccountName("INVALID ACCOUNT");
@@ -412,12 +459,10 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
   const handleWithdraw = async () => {
     const amount = Number(withdrawAmount);
     
-    // 1. Validation
     if (amount <= 0) return showToast("Invalid amount", "error");
     if (amount > user.balance) return showToast("Insufficient balance", "error");
     if (!bankCode || !accountNumber) return showToast("Please fill all bank details", "error"); 
     
-    // Check if account name is valid
     if (!accountName || accountName === "INVALID ACCOUNT") return showToast("Please wait for account verification", "error");
     if (accountName === "SYSTEM ERROR") return showToast("System error on verification. Try again later.", "error");
 
@@ -426,15 +471,13 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
     setIsWithdrawing(true);
     
     try {
-       // --- GET SESSION TOKEN ---
        const { data: sessionData } = await supabase.auth.getSession();
        const accessToken = sessionData?.session?.access_token;
        
        if (!accessToken) throw new Error("You are not logged in. Please reload.");
 
-       // --- CALL FUNCTION ---
        const request = supabase.functions.invoke("opay-withdraw", {
-        headers: { Authorization: `Bearer ${accessToken}` }, // <--- THIS WAS MISSING
+        headers: { Authorization: `Bearer ${accessToken}` }, 
         body: {
           amount: amount,
           account_number: accountNumber,
@@ -451,7 +494,6 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
 
       showToast("Withdrawal submitted! Processing...", "success");
       
-      // Update UI Balance
       if (data?.new_balance !== undefined) {
           onUpdateBalance(data.new_balance);
       } else {
@@ -470,7 +512,6 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
       
       let errorMessage = error.message || "Withdrawal failed";
       
-      // Extract logic from edge function response
       if (error.context && error.context.json) {
            const body = await error.context.json();
            if (body.error) errorMessage = body.error;
@@ -506,16 +547,29 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
   };
 
   const renderDashboardHome = () => {
-    // Dynamic Fee Calculation for UI
     const amountNum = Number(withdrawAmount) || 0;
     const currentWithdrawFee = getWithdrawalFee(amountNum);
-
-    // Dynamic Deposit Fee for UI
     const depositAmountNum = Number(depositAmount) || 0;
     const currentDepositFee = getDepositFee(depositAmountNum, depositMethod);
 
     return (
     <div className="space-y-6 pb-24 animate-in fade-in">
+      
+      {/* --- CLEANED DYNAMIC HEADER --- */}
+      {/* No extra balance text. No extra Bell. Just the animated greeting. */}
+      <div className="flex items-center mb-2 mt-2 h-10"> 
+        <h1 
+            className={`
+                text-2xl font-black text-slate-800 tracking-tight
+                transition-opacity duration-500 ease-in-out
+                ${fade ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}
+            `}
+        >
+            {greeting}
+        </h1>
+      </div>
+      {/* --- END HEADER --- */}
+
       {/* WALLET CARD */}
       <section className="bg-emerald-600 p-6 rounded-[35px] text-white shadow-xl relative overflow-hidden">
         {/* Background Pattern */}
@@ -673,10 +727,8 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
                   ))}
             </div>
             
-            {/* Amount Input */}
             <input type="number" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl font-black mb-4 outline-none border border-slate-200 focus:border-emerald-500 transition-colors text-slate-800" placeholder={t("common.amount")} />
             
-            {/* ADDED: DEPOSIT FEE DISPLAY */}
             <div className="bg-slate-50 p-3 rounded-xl mb-4 text-xs text-slate-600 flex justify-between items-center border border-slate-100">
                 <span>Processing Fee:</span>
                 <span className="font-bold">₦{currentDepositFee}</span>
@@ -704,7 +756,6 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
             <button onClick={() => setIsWithdrawModalOpen(false)} className="absolute top-6 right-6 p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"><X size={16} /></button>
             <h3 className="text-xl font-black text-center mb-6 text-slate-800">{t("dashboard.withdraw")}</h3>
 
-            {/* BANK SELECT */}
             <label className="block text-xs font-bold text-slate-500 mb-1">Bank</label>
             <div className="mb-4">
                 <select 
@@ -712,7 +763,6 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
                     value={bankCode} 
                     onChange={(e) => { 
                         setBankCode(e.target.value); 
-                        // Trigger verification immediately if account number is already 10 digits
                         if(accountNumber.length === 10) resolveAccount(accountNumber, e.target.value);
                     }}
                 >
@@ -722,7 +772,6 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
                 </select>
             </div>
 
-            {/* ACCOUNT INPUT */}
             <label className="block text-xs font-bold text-slate-500 mb-1">Account Number</label>
             <div className="mb-2">
                 <input 
@@ -732,15 +781,13 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
                     placeholder="0123456789" 
                     value={accountNumber} 
                     onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g,''); // Only allow numbers
+                        const val = e.target.value.replace(/\D/g,''); 
                         setAccountNumber(val);
-                        // Trigger verification when user finishes typing (10 digits)
                         if(val.length === 10 && bankCode) resolveAccount(val, bankCode);
                     }} 
                 />
             </div>
 
-            {/* NAME DISPLAY FIELD */}
             <div className="mt-2 mb-4">
                 <label className="block text-xs font-bold text-slate-500 mb-1">Account Name</label>
                 <div className={`w-full p-2.5 border rounded-xl bg-slate-50 min-h-[42px] flex items-center ${isResolving ? 'text-slate-400' : 'text-slate-800'}`}>
@@ -763,7 +810,6 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
               placeholder="Amount"
             />
             
-            {/* NEW FEE STRUCTURE INFO - FIXED > */}
             <div className="mb-3 bg-slate-50 p-2 rounded-lg border border-slate-100">
                 <div className="flex items-center gap-2 mb-1 text-slate-500">
                     <AlertCircle size={12} />
@@ -785,7 +831,6 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
                 </div>
             </div>
 
-            {/* DYNAMIC FEE CALCULATION & TOTAL DEDUCTION */}
             <div className="bg-slate-50 p-3 rounded-xl mb-4 text-xs text-slate-600 flex justify-between items-center border border-slate-100">
                 <span>Withdrawal Fee:</span>
                 <span className="font-bold">₦{currentWithdrawFee}</span>
@@ -795,7 +840,6 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
                 <span>₦{(amountNum + currentWithdrawFee).toLocaleString()}</span>
             </div>
 
-            {/* WITHDRAW BUTTON */}
             <button
               onClick={handleWithdraw}
               disabled={isWithdrawing || isResolving || !accountName || accountName === "INVALID ACCOUNT" || accountName === "SYSTEM ERROR"}
