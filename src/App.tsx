@@ -4,6 +4,8 @@ import { supabase } from './supabaseClient';
 import { dbService } from './services/dbService';
 import { I18nProvider, LanguageCode } from './i18n';
 import { ToastProvider, useToast } from './components/ui/ToastProvider';
+// 1. Import the BroadcastManager
+import BroadcastManager from './components/BroadcastManager';
 
 // Layouts & Pages
 import DashboardLayout from "./layouts/DashboardLayout"; 
@@ -165,6 +167,10 @@ const App: React.FC = () => {
 
   return (
     <I18nProvider language={language} setLanguage={setLanguage}>
+      
+      {/* 2. Added BroadcastManager here so it overlays everything */}
+      <BroadcastManager />
+
       {isSplashScreen ? (
         <div className="min-h-screen flex flex-col items-center justify-center bg-emerald-600 text-white">
           <Zap className="w-24 h-24 animate-bounce text-yellow-400 fill-yellow-400"/>

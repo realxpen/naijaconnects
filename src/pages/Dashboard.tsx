@@ -651,14 +651,14 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
                 {isVerifyingDeposit ? <Loader2 className="animate-spin" /> : `Pay with ${depositMethod.replace("Bank", "").replace("OpayWalletNgQR", "QR")}`}
             </button>
             
-            <button
+            {/* <button
               type="button"
               onClick={() => verifyDeposit(currentTxRef)}
               disabled={isVerifyingDeposit}
               className="w-full mt-3 py-3 bg-white border-2 border-emerald-600 text-emerald-700 rounded-2xl font-black uppercase transition-colors shadow-sm hover:bg-emerald-50 disabled:opacity-60"
             >
               {isVerifyingDeposit ? "Verifying..." : "I have paid, Verify"}
-            </button>
+            </button> */}
           </div>
         </div>
       )}
