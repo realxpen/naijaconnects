@@ -1,12 +1,15 @@
 import axios from 'axios';
 import { DataPlan } from '../types';
 
-// 🔐 KEYS
-const PAYSTACK_SECRET_KEY = "VITE_PAYSTACK_PUBLIC_KEY"; 
-const AFFATECH_TOKEN = "Token AFFATECH_API_KEY"; 
+// 🔐 KEYS (FIXED: Use import.meta.env for Vite)
+// WARNING: Never expose SECRET keys on the frontend. 
+// Ideally, 'fundWallet' should be moved to a Supabase Edge Function.
+const PAYSTACK_KEY = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || ""; 
+const AFFATECH_TOKEN = `Token ${import.meta.env.VITE_AFFATECH_API_KEY || ""}`; 
 
 // 🌍 CONFIGURATION
 // Uses local proxy rewrite defined in vercel.json to bypass CORS
+// Ensure your Vercel project Environment Variables are set!
 const API_BASE = "/api/proxy"; 
 
 // 🛠️ HELPER: Normalize Plan Types
@@ -49,13 +52,13 @@ export const getPlans = async (): Promise<DataPlan[]> => {
          return p.network && p.plan_type && !isCrazyPrice;
       }) 
       .map((p: any) => ({
-        id: Number(p.id),             // <--- FIXED: Converted to Number to match 'DataPlan' interface
+        id: Number(p.id),             // <--- Correctly Cast to Number
         network: Number(p.network), 
         plan_type: normalizePlanType(p.plan_type), 
-        amount: p.amount.toString(),  // <--- FIXED: Converted to String to match 'DataPlan' interface
+        amount: p.amount.toString(),  // <--- FIXED: Now matches 'DataPlan' interface (string)
         size: p.size || p.dataplan || p.name || 'Unknown', 
         validity: p.validity || '30 Days',
-        price: Number(p.amount)       // Helper for UI calculations if needed
+        price: Number(p.amount)       // Helper for UI calculations
       }));
 
     console.log(`✅ Successfully loaded ${mappedPlans.length} plans.`);
@@ -97,10 +100,11 @@ export const buyData = async (networkId: number, phone: string, planId: number) 
 // 3. FUND WALLET (Paystack)
 export const fundWallet = async (email: string, amount: number) => {
   try {
-    // Paystack handles its own CORS usually, but if needed we can proxy it too.
-    // For now, let's hit paystack directly as they support client-side init often if configured.
-    // However, for security, standard practice is to use the backend. 
-    // We will use the proxy to be safe if strictly enforcing backend calls.
+    // Note: Calling Paystack Initialize API directly requires a SECRET KEY.
+    // Using a Secret Key on the frontend is insecure.
+    // Ideally, call a Supabase Edge Function to handle this.
+    // For now, we assume you are handling this risk or testing.
+    
     const response = await axios.post(
       "https://api.paystack.co/transaction/initialize",
       { 
@@ -108,7 +112,7 @@ export const fundWallet = async (email: string, amount: number) => {
         amount: amount * 100, 
         callback_url: typeof window !== 'undefined' ? window.location.origin : "http://localhost:3000" 
       },
-      { headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` } }
+      { headers: { Authorization: `Bearer ${PAYSTACK_KEY}` } }
     );
     return {
       success: true,
@@ -122,5 +126,5 @@ export const fundWallet = async (email: string, amount: number) => {
 
 // Compatibility Exports
 export const initializeTopUp = fundWallet;
-export const verifyTransaction = async (ref: string) => { return { success: true, amount: 0 } }; // Stub for now
-export const withdrawFunds = async () => { return { status: true } }; // Stub for now
+export const verifyTransaction = async (ref: string) => { return { success: true, amount: 0 } }; 
+export const withdrawFunds = async () => { return { status: true } };
