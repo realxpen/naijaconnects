@@ -462,7 +462,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
         (payload) => {
           const newBalance = payload.new.wallet_balance;
           onUpdateBalance(newBalance);
-          showToast(`Balance updated: ₦${newbalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, "success");
+          showToast(`Balance updated: ₦${newBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, "success");
           fetchHistory();
         }
       )
