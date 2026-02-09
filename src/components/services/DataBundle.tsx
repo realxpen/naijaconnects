@@ -396,7 +396,7 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
                                 </div>
                                 <div className="text-right">
                                     <p className="text-[8px] uppercase font-black text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded-md">
-                                        {plan.validity}
+                                        Type/Validity
                                     </p>
                                 </div>
                             </div>
