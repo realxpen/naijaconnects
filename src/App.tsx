@@ -234,12 +234,8 @@ const App: React.FC = () => {
   const handleSignup = async (email: string, firstName: string, lastName: string, phone: string, preferredLanguage: string, pass: string) => {
     setIsProcessing(true);
     try {
-      const fullName = `${firstName} ${lastName}`.trim();
       await dbService.registerUser(email, firstName, lastName, phone, preferredLanguage as LanguageCode, pass);
-      // We set a temporary ID here. The real ID will be fetched by the Auth Listener immediately after.
-      setUser({ id: '', name: fullName || firstName, email: '', balance: 0, phone, role: 'user' }); 
       setLanguage(preferredLanguage as LanguageCode);
-      setShowPinSetup(true);
     } catch (e: any) { 
       showToast(e.message || "Signup Failed", "error");
       throw e; 

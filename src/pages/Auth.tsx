@@ -73,6 +73,8 @@ const Auth: React.FC<AuthProps> = ({ onLogin, onSignup, onForgotPassword, isProc
       } else if (view === 'signup') {
         await onSignup(email, firstName, lastName, phone, preferredLanguage, password);
         showToast(t("auth.alert.account_created"), "success");
+        setView('login');
+        setPassword('');
       } else if (view === 'forgot-password') {
         await onForgotPassword(email);
         showToast(t("auth.alert.reset_link_sent"), "success");
