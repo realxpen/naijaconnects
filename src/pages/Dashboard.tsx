@@ -257,6 +257,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
   const [isWithdrawBeneficiariesOpen, setIsWithdrawBeneficiariesOpen] = useState(false);
   const [withdrawBeneficiaries, setWithdrawBeneficiaries] = useState<any[]>([]);
   const [withdrawSearch, setWithdrawSearch] = useState("");
+  const [showHomeScreenTip, setShowHomeScreenTip] = useState(false);
   const [pinOpen, setPinOpen] = useState(false);
   const [pinError, setPinError] = useState("");
   const [pendingAction, setPendingAction] = useState<null | (() => void)>(null);
@@ -390,6 +391,26 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
     };
     loadWithdrawBeneficiaries();
   }, []);
+
+  useEffect(() => {
+    const dismissed = localStorage.getItem("swifna_home_tip_dismissed") === "true";
+    const nextShowAt = Number(localStorage.getItem("swifna_home_tip_next_show") || 0);
+    const now = Date.now();
+    if (!dismissed && now >= nextShowAt) {
+      setShowHomeScreenTip(true);
+    }
+  }, []);
+
+  const handleHomeTipDismiss = () => {
+    localStorage.setItem("swifna_home_tip_dismissed", "true");
+    setShowHomeScreenTip(false);
+  };
+
+  const handleHomeTipLater = () => {
+    const twoDays = 1000 * 60 * 60 * 24 * 2;
+    localStorage.setItem("swifna_home_tip_next_show", String(Date.now() + twoDays));
+    setShowHomeScreenTip(false);
+  };
 
   useEffect(() => {
     if (!isWithdrawBeneficiariesOpen) return;
@@ -1154,6 +1175,40 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
                     })}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+      {showHomeScreenTip && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[80] flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden">
+            <div className="px-6 py-5 border-b border-slate-100">
+              <h3 className="text-lg font-black text-slate-800">Add Swifna to Home Screen</h3>
+              <p className="text-xs text-slate-500 mt-1">Get faster access like a real app.</p>
+            </div>
+            <div className="px-6 py-5 space-y-3 text-sm text-slate-600">
+              <div className="flex items-start gap-3">
+                <span className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-black">1</span>
+                <p>Tap the Share button in your browser.</p>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-black">2</span>
+                <p>Choose “Add to Home Screen”.</p>
+              </div>
+            </div>
+            <div className="px-6 pb-6 flex items-center gap-3">
+              <button
+                onClick={handleHomeTipLater}
+                className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-50 transition-colors"
+              >
+                Show later
+              </button>
+              <button
+                onClick={handleHomeTipDismiss}
+                className="flex-1 py-3 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-colors"
+              >
+                I did it
+              </button>
             </div>
           </div>
         </div>
