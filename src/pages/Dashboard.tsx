@@ -117,7 +117,7 @@ const BANKS = [
 
 // --- INTERFACES ---
 interface DashboardProps {
-  user: { name: string; email: string; balance: number; phone?: string; id: string; role?: string };
+  user: { name: string; email: string; balance: number; phone?: string; id: string; role?: string; pinHash?: string | null; pinLength?: number | null };
   onUpdateBalance: (newBalance: number) => void;
   activeTab?: string; 
 }
