@@ -5,6 +5,8 @@ import { dbService } from "../../services/dbService";
 import { CARRIERS } from "../../constants";
 import { useI18n } from "../../i18n";
 import { useToast } from "../ui/ToastProvider";
+import PinPrompt from "../PinPrompt";
+import { hashPin } from "../../utils/pin";
 import { beneficiaryService, Beneficiary } from "../../services/beneficiaryService";
 
 interface AirtimeProps {
@@ -25,6 +27,9 @@ const Airtime = ({ user, onUpdateBalance, onBack }: AirtimeProps) => {
   // Beneficiary & User Phone State
   const [recentBeneficiaries, setRecentBeneficiaries] = useState<Beneficiary[]>([]);
   const [userPhone, setUserPhone] = useState("");
+  const [pinOpen, setPinOpen] = useState(false);
+  const [pinError, setPinError] = useState("");
+  const [pendingAction, setPendingAction] = useState<null | (() => void)>(null);
 
   // --- 1. INITIALIZE & PRE-FILL USER PHONE ---
   useEffect(() => {
@@ -116,7 +121,7 @@ const Airtime = ({ user, onUpdateBalance, onBack }: AirtimeProps) => {
   };
 
   // --- 4. PURCHASE LOGIC ---
-  const handlePurchase = async () => {
+  const doPurchase = async () => {
     if (!amount || !phoneNumber) return;
     if (Number(amount) > user.balance) return showToast(t("airtime.insufficient_balance"), "error");
     
@@ -170,9 +175,37 @@ const Airtime = ({ user, onUpdateBalance, onBack }: AirtimeProps) => {
     }
   };
 
+  const requirePin = (action: () => void) => {
+    if (!user?.pinHash || !user?.id) {
+      showToast("Please set your PIN in Profile", "error");
+      return;
+    }
+    setPendingAction(() => action);
+    setPinError("");
+    setPinOpen(true);
+  };
+
+  const handlePinConfirm = async (pin: string) => {
+    if (!user?.pinHash || !user?.id) return;
+    const h = await hashPin(pin, user.id);
+    if (h !== user.pinHash) {
+      setPinError("Incorrect PIN");
+      return;
+    }
+    setPinOpen(false);
+    const act = pendingAction;
+    setPendingAction(null);
+    if (act) act();
+  };
+
+  const handlePurchase = () => {
+    requirePin(doPurchase);
+  };
+
   const presetAmounts = [50, 100, 200, 500, 1000, 2000];
 
   return (
+    <>
     <div className="animate-in slide-in-from-right duration-300 pb-24">
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
@@ -325,6 +358,14 @@ const Airtime = ({ user, onUpdateBalance, onBack }: AirtimeProps) => {
 
       </div>
     </div>
+    <PinPrompt
+      open={pinOpen}
+      requiredLength={user?.pinLength || null}
+      onConfirm={handlePinConfirm}
+      onClose={() => setPinOpen(false)}
+      error={pinError}
+    />
+    </>
   );
 };
 

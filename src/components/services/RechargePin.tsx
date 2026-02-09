@@ -4,6 +4,8 @@ import { supabase } from "../../supabaseClient";
 import { dbService } from "../../services/dbService";
 import { CARRIERS, PIN_PRICING, RECHARGE_AMOUNTS } from "../../constants";
 import { useToast } from "../ui/ToastProvider";
+import PinPrompt from "../PinPrompt";
+import { hashPin } from "../../utils/pin";
 
 interface RechargePinProps {
   user: any;
@@ -18,6 +20,9 @@ const RechargePin = ({ user, onUpdateBalance, onBack }: RechargePinProps) => {
   const [amount, setAmount] = useState("100");
   const [quantity, setQuantity] = useState(1);
   const [nameOnCard, setNameOnCard] = useState("");
+  const [pinOpen, setPinOpen] = useState(false);
+  const [pinError, setPinError] = useState("");
+  const [pendingAction, setPendingAction] = useState<null | (() => void)>(null);
 
   // --- 1. CALCULATE COST ---
   const calculateTotalCost = () => {
@@ -29,7 +34,7 @@ const RechargePin = ({ user, onUpdateBalance, onBack }: RechargePinProps) => {
   };
 
   // --- 2. PURCHASE LOGIC ---
-  const handlePurchase = async () => {
+  const doPurchase = async () => {
     if (!amount || !nameOnCard) return showToast("Please fill all fields", "error");
     const cost = calculateTotalCost();
     
@@ -83,8 +88,36 @@ const RechargePin = ({ user, onUpdateBalance, onBack }: RechargePinProps) => {
     }
   };
 
+  const requirePin = (action: () => void) => {
+    if (!user?.pinHash || !user?.id) {
+      showToast("Please set your PIN in Profile", "error");
+      return;
+    }
+    setPendingAction(() => action);
+    setPinError("");
+    setPinOpen(true);
+  };
+
+  const handlePinConfirm = async (pin: string) => {
+    if (!user?.pinHash || !user?.id) return;
+    const h = await hashPin(pin, user.id);
+    if (h !== user.pinHash) {
+      setPinError("Incorrect PIN");
+      return;
+    }
+    setPinOpen(false);
+    const act = pendingAction;
+    setPendingAction(null);
+    if (act) act();
+  };
+
+  const handlePurchase = () => {
+    requirePin(doPurchase);
+  };
+
   return (
-    <div className="animate-in slide-in-from-right duration-300 pb-20">
+    <>
+      <div className="animate-in slide-in-from-right duration-300 pb-20">
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <button onClick={onBack} className="flex items-center gap-2 text-slate-500 font-bold text-xs uppercase">
@@ -195,7 +228,15 @@ const RechargePin = ({ user, onUpdateBalance, onBack }: RechargePinProps) => {
         </div>
 
       </div>
-    </div>
+      </div>
+      <PinPrompt
+        open={pinOpen}
+        requiredLength={user?.pinLength || null}
+        onConfirm={handlePinConfirm}
+        onClose={() => setPinOpen(false)}
+        error={pinError}
+      />
+    </>
   );
 };
 

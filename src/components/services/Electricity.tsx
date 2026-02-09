@@ -5,6 +5,8 @@ import { dbService } from "../../services/dbService";
 import { DISCOS } from "../../constants";
 import { useToast } from "../ui/ToastProvider";
 import { beneficiaryService, Beneficiary } from "../../services/beneficiaryService";
+import PinPrompt from "../PinPrompt";
+import { hashPin } from "../../utils/pin";
 
 interface ElectricityProps {
   user: any;
@@ -22,6 +24,9 @@ const Electricity = ({ user, onUpdateBalance, onBack }: ElectricityProps) => {
   const [customerName, setCustomerName] = useState("");
   const [phone, setPhone] = useState("");
   const [showDiscoModal, setShowDiscoModal] = useState(false);
+  const [pinOpen, setPinOpen] = useState(false);
+  const [pinError, setPinError] = useState("");
+  const [pendingAction, setPendingAction] = useState<null | (() => void)>(null);
 
   // Recents State
   const [recentBeneficiaries, setRecentBeneficiaries] = useState<Beneficiary[]>([]);
@@ -87,7 +92,7 @@ const Electricity = ({ user, onUpdateBalance, onBack }: ElectricityProps) => {
   };
 
   // --- 4. PURCHASE LOGIC ---
-  const handlePurchase = async () => {
+  const doPurchase = async () => {
     if (!amount || !meterNumber || !disco || !customerName || customerName.includes("Invalid")) return;
     if (user.balance < Number(amount)) return showToast("Insufficient Balance", "error");
 
@@ -139,10 +144,38 @@ const Electricity = ({ user, onUpdateBalance, onBack }: ElectricityProps) => {
     }
   };
 
+  const requirePin = (action: () => void) => {
+    if (!user?.pinHash || !user?.id) {
+      showToast("Please set your PIN in Profile", "error");
+      return;
+    }
+    setPendingAction(() => action);
+    setPinError("");
+    setPinOpen(true);
+  };
+
+  const handlePinConfirm = async (pin: string) => {
+    if (!user?.pinHash || !user?.id) return;
+    const h = await hashPin(pin, user.id);
+    if (h !== user.pinHash) {
+      setPinError("Incorrect PIN");
+      return;
+    }
+    setPinOpen(false);
+    const act = pendingAction;
+    setPendingAction(null);
+    if (act) act();
+  };
+
+  const handlePurchase = () => {
+    requirePin(doPurchase);
+  };
+
   const presetAmounts = [1000, 2000, 3000, 5000, 10000, 20000];
   const selectedDiscoObj = DISCOS.find(d => d.id === disco);
 
   return (
+    <>
     <div className="animate-in slide-in-from-right duration-300 pb-24 relative">
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
@@ -329,6 +362,14 @@ const Electricity = ({ user, onUpdateBalance, onBack }: ElectricityProps) => {
       )}
 
     </div>
+    <PinPrompt
+      open={pinOpen}
+      requiredLength={user?.pinLength || null}
+      onConfirm={handlePinConfirm}
+      onClose={() => setPinOpen(false)}
+      error={pinError}
+    />
+    </>
   );
 };
 

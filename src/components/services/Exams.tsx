@@ -1,10 +1,12 @@
 import React, { useState } from "react";
-import { ArrowLeft, Loader2, GraduationCap, User, Phone, Check, BookOpen } from "lucide-react";
+import { ArrowLeft, Loader2, BookOpen, User, Phone, Check } from "lucide-react";
 import { supabase } from "../../supabaseClient";
 import { dbService } from "../../services/dbService";
 import { EXAM_TYPES, JAMB_VARIANTS } from "../../constants";
 import { useI18n } from "../../i18n";
 import { useToast } from "../ui/ToastProvider";
+import PinPrompt from "../PinPrompt";
+import { hashPin } from "../../utils/pin";
 
 interface ExamsProps {
   user: any;
@@ -16,7 +18,7 @@ const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
   const { t } = useI18n();
   const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [selectedExam, setSelectedExam] = useState<any>(EXAM_TYPES[0]); // Default to first (usually JAMB or WAEC)
+  const [selectedExam, setSelectedExam] = useState<any>(EXAM_TYPES[0]); 
   const [quantity, setQuantity] = useState(1);
   
   // JAMB Specific
@@ -24,6 +26,9 @@ const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
   const [jambType, setJambType] = useState("utme");
   const [customerName, setCustomerName] = useState("");
   const [phone, setPhone] = useState("");
+  const [pinOpen, setPinOpen] = useState(false);
+  const [pinError, setPinError] = useState("");
+  const [pendingAction, setPendingAction] = useState<null | (() => void)>(null);
 
   // --- 1. VERIFY JAMB ---
   const verifyJamb = async (profileId: string) => {
@@ -53,7 +58,7 @@ const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
   };
 
   // --- 3. PURCHASE LOGIC ---
-  const handlePurchase = async () => {
+  const doPurchase = async () => {
     if (!selectedExam) return;
     const cost = calculateCost();
 
@@ -121,8 +126,36 @@ const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
     }
   };
 
+  const requirePin = (action: () => void) => {
+    if (!user?.pinHash || !user?.id) {
+      showToast("Please set your PIN in Profile", "error");
+      return;
+    }
+    setPendingAction(() => action);
+    setPinError("");
+    setPinOpen(true);
+  };
+
+  const handlePinConfirm = async (pin: string) => {
+    if (!user?.pinHash || !user?.id) return;
+    const h = await hashPin(pin, user.id);
+    if (h !== user.pinHash) {
+      setPinError("Incorrect PIN");
+      return;
+    }
+    setPinOpen(false);
+    const act = pendingAction;
+    setPendingAction(null);
+    if (act) act();
+  };
+
+  const handlePurchase = () => {
+    requirePin(doPurchase);
+  };
+
   return (
-    <div className="animate-in slide-in-from-right duration-300 pb-20">
+    <>
+      <div className="animate-in slide-in-from-right duration-300 pb-20">
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <button onClick={onBack} className="flex items-center gap-2 text-slate-500 font-bold text-xs uppercase">
@@ -270,7 +303,16 @@ const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
         </div>
 
       </div>
-    </div>
+      </div> {/* <--- THIS WAS MISSING! (Closes animate-in div) */}
+
+      <PinPrompt
+        open={pinOpen}
+        requiredLength={user?.pinLength || null}
+        onConfirm={handlePinConfirm}
+        onClose={() => setPinOpen(false)}
+        error={pinError}
+      />
+    </>
   );
 };
 

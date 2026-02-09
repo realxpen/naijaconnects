@@ -9,6 +9,8 @@ import { supabase } from "../supabaseClient";
 import { useI18n } from "../i18n";
 import { useToast } from "../components/ui/ToastProvider";
 import { beneficiaryService } from "../services/beneficiaryService";
+import PinPrompt from "../components/PinPrompt";
+import { hashPin } from "../utils/pin";
 
 // --- SERVICE COMPONENTS ---
 import Airtime from "../components/services/Airtime";
@@ -247,6 +249,9 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
   const [accountNumber, setAccountNumber] = useState("");
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [recentWithdraws, setRecentWithdraws] = useState<any[]>([]);
+  const [pinOpen, setPinOpen] = useState(false);
+  const [pinError, setPinError] = useState("");
+  const [pendingAction, setPendingAction] = useState<null | (() => void)>(null);
   
   // --- STATE VARIABLES ---
   const [accountName, setAccountName] = useState("");
@@ -532,7 +537,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
   };
 
   // --- HANDLER: WITHDRAW ---
-  const handleWithdraw = async () => {
+  const doWithdraw = async () => {
     const amount = Number(withdrawAmount);
     
     if (amount <= 0) return showToast("Invalid amount", "error");
@@ -615,6 +620,33 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
     } finally {
       setIsWithdrawing(false);
     }
+  };
+
+  const requirePin = (action: () => void) => {
+    if (!user?.pinHash || !user?.id) {
+      showToast("Please set your PIN in Profile", "error");
+      return;
+    }
+    setPendingAction(() => action);
+    setPinError("");
+    setPinOpen(true);
+  };
+
+  const handlePinConfirm = async (pin: string) => {
+    if (!user?.pinHash || !user?.id) return;
+    const h = await hashPin(pin, user.id);
+    if (h !== user.pinHash) {
+      setPinError("Incorrect PIN");
+      return;
+    }
+    setPinOpen(false);
+    const act = pendingAction;
+    setPendingAction(null);
+    if (act) act();
+  };
+
+  const handleWithdraw = () => {
+    requirePin(doWithdraw);
   };
 
   // --- RENDER CONTENT ---
@@ -966,6 +998,13 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
           </div>
         </div>
       )}
+      <PinPrompt
+        open={pinOpen}
+        requiredLength={user?.pinLength || null}
+        onConfirm={handlePinConfirm}
+        onClose={() => setPinOpen(false)}
+        error={pinError}
+      />
     </div>
   );
   }

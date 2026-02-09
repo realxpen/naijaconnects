@@ -86,7 +86,7 @@ export const dbService = {
   },
 
   // Added function
-  async updateProfile(email: string, updates: { first_name?: string; last_name?: string; phone?: string }) {
+  async updateProfile(email: string, updates: { first_name?: string; last_name?: string; phone?: string; pin_hash?: string | null; pin_length?: number | null }) {
     const { data, error } = await supabase
       .from('profiles')
       .update(updates)

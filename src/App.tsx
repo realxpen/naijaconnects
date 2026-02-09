@@ -25,7 +25,7 @@ const App: React.FC = () => {
   const [dashboardResetKey, setDashboardResetKey] = useState(0);
 
   // UPDATED: Added 'id' to the user interface definition to fix "Property 'id' is missing"
-  const [user, setUser] = useState<{id: string, name: string, email: string, balance: number, phone?: string, role?: string} | null>(null);
+  const [user, setUser] = useState<{id: string, name: string, email: string, balance: number, phone?: string, role?: string, pinHash?: string | null, pinLength?: number | null} | null>(null);
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [language, setLanguage] = useState<LanguageCode>(() => {
@@ -36,6 +36,7 @@ const App: React.FC = () => {
   const [moonPhase, setMoonPhase] = useState<{ phase: string; illumination: number } | null>(null);
   const [constellation, setConstellation] = useState<string | null>(null);
   const [showLearn, setShowLearn] = useState(false);
+  const [showPinSetup, setShowPinSetup] = useState(false);
 
   const isNightWindow = (d: Date) => {
     const h = d.getHours();
@@ -105,7 +106,9 @@ const App: React.FC = () => {
           email: data.email || email,
           balance: data.wallet_balance || 0,
           phone: data.phone || '',
-          role: data.role || 'user'
+          role: data.role || 'user',
+          pinHash: data.pin_hash || null,
+          pinLength: data.pin_length || null
         });
         if (data.preferred_language) {
           setLanguage(data.preferred_language as LanguageCode);
@@ -236,6 +239,7 @@ const App: React.FC = () => {
       // We set a temporary ID here. The real ID will be fetched by the Auth Listener immediately after.
       setUser({ id: '', name: fullName || firstName, email: '', balance: 0, phone, role: 'user' }); 
       setLanguage(preferredLanguage as LanguageCode);
+      setShowPinSetup(true);
     } catch (e: any) { 
       showToast(e.message || "Signup Failed", "error");
       throw e; 
@@ -284,7 +288,7 @@ const App: React.FC = () => {
       <BroadcastManager />
 
       {isSplashScreen ? (
-        <div className="min-h-screen flex flex-col items-center justify-center text-white relative overflow-hidden">
+        <div className={`min-h-screen flex flex-col items-center justify-center text-white relative overflow-hidden ${isNightSky ? '' : 'bg-emerald-600'}`}>
           {isNightSky ? (
             <div className="absolute inset-0">
               <div className="absolute inset-0 bg-[radial-gradient(60%_45%_at_10%_-10%,_#0F1A13_0%,_transparent_60%),radial-gradient(60%_45%_at_110%_20%,_#122017_0%,_transparent_60%)]" />
@@ -384,6 +388,33 @@ const App: React.FC = () => {
           userName={user?.name || ''} 
           userAvatar={(user as any)?.avatar_url || null}
         >
+          {showPinSetup && user && !user.pinHash && (
+            <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4">
+              <div className="w-full max-w-sm rounded-2xl bg-[#151A21] border border-[rgba(255,255,255,0.06)] p-5">
+                <h3 className="text-sm font-bold text-white mb-2">Set Your PIN</h3>
+                <p className="text-xs text-[#A1A1AA] mb-4">
+                  Create a 4 or 6 digit PIN to secure withdrawals and bill payments.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setShowPinSetup(false);
+                      setActiveTab('profile');
+                    }}
+                    className="flex-1 h-12 rounded-[14px] bg-gradient-to-r from-[#22C55E] to-[#16A34A] text-white text-sm font-semibold"
+                  >
+                    Set PIN now
+                  </button>
+                  <button
+                    onClick={() => setShowPinSetup(false)}
+                    className="flex-1 h-12 rounded-[14px] border border-[rgba(255,255,255,0.06)] text-[#A1A1AA] text-sm font-semibold"
+                  >
+                    Later
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
           {activeTab === 'buy' && user && (
             <Dashboard 
                 key={dashboardResetKey} // This forces the reset

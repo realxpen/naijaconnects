@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Moon, Sun, Monitor, Lock, LogOut, ChevronRight, Mail, ShieldCheck, 
-  Camera, User, Phone, Save, Loader2, Star
+  Camera, User, Phone, Save, Loader2, Star, KeyRound
 } from 'lucide-react';
 import { dbService } from '../services/dbService';
 import { supabase } from "../supabaseClient"; // <--- Added this import
 import { useI18n } from '../i18n';
+import { hashPin, isValidPin } from '../utils/pin';
 
 interface ProfileProps {
   user: { 
@@ -14,6 +15,9 @@ interface ProfileProps {
     phone?: string; 
     avatar_url?: string;
     tier?: 'Starter' | 'Gold' | 'Platinum'; 
+    id?: string;
+    pinHash?: string | null;
+    pinLength?: number | null;
   };
   onLogout: () => void;
   onUpdateUser: (updatedData: any) => Promise<void>; 
@@ -45,6 +49,12 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
   const [passwords, setPasswords] = useState({ current: '', new: '', confirm: '' });
   const [msg, setMsg] = useState({ text: '', type: '' });
   const [isLoading, setIsLoading] = useState(false);
+  const [pinForm, setPinForm] = useState({
+    current: '',
+    next: '',
+    confirm: '',
+    length: (user.pinLength === 4 || user.pinLength === 6) ? user.pinLength : 4
+  });
 
   // --- THEME LOGIC ---
   const applyThemeMode = (mode: ThemeMode) => {
@@ -179,6 +189,49 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
       </svg>
     `.trim();
     return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+  };
+
+  const handleUpdatePin = async () => {
+    setIsLoading(true);
+    try {
+      if (!user.id) throw new Error("Missing user id");
+      const len = pinForm.length;
+      if (!isValidPin(pinForm.next, len)) {
+        setMsg({ text: `PIN must be ${len} digits`, type: 'error' });
+        setIsLoading(false);
+        return;
+      }
+      if (pinForm.next !== pinForm.confirm) {
+        setMsg({ text: "PINs do not match", type: 'error' });
+        setIsLoading(false);
+        return;
+      }
+      if (user.pinHash) {
+        if (!pinForm.current) {
+          setMsg({ text: "Enter current PIN", type: 'error' });
+          setIsLoading(false);
+          return;
+        }
+        const currentHash = await hashPin(pinForm.current, user.id);
+        if (currentHash !== user.pinHash) {
+          setMsg({ text: "Current PIN is incorrect", type: 'error' });
+          setIsLoading(false);
+          return;
+        }
+      }
+      const nextHash = await hashPin(pinForm.next, user.id);
+      await dbService.updateProfile(user.email, {
+        pin_hash: nextHash,
+        pin_length: len
+      });
+      await onUpdateUser({ pinHash: nextHash, pinLength: len });
+      setPinForm({ current: '', next: '', confirm: '', length: len });
+      setMsg({ text: "PIN updated", type: 'success' });
+    } catch (e: any) {
+      setMsg({ text: e.message || "Failed to update PIN", type: 'error' });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const getAvatar = () => {
@@ -340,6 +393,70 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
                   </div>
                </div>
             )}
+         </div>
+
+         {/* PIN Section */}
+         <div className="bg-white dark:bg-slate-800 rounded-[25px] shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
+            <button onClick={() => { setShowPasswordForm(false); setMsg({text:'', type:''}); }} className="w-full p-5 flex items-center justify-between active:bg-slate-50 dark:active:bg-slate-700">
+               <div className="flex items-center gap-4">
+                  <div className="p-3 bg-emerald-100 text-emerald-600 rounded-xl dark:bg-emerald-900/30 dark:text-emerald-300"><KeyRound size={20}/></div>
+                  <div className="text-left">
+                     <h4 className="font-black text-sm dark:text-white">PIN</h4>
+                     <p className="text-[10px] text-slate-400 font-bold uppercase">Set or Change PIN</p>
+                  </div>
+               </div>
+               <ChevronRight size={18} className="text-slate-300 rotate-90"/>
+            </button>
+
+            <div className="px-5 pb-5 animate-in slide-in-from-top-2">
+               <div className="space-y-3 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700">
+                  {user.pinHash && (
+                    <input
+                      type="password"
+                      placeholder="Current PIN"
+                      value={pinForm.current}
+                      onChange={e => setPinForm({ ...pinForm, current: e.target.value.replace(/\D/g, '').slice(0, pinForm.length) })}
+                      className="w-full p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500"
+                    />
+                  )}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPinForm({ ...pinForm, length: 4 })}
+                      className={`flex-1 py-2 rounded-xl text-xs font-bold ${pinForm.length === 4 ? 'bg-emerald-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-500'}`}
+                    >
+                      4 Digits
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPinForm({ ...pinForm, length: 6 })}
+                      className={`flex-1 py-2 rounded-xl text-xs font-bold ${pinForm.length === 6 ? 'bg-emerald-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-500'}`}
+                    >
+                      6 Digits
+                    </button>
+                  </div>
+                  <input
+                    type="password"
+                    placeholder={`New ${pinForm.length}-digit PIN`}
+                    value={pinForm.next}
+                    onChange={e => setPinForm({ ...pinForm, next: e.target.value.replace(/\D/g, '').slice(0, pinForm.length) })}
+                    className="w-full p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500"
+                  />
+                  <input
+                    type="password"
+                    placeholder="Confirm PIN"
+                    value={pinForm.confirm}
+                    onChange={e => setPinForm({ ...pinForm, confirm: e.target.value.replace(/\D/g, '').slice(0, pinForm.length) })}
+                    className="w-full p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500"
+                  />
+                  {msg.text && !showPasswordForm && (
+                    <p className={`text-[10px] font-black uppercase text-center ${msg.type === 'error' ? 'text-rose-500' : 'text-emerald-500'}`}>{msg.text}</p>
+                  )}
+                  <button onClick={handleUpdatePin} disabled={isLoading} className="w-full py-3 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2">
+                      {isLoading ? <Loader2 className="animate-spin" size={14}/> : <Save size={14}/>} Save PIN
+                  </button>
+               </div>
+            </div>
          </div>
 
          {/* Support */}

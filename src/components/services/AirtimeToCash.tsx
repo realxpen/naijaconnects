@@ -4,6 +4,8 @@ import { supabase } from "../../supabaseClient";
 import { CARRIERS } from "../../constants";
 import { useI18n } from "../../i18n";
 import { useToast } from "../ui/ToastProvider";
+import PinPrompt from "../PinPrompt";
+import { hashPin } from "../../utils/pin";
 
 interface AirtimeToCashProps {
   user: any; // Added user prop
@@ -18,6 +20,9 @@ const AirtimeToCash = ({ user, onBack }: AirtimeToCashProps) => {
   const [phone, setPhone] = useState("");
   const [amount, setAmount] = useState("");
   const [info, setInfo] = useState<any>(null);
+  const [pinOpen, setPinOpen] = useState(false);
+  const [pinError, setPinError] = useState("");
+  const [pendingAction, setPendingAction] = useState<null | (() => void)>(null);
 
   // --- 1. PRE-FILL OWNER PHONE ---
   useEffect(() => {
@@ -63,7 +68,7 @@ const AirtimeToCash = ({ user, onBack }: AirtimeToCashProps) => {
   }, [phone]);
 
   // --- 3. SUBMIT LOGIC ---
-  const handleSubmit = async () => {
+  const doSubmit = async () => {
     if (!phone || !amount) return;
     setLoading(true);
 
@@ -92,6 +97,33 @@ const AirtimeToCash = ({ user, onBack }: AirtimeToCashProps) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const requirePin = (action: () => void) => {
+    if (!user?.pinHash || !user?.id) {
+      showToast("Please set your PIN in Profile", "error");
+      return;
+    }
+    setPendingAction(() => action);
+    setPinError("");
+    setPinOpen(true);
+  };
+
+  const handlePinConfirm = async (pin: string) => {
+    if (!user?.pinHash || !user?.id) return;
+    const h = await hashPin(pin, user.id);
+    if (h !== user.pinHash) {
+      setPinError("Incorrect PIN");
+      return;
+    }
+    setPinOpen(false);
+    const act = pendingAction;
+    setPendingAction(null);
+    if (act) act();
+  };
+
+  const handleSubmit = () => {
+    requirePin(doSubmit);
   };
 
   // --- 4. SUCCESS VIEW ---
@@ -142,6 +174,7 @@ const AirtimeToCash = ({ user, onBack }: AirtimeToCashProps) => {
 
   // --- 5. FORM VIEW ---
   return (
+    <>
     <div className="animate-in slide-in-from-right duration-300 pb-20">
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
@@ -253,6 +286,14 @@ const AirtimeToCash = ({ user, onBack }: AirtimeToCashProps) => {
 
       </div>
     </div>
+    <PinPrompt
+      open={pinOpen}
+      requiredLength={user?.pinLength || null}
+      onConfirm={handlePinConfirm}
+      onClose={() => setPinOpen(false)}
+      error={pinError}
+    />
+    </>
   );
 };
 

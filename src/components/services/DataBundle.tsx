@@ -6,6 +6,8 @@ import { CARRIERS } from "../../constants";
 import { useI18n } from "../../i18n";
 import { useToast } from "../ui/ToastProvider";
 import { beneficiaryService, Beneficiary } from "../../services/beneficiaryService";
+import PinPrompt from "../PinPrompt";
+import { hashPin } from "../../utils/pin";
 
 interface DataBundleProps {
   user: any;
@@ -30,6 +32,9 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
   // Recents & User Phone State
   const [recentBeneficiaries, setRecentBeneficiaries] = useState<Beneficiary[]>([]);
   const [userPhone, setUserPhone] = useState("");
+  const [pinOpen, setPinOpen] = useState(false);
+  const [pinError, setPinError] = useState("");
+  const [pendingAction, setPendingAction] = useState<null | (() => void)>(null);
 
   // --- 1. INITIALIZE & PRE-FILL USER PHONE ---
   useEffect(() => {
@@ -171,7 +176,7 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
   };
 
   // --- 6. PURCHASE LOGIC ---
-  const handlePurchase = async () => {
+  const doPurchase = async () => {
     if (!selectedPlan || !phoneNumber) return;
     if (user.balance < selectedPlan.amount) return showToast(t("data.insufficient_balance"), "error");
 
@@ -218,6 +223,33 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
     }
   };
 
+  const requirePin = (action: () => void) => {
+    if (!user?.pinHash || !user?.id) {
+      showToast("Please set your PIN in Profile", "error");
+      return;
+    }
+    setPendingAction(() => action);
+    setPinError("");
+    setPinOpen(true);
+  };
+
+  const handlePinConfirm = async (pin: string) => {
+    if (!user?.pinHash || !user?.id) return;
+    const h = await hashPin(pin, user.id);
+    if (h !== user.pinHash) {
+      setPinError("Incorrect PIN");
+      return;
+    }
+    setPinOpen(false);
+    const act = pendingAction;
+    setPendingAction(null);
+    if (act) act();
+  };
+
+  const handlePurchase = () => {
+    requirePin(doPurchase);
+  };
+
   const getDisplaySize = (name: string) => {
     const match = name.match(/(\d+\.?\d*)\s*(GB|MB|TB)/i);
     return match ? `${match[1]} ${match[2]}` : "DATA";
@@ -228,6 +260,7 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
   };
 
   return (
+    <>
     <div className="animate-in slide-in-from-right duration-300 pb-20">
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
@@ -396,7 +429,7 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
                                 </div>
                                 <div className="text-right">
                                     <p className="text-[8px] uppercase font-black text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded-md">
-                                        Type/Validity
+                                        {`${plan.plan_type || 'PLAN'} (${plan.validity || ''})`}
                                     </p>
                                 </div>
                             </div>
@@ -424,6 +457,14 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
 
       </div>
     </div>
+    <PinPrompt
+      open={pinOpen}
+      requiredLength={user?.pinLength || null}
+      onConfirm={handlePinConfirm}
+      onClose={() => setPinOpen(false)}
+      error={pinError}
+    />
+    </>
   );
 };
 

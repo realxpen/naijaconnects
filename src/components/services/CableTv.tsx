@@ -5,6 +5,8 @@ import { dbService } from "../../services/dbService";
 import { CABLE_PROVIDERS } from "../../constants";
 import { useToast } from "../ui/ToastProvider";
 import { beneficiaryService, Beneficiary } from "../../services/beneficiaryService";
+import PinPrompt from "../PinPrompt";
+import { hashPin } from "../../utils/pin";
 
 interface CableTvProps {
   user: any;
@@ -23,6 +25,9 @@ const CableTv = ({ user, onUpdateBalance, onBack }: CableTvProps) => {
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [loadingPlans, setLoadingPlans] = useState(false);
   const [activeTab, setActiveTab] = useState("All");
+  const [pinOpen, setPinOpen] = useState(false);
+  const [pinError, setPinError] = useState("");
+  const [pendingAction, setPendingAction] = useState<null | (() => void)>(null);
 
   // Recents State
   const [recentBeneficiaries, setRecentBeneficiaries] = useState<Beneficiary[]>([]);
@@ -124,7 +129,7 @@ const CableTv = ({ user, onUpdateBalance, onBack }: CableTvProps) => {
   };
 
   // --- 6. PURCHASE ---
-  const handlePurchase = async () => {
+  const doPurchase = async () => {
     if (!selectedPlan || !iuc || customerName.includes("Invalid")) return;
     const cost = parseFloat(selectedPlan.amount);
     if (user.balance < cost) return showToast("Insufficient Balance", "error");
@@ -176,7 +181,35 @@ const CableTv = ({ user, onUpdateBalance, onBack }: CableTvProps) => {
     }
   };
 
+  const requirePin = (action: () => void) => {
+    if (!user?.pinHash || !user?.id) {
+      showToast("Please set your PIN in Profile", "error");
+      return;
+    }
+    setPendingAction(() => action);
+    setPinError("");
+    setPinOpen(true);
+  };
+
+  const handlePinConfirm = async (pin: string) => {
+    if (!user?.pinHash || !user?.id) return;
+    const h = await hashPin(pin, user.id);
+    if (h !== user.pinHash) {
+      setPinError("Incorrect PIN");
+      return;
+    }
+    setPinOpen(false);
+    const act = pendingAction;
+    setPendingAction(null);
+    if (act) act();
+  };
+
+  const handlePurchase = () => {
+    requirePin(doPurchase);
+  };
+
   return (
+    <>
     <div className="animate-in slide-in-from-right duration-300 pb-20">
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
@@ -298,13 +331,13 @@ const CableTv = ({ user, onUpdateBalance, onBack }: CableTvProps) => {
                      
                      {filteredPlans.map((p) => (
                          <button
-                            key={p.id}
-                            onClick={() => setSelectedPlan(p)}
-                            className={`relative p-4 rounded-2xl text-left border-2 transition-all flex flex-col justify-between min-h-[100px] group ${
-                                selectedPlan?.id === p.id 
-                                ? "border-emerald-600 bg-emerald-50 ring-1 ring-emerald-200" 
-                                : "border-slate-100 bg-slate-50 hover:border-emerald-200"
-                            }`}
+                           key={p.id}
+                           onClick={() => setSelectedPlan(p)}
+                           className={`relative p-4 rounded-2xl text-left border-2 transition-all flex flex-col justify-between min-h-[100px] group ${
+                               selectedPlan?.id === p.id 
+                               ? "border-emerald-600 bg-emerald-50 ring-1 ring-emerald-200" 
+                               : "border-slate-100 bg-slate-50 hover:border-emerald-200"
+                           }`}
                          >
                             {selectedPlan?.id === p.id && <CheckCircle2 size={16} className="absolute top-2 right-2 text-emerald-600" />}
                             
@@ -346,6 +379,14 @@ const CableTv = ({ user, onUpdateBalance, onBack }: CableTvProps) => {
 
       </div>
     </div>
+    <PinPrompt
+      open={pinOpen}
+      requiredLength={user?.pinLength || null}
+      onConfirm={handlePinConfirm}
+      onClose={() => setPinOpen(false)}
+      error={pinError}
+    />
+    </>
   );
 };
 
