@@ -110,7 +110,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin, onSignup, onForgotPassword, isProc
             <div className="bg-yellow-400 p-2 rounded-xl shadow-lg">
               <Zap className="w-6 h-6 text-emerald-900 fill-emerald-900" />
             </div>
-            <h1 className="text-xl font-black tracking-tighter uppercase">NaijaConnect</h1>
+            <h1 className="text-xl font-black tracking-tighter uppercase">Swifna</h1>
           </div>
 
           <div className="relative h-64 lg:h-80">

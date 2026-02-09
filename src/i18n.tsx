@@ -6,7 +6,7 @@ type Translations = Record<LanguageCode, Record<string, string>>;
 
 const translations: Translations = {
   en: {
-    "app.name": "NaijaConnect",
+    "app.name": "Swifna",
     "nav.ask_ai": "Ask AI",
     "nav.buy": "Buy",
     "nav.history": "History",
@@ -92,7 +92,7 @@ const translations: Translations = {
 
     "assistant.title": "AI Assistant",
     "assistant.subtitle": "Always Online",
-    "assistant.greeting": "Hi {name}! 👋 I'm your NaijaConnect AI. Ask me about your balance, funding your wallet, or how to buy data!",
+    "assistant.greeting": "Hi {name}! 👋 I'm your Swifna AI. Ask me about your balance, funding your wallet, or how to buy data!",
     "assistant.input_placeholder": "Ask me anything...",
     "assistant.quick.balance": "Check my balance",
     "assistant.quick.deposit": "How do I deposit?",
@@ -211,7 +211,7 @@ const translations: Translations = {
     "airtime_to_cash.proceed_swap": "Proceed to Swap",
   },
   yo: {
-    "app.name": "NaijaConnect",
+    "app.name": "Swifna",
     "nav.ask_ai": "Beere AI",
     "nav.buy": "Ra",
     "nav.history": "Itan",
@@ -297,7 +297,7 @@ const translations: Translations = {
 
     "assistant.title": "Olùrànlọ́wọ́ AI",
     "assistant.subtitle": "Ní Lọ́ọ̀nì Gbogbo",
-    "assistant.greeting": "Báwo {name}! 👋 Mo jẹ AI NaijaConnect rẹ. Béèrè nípa ìyókù, bí o ṣe lè kún wọ́létì, tàbí bí o ṣe lè ra data!",
+    "assistant.greeting": "Báwo {name}! 👋 Mo jẹ AI Swifna rẹ. Béèrè nípa ìyókù, bí o ṣe lè kún wọ́létì, tàbí bí o ṣe lè ra data!",
     "assistant.input_placeholder": "Béèrè ohunkóhun...",
     "assistant.quick.balance": "Ṣàyẹ̀wò ìyókù mi",
     "assistant.quick.deposit": "Báwo ni mo ṣe kún?",
@@ -414,7 +414,7 @@ const translations: Translations = {
     "airtime_to_cash.proceed_swap": "Tẹsiwaju Láti Yí",
   },
   ig: {
-    "app.name": "NaijaConnect",
+    "app.name": "Swifna",
     "nav.ask_ai": "Jụọ AI",
     "nav.buy": "Zụta",
     "nav.history": "Akụkọ",
@@ -500,7 +500,7 @@ const translations: Translations = {
 
     "assistant.title": "Onye Enyemaka AI",
     "assistant.subtitle": "N’ịntanetị Mgbe niile",
-    "assistant.greeting": "Ndewo {name}! 👋 Abụ m AI NaijaConnect gị. Jụọ m maka ntụnye, ịtinye wallet, ma ọ bụ otu esi azụta data!",
+    "assistant.greeting": "Ndewo {name}! 👋 Abụ m AI Swifna gị. Jụọ m maka ntụnye, ịtinye wallet, ma ọ bụ otu esi azụta data!",
     "assistant.input_placeholder": "Jụọ ihe ọ bụla...",
     "assistant.quick.balance": "Lelee ntụnye m",
     "assistant.quick.deposit": "Kedu ka m ga-esi tinye?",
@@ -617,7 +617,7 @@ const translations: Translations = {
     "airtime_to_cash.proceed_swap": "Gaa n'ihu gbanwee",
   },
   fr: {
-    "app.name": "NaijaConnect",
+    "app.name": "Swifna",
     "nav.ask_ai": "Demander à l’IA",
     "nav.buy": "Acheter",
     "nav.history": "Historique",
@@ -703,7 +703,7 @@ const translations: Translations = {
 
     "assistant.title": "Assistant IA",
     "assistant.subtitle": "Toujours en ligne",
-    "assistant.greeting": "Salut {name} ! 👋 Je suis votre IA NaijaConnect. Demandez-moi votre solde, comment approvisionner votre portefeuille ou acheter des données !",
+    "assistant.greeting": "Salut {name} ! 👋 Je suis votre IA Swifna. Demandez-moi votre solde, comment approvisionner votre portefeuille ou acheter des données !",
     "assistant.input_placeholder": "Demandez-moi n’importe quoi...",
     "assistant.quick.balance": "Vérifier mon solde",
     "assistant.quick.deposit": "Comment déposer ?",
@@ -820,7 +820,7 @@ const translations: Translations = {
     "airtime_to_cash.proceed_swap": "Procéder à l’échange",
   },
   ha: {
-    "app.name": "NaijaConnect",
+    "app.name": "Swifna",
     "nav.ask_ai": "Tambayi AI",
     "nav.buy": "Saya",
     "nav.history": "Tarihi",
@@ -906,7 +906,7 @@ const translations: Translations = {
 
     "assistant.title": "Mataimakin AI",
     "assistant.subtitle": "A kan layi kowane lokaci",
-    "assistant.greeting": "Sannu {name}! 👋 Ni ne NaijaConnect AI naka. Tambaye ni game da ma’auni, cika wallet, ko yadda ake sayen data!",
+    "assistant.greeting": "Sannu {name}! 👋 Ni ne Swifna AI naka. Tambaye ni game da ma’auni, cika wallet, ko yadda ake sayen data!",
     "assistant.input_placeholder": "Tambayi wani abu...",
     "assistant.quick.balance": "Duba ma’aunina",
     "assistant.quick.deposit": "Yaya zan cika?",
@@ -1023,7 +1023,7 @@ const translations: Translations = {
     "airtime_to_cash.proceed_swap": "Ci gaba da canzawa",
   },
   ng: {
-    "app.name": "NaijaConnect",
+    "app.name": "Swifna",
     "nav.ask_ai": "Ask AI",
     "nav.buy": "Buy",
     "nav.history": "History",
@@ -1109,7 +1109,7 @@ const translations: Translations = {
 
     "assistant.title": "AI Assistant",
     "assistant.subtitle": "Always Online",
-    "assistant.greeting": "Hi {name}! 👋 I be your NaijaConnect AI. Ask me about balance, how to fund wallet, or how to buy data!",
+    "assistant.greeting": "Hi {name}! 👋 I be your Swifna AI. Ask me about balance, how to fund wallet, or how to buy data!",
     "assistant.input_placeholder": "Ask me anything...",
     "assistant.quick.balance": "Check my balance",
     "assistant.quick.deposit": "How I go fund?",

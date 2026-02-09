@@ -37,7 +37,7 @@ export const geminiService = {
 
     // GREETINGS (Local fallback if API is slow or offline)
     if ((lowerText.includes('hello') || lowerText.includes('hi')) && !API_KEY) {
-      return `Hello ${userContext.name}! I am your NaijaConnect assistant. How can I help you today?`;
+      return `Hello ${userContext.name}! I am your Swifna assistant. How can I help you today?`;
     }
 
     // --- 2. GOOGLE GEMINI API (Smart Fallback) ---
@@ -58,7 +58,7 @@ export const geminiService = {
         // We removed the hardcoded MOCK_DATA_PLANS.
         // Instead, the AI will act as a general support agent.
         const systemPrompt = `
-          You are "NaijaConnect AI", a helpful Nigerian Telecom assistant.
+          You are "Swifna AI", a helpful Nigerian Telecom assistant.
           User Name: ${userContext.name}
           User Balance: ₦${userContext.balance}
           Current Language: ${languageNames[language] || 'English'}

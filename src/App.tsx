@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Zap } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { dbService } from './services/dbService';
 import { I18nProvider, LanguageCode } from './i18n';
@@ -66,10 +65,25 @@ const App: React.FC = () => {
 
   // --- 2. SESSION INITIALIZATION ---
   useEffect(() => {
-    // Theme check
-    if (localStorage.getItem('theme') === 'dark') {
-      document.documentElement.classList.add('dark');
-    }
+    // Theme check (supports light/dark/system)
+    const storedTheme = localStorage.getItem('theme');
+    const applyTheme = () => {
+      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const shouldUseDark = storedTheme === 'dark' || (storedTheme !== 'light' && prefersDark);
+      document.documentElement.classList.toggle('dark', shouldUseDark);
+    };
+
+    applyTheme();
+
+    const media = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+    const handleChange = () => {
+      if (localStorage.getItem('theme') === 'system') {
+        applyTheme();
+      }
+    };
+
+    if (media?.addEventListener) media.addEventListener('change', handleChange);
+    else if (media?.addListener) media.addListener(handleChange);
 
     const initSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -93,7 +107,11 @@ const App: React.FC = () => {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      if (media?.removeEventListener) media.removeEventListener('change', handleChange);
+      else if (media?.removeListener) media.removeListener(handleChange);
+    };
   }, []);
 
   // --- 3. NAVIGATION HANDLER (Fixes the "Buy" button issue) ---
@@ -176,8 +194,15 @@ const App: React.FC = () => {
 
       {isSplashScreen ? (
         <div className="min-h-screen flex flex-col items-center justify-center bg-emerald-600 text-white">
-          <Zap className="w-24 h-24 animate-bounce text-yellow-400 fill-yellow-400"/>
-          <h1 className="text-4xl font-black mt-8 tracking-tighter">NaijaConnect</h1>
+           <img
+             src="/logo.png"
+             alt="Swifna Logo"
+             className="w-24 h-24 animate-bounce relative z-10"
+           />
+          <h1 className="text-4xl font-black mt-8 tracking-tighter">Swifna</h1>
+          <p className="mt-2 text-sm italic font-semibold text-emerald-100 tracking-wide">
+            Airtime, Data, Bills — Sorted.
+          </p>
         </div>
       ) : !isAuthenticated ? (
         <Auth 

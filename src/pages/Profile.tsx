@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  Moon, Sun, Lock, LogOut, ChevronRight, Mail, ShieldCheck, 
+  Moon, Sun, Monitor, Lock, LogOut, ChevronRight, Mail, ShieldCheck, 
   Camera, User, Phone, Save, Loader2, Star
 } from 'lucide-react';
 import { dbService } from '../services/dbService';
@@ -21,7 +21,13 @@ interface ProfileProps {
 
 const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
   const { t } = useI18n();
-  const [isDarkMode, setIsDarkMode] = useState(document.documentElement.classList.contains('dark'));
+  type ThemeMode = 'light' | 'dark' | 'system';
+  const getInitialTheme = (): ThemeMode => {
+    const stored = localStorage.getItem('theme');
+    if (stored === 'light' || stored === 'dark' || stored === 'system') return stored;
+    return 'system';
+  };
+  const [themeMode, setThemeMode] = useState<ThemeMode>(getInitialTheme);
   
   // Accordion States
   const [showPasswordForm, setShowPasswordForm] = useState(false);
@@ -39,17 +45,35 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
   const [isLoading, setIsLoading] = useState(false);
 
   // --- THEME LOGIC ---
-  const toggleTheme = () => {
-    if (isDarkMode) {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-      setIsDarkMode(false);
-    } else {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-      setIsDarkMode(true);
-    }
+  const applyThemeMode = (mode: ThemeMode) => {
+    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const useDark = mode === 'dark' || (mode === 'system' && prefersDark);
+    document.documentElement.classList.toggle('dark', useDark);
   };
+
+  const cycleThemeMode = () => {
+    const next: ThemeMode =
+      themeMode === 'light' ? 'dark' : themeMode === 'dark' ? 'system' : 'light';
+    setThemeMode(next);
+    localStorage.setItem('theme', next);
+    applyThemeMode(next);
+  };
+
+  useEffect(() => {
+    applyThemeMode(themeMode);
+    const media = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+    const handleChange = () => {
+      if (localStorage.getItem('theme') === 'system') {
+        applyThemeMode('system');
+      }
+    };
+    if (media?.addEventListener) media.addEventListener('change', handleChange);
+    else if (media?.addListener) media.addListener(handleChange);
+    return () => {
+      if (media?.removeEventListener) media.removeEventListener('change', handleChange);
+      else if (media?.removeListener) media.removeListener(handleChange);
+    };
+  }, [themeMode]);
 
   // --- PROFILE UPDATE LOGIC ---
   const handleUpdateProfile = async () => {
@@ -224,18 +248,20 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
       <div className="space-y-4">
          
          {/* Theme Toggle */}
-         <button onClick={toggleTheme} className="w-full bg-white dark:bg-slate-800 p-5 rounded-[25px] flex items-center justify-between shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-all">
+         <button onClick={cycleThemeMode} className="w-full bg-white dark:bg-slate-800 p-5 rounded-[25px] flex items-center justify-between shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-all">
             <div className="flex items-center gap-4">
                <div className="p-3 bg-purple-100 text-purple-600 rounded-xl dark:bg-purple-900/30 dark:text-purple-300">
-                  {isDarkMode ? <Moon size={20}/> : <Sun size={20}/>}
+                  {themeMode === 'dark' ? <Moon size={20}/> : themeMode === 'light' ? <Sun size={20}/> : <Monitor size={20}/>}
                </div>
                <div className="text-left">
                   <h4 className="font-black text-sm dark:text-white">{t("profile.appearance")}</h4>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase">{isDarkMode ? t("profile.dark_mode") : t("profile.light_mode")}</p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase">
+                    {themeMode === 'dark' ? t("profile.dark_mode") : themeMode === 'light' ? t("profile.light_mode") : 'System'}
+                  </p>
                </div>
             </div>
-            <div className={`w-12 h-6 rounded-full p-1 transition-colors ${isDarkMode ? 'bg-emerald-500' : 'bg-slate-200'}`}>
-               <div className={`w-4 h-4 bg-white rounded-full shadow-md transition-transform ${isDarkMode ? 'translate-x-6' : 'translate-x-0'}`}></div>
+            <div className={`w-12 h-6 rounded-full p-1 transition-colors ${themeMode === 'dark' ? 'bg-emerald-500' : themeMode === 'light' ? 'bg-slate-200' : 'bg-amber-200'}`}>
+               <div className={`w-4 h-4 bg-white rounded-full shadow-md transition-transform ${themeMode === 'dark' ? 'translate-x-6' : themeMode === 'light' ? 'translate-x-0' : 'translate-x-3'}`}></div>
             </div>
          </button>
 
@@ -287,7 +313,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
          <LogOut size={16}/> {t("profile.log_out")}
       </button>
 
-      <p className="text-center text-[9px] text-slate-300 font-black uppercase tracking-[0.2em] pt-4">NaijaConnect v1.0.0</p>
+      <p className="text-center text-[9px] text-slate-300 font-black uppercase tracking-[0.2em] pt-4">Swifna v1.0.0</p>
     </div>
   );
 };
