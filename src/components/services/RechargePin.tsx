@@ -5,7 +5,9 @@ import { dbService } from "../../services/dbService";
 import { CARRIERS, PIN_PRICING, RECHARGE_AMOUNTS } from "../../constants";
 import { useToast } from "../ui/ToastProvider";
 import PinPrompt from "../PinPrompt";
+import ConfirmTransactionModal from "../ConfirmTransactionModal";
 import { hashPin } from "../../utils/pin";
+import { useSuccessScreen } from "../ui/SuccessScreenProvider";
 
 interface RechargePinProps {
   user: any;
@@ -15,6 +17,7 @@ interface RechargePinProps {
 
 const RechargePin = ({ user, onUpdateBalance, onBack }: RechargePinProps) => {
   const { showToast } = useToast();
+  const { showSuccess } = useSuccessScreen();
   const [loading, setLoading] = useState(false);
   const [networkId, setNetworkId] = useState(1);
   const [amount, setAmount] = useState("100");
@@ -23,6 +26,7 @@ const RechargePin = ({ user, onUpdateBalance, onBack }: RechargePinProps) => {
   const [pinOpen, setPinOpen] = useState(false);
   const [pinError, setPinError] = useState("");
   const [pendingAction, setPendingAction] = useState<null | (() => void)>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // --- 1. CALCULATE COST ---
   const calculateTotalCost = () => {
@@ -75,7 +79,12 @@ const RechargePin = ({ user, onUpdateBalance, onBack }: RechargePinProps) => {
             denomination: amount
           }
         });
-        showToast(`Success! Generated ${quantity} Pins.`, "success");
+        showSuccess({
+          title: "Transfer successful",
+          amount: Number(calculateTotalCost()),
+          message: `Generated ${quantity} PINs successfully.`,
+          subtitle: nameOnCard ? `FOR ${nameOnCard}` : undefined,
+        });
         setNameOnCard("");
         setQuantity(1);
       } else {
@@ -112,7 +121,7 @@ const RechargePin = ({ user, onUpdateBalance, onBack }: RechargePinProps) => {
   };
 
   const handlePurchase = () => {
-    requirePin(doPurchase);
+    setConfirmOpen(true);
   };
 
   return (
@@ -125,7 +134,7 @@ const RechargePin = ({ user, onUpdateBalance, onBack }: RechargePinProps) => {
         </button>
         <div className="flex items-center gap-2 bg-emerald-600 px-3 py-1 rounded-full balance-pill">
             <Wallet size={14} className="text-emerald-600"/>
-            <span className="text-sm font-black text-emerald-600">₦{user.balance.toLocaleString()}</span>
+            <span className="text-sm font-black text-emerald-600">₦{user.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         </div>
       </div>
 
@@ -179,7 +188,7 @@ const RechargePin = ({ user, onUpdateBalance, onBack }: RechargePinProps) => {
                             : "border-slate-100 bg-white text-slate-500 hover:border-emerald-200"
                         }`}
                     >
-                        ₦{amt}
+                        ₦{Number(amt).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </button>
                 ))}
             </div>
@@ -221,7 +230,7 @@ const RechargePin = ({ user, onUpdateBalance, onBack }: RechargePinProps) => {
                 {loading ? <Loader2 className="animate-spin" /> : (
                     <>
                         <span>Generate</span>
-                        <span className="bg-emerald-700/50 px-2 py-0.5 rounded text-xs">₦{calculateTotalCost().toLocaleString()}</span>
+                        <span className="bg-emerald-700/50 px-2 py-0.5 rounded text-xs">₦{calculateTotalCost().toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </>
                 )}
             </button>
@@ -235,6 +244,19 @@ const RechargePin = ({ user, onUpdateBalance, onBack }: RechargePinProps) => {
         onConfirm={handlePinConfirm}
         onClose={() => setPinOpen(false)}
         error={pinError}
+      />
+      <ConfirmTransactionModal
+        open={confirmOpen}
+        title="Confirm Transaction"
+        subtitle={nameOnCard ? `FOR ${nameOnCard}` : undefined}
+        amountLabel="Total Pay"
+        amount={Number(calculateTotalCost())}
+        confirmLabel="Purchase Now"
+        onConfirm={() => {
+          setConfirmOpen(false);
+          requirePin(doPurchase);
+        }}
+        onClose={() => setConfirmOpen(false)}
       />
     </>
   );

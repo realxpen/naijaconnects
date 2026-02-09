@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from './supabaseClient';
 import { dbService } from './services/dbService';
 import { I18nProvider, LanguageCode } from './i18n';
 import { ToastProvider, useToast } from './components/ui/ToastProvider';
+import { SuccessScreenProvider } from './components/ui/SuccessScreenProvider';
 // 1. Import the BroadcastManager
 import BroadcastManager from './components/BroadcastManager';
 import { CONSTELLATIONS } from './data/constellations';
@@ -36,6 +37,8 @@ const App: React.FC = () => {
   const [moonPhase, setMoonPhase] = useState<{ phase: string; illumination: number } | null>(null);
   const [constellation, setConstellation] = useState<string | null>(null);
   const [showLearn, setShowLearn] = useState(false);
+  const learnHoldRef = useRef(false);
+  const [splashDelayDone, setSplashDelayDone] = useState(false);
   const [showPinSetup, setShowPinSetup] = useState(false);
 
   const isNightWindow = (d: Date) => {
@@ -179,12 +182,15 @@ const App: React.FC = () => {
       const isNight = !!nightKey;
       const start = Date.now();
       await Promise.all([initSession(), loadNightSky()]);
-      const minDelay = isNight ? 3000 : 0;
+      const minDelay = isNight ? 5000 : 0;
       const elapsed = Date.now() - start;
       if (minDelay > elapsed) {
         await new Promise((r) => setTimeout(r, minDelay - elapsed));
       }
-      if (!cancelled) setIsSplashScreen(false);
+      if (!cancelled) {
+        setSplashDelayDone(true);
+        if (!learnHoldRef.current) setIsSplashScreen(false);
+      }
     };
 
     run();
@@ -355,7 +361,14 @@ const App: React.FC = () => {
                 </div>
 
                 <button
-                  onClick={() => setShowLearn((v) => !v)}
+                  onClick={() => {
+                    const next = !showLearn;
+                    setShowLearn(next);
+                    learnHoldRef.current = next;
+                    if (!next && splashDelayDone) {
+                      setIsSplashScreen(false);
+                    }
+                  }}
                   className="mt-4 h-12 w-full rounded-[14px] bg-gradient-to-r from-[#22C55E] to-[#16A34A] text-white text-sm font-semibold"
                 >
                   Learn this constellation
@@ -440,7 +453,9 @@ const App: React.FC = () => {
 
 const AppWithProviders: React.FC = () => (
   <ToastProvider>
-    <App />
+    <SuccessScreenProvider>
+      <App />
+    </SuccessScreenProvider>
   </ToastProvider>
 );
 

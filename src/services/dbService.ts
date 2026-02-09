@@ -119,9 +119,15 @@ export const dbService = {
   // --- 3. HISTORY ---
 
   async addTransaction(tx: any) {
+    let userId = tx.user_id;
+    if (!userId) {
+      const { data: auth } = await supabase.auth.getUser();
+      userId = auth?.user?.id;
+    }
     const { error } = await supabase
       .from('transactions')
       .insert([{
+        user_id: userId || null,
         user_email: tx.user_email,
         type: tx.type,
         amount: tx.amount,

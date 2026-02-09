@@ -135,7 +135,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     <div className="min-h-screen flex flex-col max-w-lg mx-auto bg-slate-50 dark:bg-slate-900 relative transition-colors">
       
       {/* HEADER */}
-      <header className="bg-slate-900 p-4 text-white flex justify-between items-center sticky top-0 z-20 border-b border-slate-700">
+      <header className="bg-emerald-600 dark:bg-slate-900 p-4 text-white flex justify-between items-center sticky top-0 z-20 border-b border-emerald-700 dark:border-slate-700">
         <div className="flex items-center gap-2">
           <img
             src="/logo.png"
@@ -149,7 +149,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           {/* Notification Bell */}
           <button
             onClick={() => setShowNotifications((v) => !v)}
-            className="p-2 bg-slate-800 border border-slate-700 rounded-full relative hover:bg-slate-700 transition-colors"
+            className="p-2 bg-emerald-700 dark:bg-slate-800 border border-emerald-700 dark:border-slate-700 rounded-full relative hover:bg-emerald-800 dark:hover:bg-slate-700 transition-colors"
             aria-label="Notifications"
             aria-expanded={showNotifications}
           >
@@ -212,7 +212,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
           {/* Language Menu */}
           <div className="relative">
-            <button onClick={() => setShowLangMenu(!showLangMenu)} className="p-2 bg-slate-800 border border-slate-700 rounded-full hover:bg-slate-700 transition-colors">
+            <button onClick={() => setShowLangMenu(!showLangMenu)} className="p-2 bg-emerald-700 dark:bg-slate-800 border border-emerald-700 dark:border-slate-700 rounded-full hover:bg-emerald-800 dark:hover:bg-slate-700 transition-colors">
               <LangIcon size={20}/>
             </button>
             
@@ -238,7 +238,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               className="w-9 h-9 rounded-full object-cover border-2 border-white/20 shadow-inner"
               onError={(e) => { (e.currentTarget as HTMLImageElement).src = buildDefaultAvatar(userName); }}
             />
-            <span className="text-[8px] font-black uppercase text-emerald-100">{t("nav.me")}</span>
+            <span className="text-[8px] font-black uppercase text-white/90 dark:text-emerald-100">{t("nav.me")}</span>
           </button>
         </div>
       </header>
@@ -249,7 +249,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       </main>
 
       {/* BOTTOM NAV */}
-      <nav className="fixed bottom-0 w-full max-w-lg bg-slate-800 border-t border-slate-700 pb-safe pt-2 px-10 flex justify-between items-end z-40 h-[80px]">
+      <nav className="fixed bottom-0 w-full max-w-lg bg-emerald-600 dark:bg-slate-800 border-t border-emerald-700 dark:border-slate-700 pb-safe pt-2 px-10 flex justify-between items-end z-40 h-[80px]">
         
         {/* 1. Ask AI (Left) */}
         <NavButton 
@@ -294,10 +294,10 @@ const NavButton = ({ active, onClick, icon, label, badge, isMain }: any) => {
         onClick={onClick} 
         className={`
           flex items-center justify-center w-16 h-16 rounded-full shadow-xl transition-transform active:scale-95
-          border-[6px] border-slate-50 dark:border-slate-900
+          border-[6px] border-emerald-600 dark:border-slate-900
           ${active 
             ? 'bg-emerald-600 text-white shadow-emerald-200 dark:shadow-emerald-900/20' 
-            : 'bg-slate-800 text-slate-400'
+            : 'bg-emerald-700 text-white/80 dark:bg-slate-800 dark:text-slate-400'
           }
         `}
       >
@@ -312,8 +312,8 @@ const NavButton = ({ active, onClick, icon, label, badge, isMain }: any) => {
       onClick={onClick} 
       className={`relative flex flex-col items-center gap-1.5 pb-3 transition-all ${
         active 
-          ? 'text-emerald-600 scale-105' 
-          : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+          ? 'text-white scale-105' 
+          : 'text-white/80 hover:text-white dark:text-slate-400 dark:hover:text-slate-200'
       }`}
     >
       <div className="relative">

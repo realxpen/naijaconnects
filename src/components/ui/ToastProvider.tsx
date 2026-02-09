@@ -8,39 +8,58 @@ type ToastItem = {
   message: string;
   variant: ToastVariant;
   duration: number;
+  onRetry?: () => void;
+};
+
+type ToastOptions = {
+  onRetry?: () => void;
 };
 
 type ToastContextValue = {
-  showToast: (message: string, variant?: ToastVariant, duration?: number) => void;
+  showToast: (message: string, variant?: ToastVariant, duration?: number, options?: ToastOptions) => void;
 };
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
-const variantStyles: Record<ToastVariant, { wrap: string; icon: React.ReactNode }> = {
+const variantStyles: Record<ToastVariant, { wrap: string; icon: React.ReactNode; title: string }> = {
   success: {
-    wrap: "border-emerald-200 bg-emerald-50 text-emerald-800",
-    icon: <CheckCircle2 className="text-emerald-600" size={18} />,
+    wrap: "bg-[#1E293B] border-[rgba(255,255,255,0.08)] text-white",
+    icon: <CheckCircle2 className="text-emerald-400" size={20} />,
+    title: "Success",
   },
   error: {
-    wrap: "border-rose-200 bg-rose-50 text-rose-800",
-    icon: <AlertTriangle className="text-rose-600" size={18} />,
+    wrap: "bg-[#1E293B] border-[rgba(255,255,255,0.08)] text-white",
+    icon: <AlertTriangle className="text-rose-400" size={20} />,
+    title: "Failed",
   },
   info: {
-    wrap: "border-slate-200 bg-white text-slate-800",
-    icon: <Info className="text-slate-600" size={18} />,
+    wrap: "bg-[#1E293B] border-[rgba(255,255,255,0.08)] text-white",
+    icon: <Info className="text-slate-300" size={20} />,
+    title: "Info",
   },
 };
 
 export const ToastProvider = ({ children }: { children: React.ReactNode }) => {
-  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const [activeToast, setActiveToast] = useState<ToastItem | null>(null);
+
+  const normalizeMessage = (message: string) => {
+    const lower = String(message || "").toLowerCase();
+    if (
+      lower.includes("insufficient api balance") ||
+      (lower.includes("insufficient") && lower.includes("api")) ||
+      lower.includes("api balance") ||
+      lower.includes("api wallet")
+    ) {
+      return "Swifna is temporarily unable to complete this transaction. Please try again shortly.";
+    }
+    return message;
+  };
 
   const showToast = useCallback(
-    (message: string, variant: ToastVariant = "info", duration = 3500) => {
+    (message: string, variant: ToastVariant = "info", duration = 3500, options?: ToastOptions) => {
       const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      setToasts((prev) => [...prev, { id, message, variant, duration }]);
-      window.setTimeout(() => {
-        setToasts((prev) => prev.filter((t) => t.id !== id));
-      }, duration);
+      const normalized = normalizeMessage(message);
+      setActiveToast({ id, message: normalized, variant, duration, onRetry: options?.onRetry });
     },
     []
   );
@@ -50,27 +69,51 @@ export const ToastProvider = ({ children }: { children: React.ReactNode }) => {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <div className="fixed top-4 right-4 z-[80] flex flex-col gap-3 w-[92vw] max-w-sm">
-        {toasts.map((t) => {
-          const v = variantStyles[t.variant];
-          return (
-            <div
-              key={t.id}
-              className={`border shadow-lg rounded-2xl px-4 py-3 flex items-start gap-3 animate-in slide-in-from-top-2 ${v.wrap}`}
-            >
-              <div className="mt-0.5">{v.icon}</div>
-              <div className="text-sm font-bold leading-snug flex-1">{t.message}</div>
-              <button
-                onClick={() => setToasts((prev) => prev.filter((x) => x.id !== t.id))}
-                className="p-1 rounded-full hover:bg-black/5 transition-colors"
-                aria-label="Dismiss"
-              >
-                <X size={14} />
-              </button>
+      {activeToast && (() => {
+        const v = variantStyles[activeToast.variant];
+        return (
+          <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 p-4">
+            <div className={`w-full max-w-sm rounded-3xl border p-6 shadow-2xl ${v.wrap}`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {v.icon}
+                  <h3 className="text-sm font-black">{v.title}</h3>
+                </div>
+                <button
+                  onClick={() => setActiveToast(null)}
+                  className="p-1 rounded-full hover:bg-white/10 transition-colors"
+                  aria-label="Dismiss"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+              <p className="mt-4 text-xs text-slate-300 leading-relaxed">
+                {activeToast.message}
+              </p>
+              <div className="mt-5 flex flex-col gap-2">
+                <button
+                  onClick={() => setActiveToast(null)}
+                  className="w-full h-12 rounded-2xl bg-emerald-600 text-white text-xs font-black uppercase"
+                >
+                  OK
+                </button>
+                {activeToast.onRetry && (
+                  <button
+                    onClick={() => {
+                      const retry = activeToast.onRetry;
+                      setActiveToast(null);
+                      retry?.();
+                    }}
+                    className="w-full text-[10px] font-black uppercase text-slate-300"
+                  >
+                    Retry
+                  </button>
+                )}
+              </div>
             </div>
-          );
-        })}
-      </div>
+          </div>
+        );
+      })()}
     </ToastContext.Provider>
   );
 };

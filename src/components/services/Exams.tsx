@@ -6,7 +6,9 @@ import { EXAM_TYPES, JAMB_VARIANTS } from "../../constants";
 import { useI18n } from "../../i18n";
 import { useToast } from "../ui/ToastProvider";
 import PinPrompt from "../PinPrompt";
+import ConfirmTransactionModal from "../ConfirmTransactionModal";
 import { hashPin } from "../../utils/pin";
+import { useSuccessScreen } from "../ui/SuccessScreenProvider";
 
 interface ExamsProps {
   user: any;
@@ -17,6 +19,7 @@ interface ExamsProps {
 const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
   const { t } = useI18n();
   const { showToast } = useToast();
+  const { showSuccess } = useSuccessScreen();
   const [loading, setLoading] = useState(false);
   const [selectedExam, setSelectedExam] = useState<any>(EXAM_TYPES[0]); 
   const [quantity, setQuantity] = useState(1);
@@ -29,6 +32,7 @@ const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
   const [pinOpen, setPinOpen] = useState(false);
   const [pinError, setPinError] = useState("");
   const [pendingAction, setPendingAction] = useState<null | (() => void)>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // --- 1. VERIFY JAMB ---
   const verifyJamb = async (profileId: string) => {
@@ -112,7 +116,12 @@ const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
              details: `Exam: ${selectedExam.id}`
           }
         });
-        showToast(t("exam.purchase_success"), "success");
+        showSuccess({
+          title: "Transfer successful",
+          amount: Number(cost),
+          message: "Your exam purchase has been processed successfully.",
+          subtitle: selectedExam?.id ? `FOR ${selectedExam.id}` : undefined,
+        });
         setJambProfileID("");
         setCustomerName("");
         setQuantity(1);
@@ -150,7 +159,7 @@ const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
   };
 
   const handlePurchase = () => {
-    requirePin(doPurchase);
+    setConfirmOpen(true);
   };
 
   return (
@@ -163,7 +172,7 @@ const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
         </button>
         <div className="flex items-center gap-2 bg-emerald-600 px-3 py-1 rounded-full balance-pill">
             <span className="text-xs font-bold text-slate-400">{t("common.balance")}:</span>
-            <span className="text-sm font-black text-emerald-600">₦{user.balance.toLocaleString()}</span>
+            <span className="text-sm font-black text-emerald-600">₦{user.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         </div>
       </div>
 
@@ -254,7 +263,7 @@ const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
                                     <span className={`text-xs font-black uppercase ${jambType === v.id ? "text-emerald-700" : "text-slate-500"}`}>{v.name}</span>
                                     {jambType === v.id && <Check size={14} className="text-emerald-600" />}
                                 </div>
-                                <span className="text-lg font-black text-slate-800">₦{v.amount.toLocaleString()}</span>
+                                <span className="text-lg font-black text-slate-800">₦{v.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </button>
                         ))}
                      </div>
@@ -296,7 +305,7 @@ const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
                 {loading ? <Loader2 className="animate-spin" /> : (
                     <>
                         <span>{t("exam.purchase")}</span>
-                        <span className="bg-emerald-700/50 px-2 py-0.5 rounded text-xs">₦{calculateCost().toLocaleString()}</span>
+                        <span className="bg-emerald-700/50 px-2 py-0.5 rounded text-xs">₦{calculateCost().toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </>
                 )}
             </button>
@@ -305,13 +314,26 @@ const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
       </div>
       </div> {/* <--- THIS WAS MISSING! (Closes animate-in div) */}
 
-      <PinPrompt
-        open={pinOpen}
-        requiredLength={user?.pinLength || null}
-        onConfirm={handlePinConfirm}
-        onClose={() => setPinOpen(false)}
-        error={pinError}
-      />
+    <PinPrompt
+      open={pinOpen}
+      requiredLength={user?.pinLength || null}
+      onConfirm={handlePinConfirm}
+      onClose={() => setPinOpen(false)}
+      error={pinError}
+    />
+    <ConfirmTransactionModal
+      open={confirmOpen}
+      title="Confirm Transaction"
+      subtitle={selectedExam?.id ? `FOR ${selectedExam.id}` : undefined}
+      amountLabel="Total Pay"
+      amount={Number(calculateCost())}
+      confirmLabel="Purchase Now"
+      onConfirm={() => {
+        setConfirmOpen(false);
+        requirePin(doPurchase);
+      }}
+      onClose={() => setConfirmOpen(false)}
+    />
     </>
   );
 };

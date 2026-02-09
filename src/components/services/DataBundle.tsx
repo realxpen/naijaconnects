@@ -7,7 +7,9 @@ import { useI18n } from "../../i18n";
 import { useToast } from "../ui/ToastProvider";
 import { beneficiaryService, Beneficiary } from "../../services/beneficiaryService";
 import PinPrompt from "../PinPrompt";
+import ConfirmTransactionModal from "../ConfirmTransactionModal";
 import { hashPin } from "../../utils/pin";
+import { useSuccessScreen } from "../ui/SuccessScreenProvider";
 
 interface DataBundleProps {
   user: any;
@@ -18,6 +20,7 @@ interface DataBundleProps {
 const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
   const { t } = useI18n();
   const { showToast } = useToast();
+  const { showSuccess } = useSuccessScreen();
   const [loading, setLoading] = useState(false);
   const [networkId, setNetworkId] = useState(1);
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -35,6 +38,7 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
   const [pinOpen, setPinOpen] = useState(false);
   const [pinError, setPinError] = useState("");
   const [pendingAction, setPendingAction] = useState<null | (() => void)>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // --- 1. INITIALIZE & PRE-FILL USER PHONE ---
   useEffect(() => {
@@ -176,9 +180,9 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
   };
 
   // --- 6. PURCHASE LOGIC ---
-  const doPurchase = async () => {
-    if (!selectedPlan || !phoneNumber) return;
-    if (user.balance < selectedPlan.amount) return showToast(t("data.insufficient_balance"), "error");
+  const doPurchaseForPlan = async (plan: any) => {
+    if (!plan || !phoneNumber) return;
+    if (user.balance < plan.amount) return showToast(t("data.insufficient_balance"), "error");
 
     setLoading(true);
     try {
@@ -188,7 +192,7 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
           payload: {
             network: networkId,
             phone: phoneNumber,
-            plan_id: selectedPlan.plan_id,
+            plan_id: plan.plan_id,
           },
         },
       });
@@ -197,20 +201,25 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
 
       const isSuccess = data.status === "success" || data.success === true;
       if (isSuccess) {
-        const newBal = user.balance - selectedPlan.amount;
+        const newBal = user.balance - plan.amount;
         onUpdateBalance(newBal);
         await dbService.updateBalance(user.email, newBal);
         await dbService.addTransaction({
           user_email: user.email,
           type: "Data",
-          amount: selectedPlan.amount,
+          amount: plan.amount,
           status: "Success",
           ref: `DAT-${Date.now()}`,
         });
         
         saveRecentNumber(phoneNumber);
 
-        showToast(t("data.success_sent", { plan: selectedPlan.plan_name }), "success");
+        showSuccess({
+          title: "Transfer successful",
+          amount: Number(plan.amount),
+          message: "Your data purchase has been processed successfully.",
+          subtitle: phoneNumber ? `FOR ${phoneNumber}` : undefined,
+        });
         setPhoneNumber(userPhone); // Reset to user
         setSelectedPlan(null);
       } else {
@@ -247,7 +256,14 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
   };
 
   const handlePurchase = () => {
-    requirePin(doPurchase);
+    if (!selectedPlan) return;
+    setConfirmOpen(true);
+  };
+
+  const handlePlanSelect = (plan: any) => {
+    setSelectedPlan(plan);
+    if (phoneNumber.length < 11) return;
+    setConfirmOpen(true);
   };
 
   const getDisplaySize = (name: string) => {
@@ -269,7 +285,7 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
         </button>
         <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-slate-400">{t("common.balance")}:</span>
-            <span className="text-sm font-black text-emerald-600">₦{user.balance.toLocaleString()}</span>
+            <span className="text-sm font-black text-emerald-600">₦{user.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         </div>
       </div>
 
@@ -277,7 +293,7 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
       <div className="bg-white rounded-[30px] shadow-sm border border-slate-100 overflow-hidden">
         
         {/* Phone Input Section (Updated to match Airtime) */}
-        <div className="p-6 bg-slate-900 text-white relative">
+        <div className="p-6 bg-emerald-700 dark:bg-slate-900 text-white relative">
             <div className="flex justify-between items-center mb-2">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t("airtime.mobile_number")}</label>
                 <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
@@ -381,7 +397,7 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
                         onClick={() => setSelectedPlanType(type.key)}
                         className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase whitespace-nowrap transition-all ${
                             selectedPlanType === type.key 
-                            ? "bg-slate-900 text-white shadow-md" 
+                            ? "bg-emerald-700 text-white shadow-md dark:bg-slate-900" 
                             : "bg-slate-100 text-slate-500 hover:bg-slate-200"
                         }`}
                      >
@@ -400,7 +416,7 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
                     {filteredPlans.map((plan) => (
                         <button
                             key={plan.plan_id}
-                            onClick={() => setSelectedPlan(plan)}
+                            onClick={() => handlePlanSelect(plan)}
                             className={`relative flex flex-col justify-between p-4 rounded-2xl text-left border-2 transition-all group ${
                                 selectedPlan?.plan_id === plan.plan_id
                                 ? "border-emerald-600 bg-emerald-50 ring-2 ring-emerald-200 ring-offset-1"
@@ -425,7 +441,7 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
                             <div className="mt-4 pt-3 border-t border-slate-200/50 flex justify-between items-end">
                                 <div>
                                     <p className="text-[10px] text-slate-400 font-bold mb-0.5">{t("data.price")}</p>
-                                    <p className="text-sm font-black text-slate-900">₦{plan.amount}</p>
+                                    <p className="text-sm font-black text-slate-900">₦{Number(plan.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                 </div>
                                 <div className="text-right">
                                     <p className="text-[8px] uppercase font-black text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded-md">
@@ -439,21 +455,7 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
             )}
         </div>
         
-        {/* Footer Action */}
-        <div className="p-4 border-t border-slate-100 bg-white sticky bottom-0 z-10">
-             <button
-                onClick={handlePurchase}
-                disabled={loading || !selectedPlan || phoneNumber.length < 11}
-                className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-emerald-200 active:scale-95 transition-transform flex justify-center items-center gap-2"
-            >
-                {loading ? <Loader2 className="animate-spin" /> : (
-                    <>
-                        <span>{t("data.buy_bundle")}</span>
-                        {selectedPlan && <span className="bg-emerald-700/50 px-2 py-0.5 rounded text-xs">₦{selectedPlan.amount}</span>}
-                    </>
-                )}
-            </button>
-        </div>
+        {/* Footer Action removed: purchase now happens on plan selection */}
 
       </div>
     </div>
@@ -463,6 +465,20 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
       onConfirm={handlePinConfirm}
       onClose={() => setPinOpen(false)}
       error={pinError}
+    />
+    <ConfirmTransactionModal
+      open={confirmOpen}
+      title="Confirm Transaction"
+      subtitle={phoneNumber ? `FOR ${phoneNumber}` : undefined}
+      amountLabel="Total Pay"
+      amount={Number(selectedPlan?.amount || 0)}
+      confirmLabel="Purchase Now"
+      onConfirm={() => {
+        setConfirmOpen(false);
+        if (!selectedPlan) return;
+        requirePin(() => doPurchaseForPlan(selectedPlan));
+      }}
+      onClose={() => setConfirmOpen(false)}
     />
     </>
   );

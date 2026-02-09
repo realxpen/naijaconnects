@@ -5,7 +5,9 @@ import { CARRIERS } from "../../constants";
 import { useI18n } from "../../i18n";
 import { useToast } from "../ui/ToastProvider";
 import PinPrompt from "../PinPrompt";
+import ConfirmTransactionModal from "../ConfirmTransactionModal";
 import { hashPin } from "../../utils/pin";
+import { useSuccessScreen } from "../ui/SuccessScreenProvider";
 
 interface AirtimeToCashProps {
   user: any; // Added user prop
@@ -15,6 +17,7 @@ interface AirtimeToCashProps {
 const AirtimeToCash = ({ user, onBack }: AirtimeToCashProps) => {
   const { t } = useI18n();
   const { showToast } = useToast();
+  const { showSuccess } = useSuccessScreen();
   const [loading, setLoading] = useState(false);
   const [networkId, setNetworkId] = useState(1);
   const [phone, setPhone] = useState("");
@@ -23,6 +26,7 @@ const AirtimeToCash = ({ user, onBack }: AirtimeToCashProps) => {
   const [pinOpen, setPinOpen] = useState(false);
   const [pinError, setPinError] = useState("");
   const [pendingAction, setPendingAction] = useState<null | (() => void)>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // --- 1. PRE-FILL OWNER PHONE ---
   useEffect(() => {
@@ -86,10 +90,16 @@ const AirtimeToCash = ({ user, onBack }: AirtimeToCashProps) => {
 
       if (error) throw new Error(error.message);
 
+      showSuccess({
+        title: "Transfer successful",
+        amount: Number(amount),
+        message: data.message || data.api_response || t("airtime_to_cash.proceed_manual"),
+        subtitle: phone ? `FOR ${phone}` : undefined,
+      });
       setInfo({
-         message: data.message || data.api_response || t("airtime_to_cash.proceed_manual"),
-         amount: amount,
-         receive: (Number(amount) * 0.8).toFixed(0)
+        message: data.message || data.api_response || t("airtime_to_cash.proceed_manual"),
+        amount: amount,
+        receive: (Number(amount) * 0.8).toFixed(0)
       });
 
     } catch (e: any) {
@@ -123,7 +133,7 @@ const AirtimeToCash = ({ user, onBack }: AirtimeToCashProps) => {
   };
 
   const handleSubmit = () => {
-    requirePin(doSubmit);
+    setConfirmOpen(true);
   };
 
   // --- 4. SUCCESS VIEW ---
@@ -153,11 +163,11 @@ const AirtimeToCash = ({ user, onBack }: AirtimeToCashProps) => {
                   <div className="flex justify-between items-center pt-4 border-t border-slate-200">
                       <div>
                           <p className="text-[10px] font-bold text-slate-400 uppercase">{t("airtime_to_cash.you_sent")}</p>
-                          <p className="text-lg font-black text-slate-800">₦{Number(info.amount).toLocaleString()}</p>
+                          <p className="text-lg font-black text-slate-800">₦{Number(info.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                       </div>
                       <div className="text-right">
                           <p className="text-[10px] font-bold text-slate-400 uppercase">{t("airtime_to_cash.you_receive")}</p>
-                          <p className="text-lg font-black text-emerald-600">₦{Number(info.receive).toLocaleString()}</p>
+                          <p className="text-lg font-black text-emerald-600">₦{Number(info.receive).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                       </div>
                   </div>
               </div>
@@ -251,7 +261,7 @@ const AirtimeToCash = ({ user, onBack }: AirtimeToCashProps) => {
                     <div>
                         <p className="text-[10px] font-black text-orange-400 uppercase mb-1">{t("airtime_to_cash.you_receive")}</p>
                         <p className="text-3xl font-black text-orange-600">
-                             ₦{amount ? (Number(amount) * 0.8).toLocaleString() : "0"}
+                             ₦{amount ? (Number(amount) * 0.8).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0"}
                         </p>
                     </div>
                     <div className="text-right">
@@ -292,6 +302,19 @@ const AirtimeToCash = ({ user, onBack }: AirtimeToCashProps) => {
       onConfirm={handlePinConfirm}
       onClose={() => setPinOpen(false)}
       error={pinError}
+    />
+    <ConfirmTransactionModal
+      open={confirmOpen}
+      title="Confirm Transaction"
+      subtitle={phone ? `FOR ${phone}` : undefined}
+      amountLabel="Total Pay"
+      amount={Number(amount || 0)}
+      confirmLabel="Proceed"
+      onConfirm={() => {
+        setConfirmOpen(false);
+        requirePin(doSubmit);
+      }}
+      onClose={() => setConfirmOpen(false)}
     />
     </>
   );

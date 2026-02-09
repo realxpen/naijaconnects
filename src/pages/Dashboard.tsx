@@ -10,7 +10,9 @@ import { useI18n } from "../i18n";
 import { useToast } from "../components/ui/ToastProvider";
 import { beneficiaryService } from "../services/beneficiaryService";
 import PinPrompt from "../components/PinPrompt";
+import ConfirmTransactionModal from "../components/ConfirmTransactionModal";
 import { hashPin } from "../utils/pin";
+import { useSuccessScreen } from "../components/ui/SuccessScreenProvider";
 
 // --- SERVICE COMPONENTS ---
 import Airtime from "../components/services/Airtime";
@@ -183,7 +185,7 @@ const ReceiptView = ({ tx, onClose }: { tx: Transaction; onClose: () => void }) 
                             <div className={`w-16 h-16 rounded-full mx-auto flex items-center justify-center -mt-14 mb-3 border-4 border-white shadow-md ${getColorClass(tx.type)}`}>
                                  <div className="w-10 h-10">{getLogoOrIcon(tx)}</div>
                             </div>
-                            <h2 className="text-3xl font-black text-slate-800">₦{tx.amount.toLocaleString()}</h2>
+                            <h2 className="text-3xl font-black text-slate-800">₦{tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h2>
                             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">{tx.type}</p>
                             
                             <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase ${tx.status.toLowerCase() === 'success' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
@@ -230,6 +232,7 @@ const ReceiptView = ({ tx, onClose }: { tx: Transaction; onClose: () => void }) 
 const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
   const { t } = useI18n();
   const { showToast } = useToast();
+  const { showSuccess } = useSuccessScreen();
   const [view, setView] = useState<ViewState>("Dashboard");
   const [isRefreshingBalance, setIsRefreshingBalance] = useState(false);
   const [history, setHistory] = useState<Transaction[]>([]);
@@ -248,6 +251,8 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
   const [bankCode, setBankCode] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [isWithdrawing, setIsWithdrawing] = useState(false);
+  const [saveWithdrawBeneficiary, setSaveWithdrawBeneficiary] = useState(true);
+  const [confirmWithdrawOpen, setConfirmWithdrawOpen] = useState(false);
   const [recentWithdraws, setRecentWithdraws] = useState<any[]>([]);
   const [pinOpen, setPinOpen] = useState(false);
   const [pinError, setPinError] = useState("");
@@ -343,8 +348,8 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
   // --- DATA FETCHING ---
   const fetchUser = async () => {
     try {
-      const { data } = await supabase.from("profiles").select("balance").eq("email", user.email).single();
-      if (data) onUpdateBalance(data.balance);
+      const { data } = await supabase.from("profiles").select("wallet_balance").eq("email", user.email).single();
+      if (data) onUpdateBalance(data.wallet_balance);
     } catch (e) { console.error(e); }
   };
 
@@ -356,7 +361,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
       const { data, error } = await supabase
         .from("transactions")
         .select("*")
-        .eq("user_id", user.id)
+        .or(`user_id.eq.${user.id},user_email.eq.${user.email}`)
         .order("created_at", { ascending: false })
         .limit(5);
         
@@ -455,9 +460,9 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
           filter: `id=eq.${user.id}`,
         },
         (payload) => {
-          const newBalance = payload.new.balance;
+          const newBalance = payload.new.wallet_balance;
           onUpdateBalance(newBalance);
-          showToast(`Balance updated: ₦${newBalance.toLocaleString()}`, "success");
+          showToast(`Balance updated: ₦${newbalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, "success");
           fetchHistory();
         }
       )
@@ -548,38 +553,49 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
     if (accountName === "SYSTEM ERROR") return showToast("System error on verification. Try again later.", "error");
 
     const bankName = BANKS.find(b => b.code === bankCode)?.name || "Unknown Bank";
+    const fee = getWithdrawalFee(amount);
 
     setIsWithdrawing(true);
     
     try {
-       const { data: sessionData } = await supabase.auth.getSession();
-       const accessToken = sessionData?.session?.access_token;
-       
-       if (!accessToken) throw new Error("You are not logged in. Please reload.");
+      const totalDeducted = amount + fee;
 
-       const request = supabase.functions.invoke("opay-withdraw", {
-        headers: { Authorization: `Bearer ${accessToken}` }, 
-        body: {
+      const { data: auth } = await supabase.auth.getUser();
+      const userId = auth?.user?.id || user.id;
+
+      const { error: txError } = await supabase.from("transactions").insert([
+        {
+          user_id: userId,
+          user_email: user.email,
+          type: "withdrawal",
           amount: amount,
-          account_number: accountNumber,
-          bank_code: bankCode,
-          bank_name: bankName,
-          account_name: accountName
-        }
+          status: "pending",
+          reference: `WD-${Date.now()}`,
+          metadata: {
+            bank_code: bankCode,
+            bank_name: bankName,
+            account_number: accountNumber,
+            account_name: accountName,
+            fee: fee,
+            total_deducted: totalDeducted,
+          },
+        },
+      ]);
+
+      if (txError) throw new Error(txError.message || "Failed to create withdrawal request");
+
+      const newBal = user.balance - totalDeducted;
+      await supabase.from("profiles").update({ wallet_balance: newBal }).eq("email", user.email);
+      onUpdateBalance(newBal);
+
+      showSuccess({
+        title: "Withdrawal request created",
+        amount: Number(totalDeducted),
+        message: "withdrawal request Successfuly submitted.",
+        subtitle: accountNumber ? `FOR ${accountNumber}` : undefined,
       });
-
-      const response: any = await request; 
-      const { data, error } = response;
-
-      if (error) throw new Error(error.message);
-
-      showToast("Withdrawal submitted! Processing...", "success");
       
-      if (data?.new_balance !== undefined) {
-          onUpdateBalance(data.new_balance);
-      } else {
-          fetchUser();
-      }
+      fetchHistory();
       
       fetchHistory();
       setIsWithdrawModalOpen(false);
@@ -588,22 +604,24 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
       setAccountName(""); 
       setBankCode("");
 
-      try {
-        const { data: auth } = await supabase.auth.getUser();
-        if (auth?.user?.id) {
-          await beneficiaryService.upsert({
-            user_id: auth.user.id,
-            type: 'withdraw',
-            beneficiary_key: `acct:${accountNumber}|bank:${bankCode}`,
-            account_number: accountNumber,
-            bank_code: bankCode,
-            account_name: accountName
-          });
-          const recents = await beneficiaryService.fetchRecent(auth.user.id, 'withdraw', 5);
-          setRecentWithdraws(recents);
+      if (saveWithdrawBeneficiary) {
+        try {
+          const { data: auth } = await supabase.auth.getUser();
+          if (auth?.user?.id) {
+            await beneficiaryService.upsert({
+              user_id: auth.user.id,
+              type: 'withdraw',
+              beneficiary_key: `acct:${accountNumber}|bank:${bankCode}`,
+              account_number: accountNumber,
+              bank_code: bankCode,
+              account_name: accountName
+            });
+            const recents = await beneficiaryService.fetchRecent(auth.user.id, 'withdraw', 5);
+            setRecentWithdraws(recents);
+          }
+        } catch (e) {
+          console.error("Failed to save withdraw beneficiary:", e);
         }
-      } catch (e) {
-        console.error("Failed to save withdraw beneficiary:", e);
       }
       
     } catch (error: any) {
@@ -612,8 +630,8 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
       let errorMessage = error.message || "Withdrawal failed";
       
       if (error.context && error.context.json) {
-           const body = await error.context.json();
-           if (body.error) errorMessage = body.error;
+        const body = await error.context.json();
+        if (body?.error || body?.message) errorMessage = body.error || body.message;
       }
 
       showToast(errorMessage, "error");
@@ -646,7 +664,32 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
   };
 
   const handleWithdraw = () => {
-    requirePin(doWithdraw);
+    setConfirmWithdrawOpen(true);
+  };
+
+  const handleSaveWithdrawBeneficiary = async () => {
+    if (!bankCode || !accountNumber) return showToast("Enter bank and account number", "error");
+    if (!accountName || accountName === "INVALID ACCOUNT" || accountName === "SYSTEM ERROR") {
+      return showToast("Please verify account name", "error");
+    }
+    try {
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth?.user?.id) return;
+      await beneficiaryService.upsert({
+        user_id: auth.user.id,
+        type: 'withdraw',
+        beneficiary_key: `acct:${accountNumber}|bank:${bankCode}`,
+        account_number: accountNumber,
+        bank_code: bankCode,
+        account_name: accountName
+      });
+      const recents = await beneficiaryService.fetchRecent(auth.user.id, 'withdraw', 5);
+      setRecentWithdraws(recents);
+      showToast("Beneficiary saved", "success");
+    } catch (e) {
+      console.error("Failed to save withdraw beneficiary:", e);
+      showToast("Failed to save beneficiary", "error");
+    }
   };
 
   // --- RENDER CONTENT ---
@@ -697,7 +740,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
       {/* --- END HEADER --- */}
 
       {/* WALLET CARD */}
-      <section className="bg-slate-800 p-6 rounded-[35px] text-white shadow-xl relative overflow-hidden">
+      <section className="bg-emerald-600 dark:bg-slate-800 p-6 rounded-[35px] text-white shadow-xl relative overflow-hidden">
         {/* Background Pattern */}
         <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
         <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full blur-2xl -ml-5 -mb-5"></div>
@@ -705,16 +748,16 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
         <div className="relative z-10">
             <div className="flex justify-between items-start mb-1">
             <p className="text-[10px] font-black uppercase tracking-widest opacity-80">{t("dashboard.available_balance")}</p>
-            <button onClick={() => { setIsRefreshingBalance(true); fetchUser(); setTimeout(() => setIsRefreshingBalance(false), 1000); }} className="p-2 bg-emerald-700/50 rounded-full hover:bg-emerald-700 transition-colors">
+            <button onClick={() => { setIsRefreshingBalance(true); fetchUser(); setTimeout(() => setIsRefreshingBalance(false), 1000); }} className="p-2 bg-emerald-700/70 rounded-full hover:bg-emerald-800 transition-colors">
                 <RotateCcw size={14} className={isRefreshingBalance ? "animate-spin" : ""} />
             </button>
             </div>
-            <h2 className="text-4xl font-black mb-6">₦{user.balance.toLocaleString()}</h2>
+            <h2 className="text-4xl font-black mb-6">₦{user.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h2>
             <div className="flex gap-3">
             <button onClick={() => { setIsDepositModalOpen(true); }} className="flex-1 bg-white text-emerald-700 py-4 rounded-2xl font-black text-xs uppercase shadow-lg flex items-center justify-center gap-2 hover:bg-emerald-50 transition-colors">
                 <CreditCard size={16} /> {t("dashboard.fund")}
             </button>
-            <button onClick={() => { setIsWithdrawModalOpen(true); }} className="flex-1 bg-emerald-800/40 border border-emerald-400/30 text-emerald-100 py-4 rounded-2xl font-black text-xs uppercase hover:bg-emerald-800/60 transition-colors">
+            <button onClick={() => { setIsWithdrawModalOpen(true); }} className="flex-1 bg-emerald-700/70 border border-emerald-300/40 text-white py-4 rounded-2xl font-black text-xs uppercase hover:bg-emerald-800/80 transition-colors">
                 {t("dashboard.withdraw")}
             </button>
             </div>
@@ -725,19 +768,19 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
       {user.role === 'admin' && (
           <button 
             onClick={() => setView("Admin")}
-            className="w-full bg-slate-900 text-white p-5 rounded-[25px] flex items-center justify-between shadow-xl shadow-slate-200 hover:shadow-2xl transition-all active:scale-[0.98] mb-6 border border-slate-800"
+            className="w-full bg-emerald-600 dark:bg-slate-900 text-white p-5 rounded-[25px] flex items-center justify-between shadow-xl shadow-slate-200 hover:shadow-2xl transition-all active:scale-[0.98] mb-6 border border-emerald-700 dark:border-slate-800"
           >
               <div className="flex items-center gap-4">
-                <div className="p-3 bg-slate-800 rounded-2xl border border-slate-700">
-                    <ShieldCheck size={24} className="text-emerald-400"/>
+                <div className="p-3 bg-emerald-700/70 dark:bg-slate-800 rounded-2xl border border-emerald-400/30 dark:border-slate-700">
+                    <ShieldCheck size={24} className="text-white"/>
                 </div>
                 <div className="text-left">
                     <h3 className="font-black text-lg text-white">Admin Panel</h3>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Manage Withdrawals</p>
+                    <p className="text-xs font-bold text-white/80 uppercase tracking-wider">Manage Withdrawals</p>
                 </div>
               </div>
-              <div className="bg-slate-800 p-2 rounded-full">
-                <ArrowRight size={20} className="text-emerald-400"/>
+              <div className="bg-emerald-700/70 dark:bg-slate-800 p-2 rounded-full">
+                <ArrowRight size={20} className="text-white"/>
               </div>
           </button>
       )}
@@ -802,7 +845,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
               </div>
               <div className="text-right">
                 <span className={`font-black text-sm block ${tx.type === "deposit" ? "text-emerald-600" : "text-slate-800"}`}>
-                    {tx.type === "deposit" ? "+" : "-"}₦{tx.amount.toLocaleString()}
+                    {tx.type === "deposit" ? "+" : "-"}₦{tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
                 <span className={`text-[9px] font-black uppercase ${tx.status === 'success' ? 'text-emerald-500' : 'text-rose-500'}`}>
                    {tx.status}
@@ -849,7 +892,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
 
             <div className="flex gap-2 mb-4 overflow-x-auto pb-2 custom-scrollbar">
                   {[100, 500, 1000, 2000, 5000].map(amt => (
-                      <button key={amt} onClick={() => setDepositAmount(amt.toString())} className="px-4 py-2 bg-slate-100 hover:bg-emerald-100 hover:text-emerald-700 rounded-xl text-xs font-bold text-slate-600 transition-colors whitespace-nowrap">₦{amt}</button>
+                      <button key={amt} onClick={() => setDepositAmount(amt.toString())} className="px-4 py-2 bg-slate-100 hover:bg-emerald-100 hover:text-emerald-700 rounded-xl text-xs font-bold text-slate-600 transition-colors whitespace-nowrap">₦{Number(amt).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</button>
                   ))}
             </div>
             
@@ -857,11 +900,11 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
             
             <div className="bg-slate-50 p-3 rounded-xl mb-4 text-xs text-slate-600 flex justify-between items-center border border-slate-100">
                 <span>Processing Fee:</span>
-                <span className="font-bold">₦{currentDepositFee}</span>
+                <span className="font-bold">₦{Number(currentDepositFee).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </div>
             <div className="flex justify-between items-center mb-4 text-sm font-bold text-slate-800 px-1">
                 <span>Total Payable:</span>
-                <span>₦{(depositAmountNum + currentDepositFee).toLocaleString()}</span>
+                <span>₦{Number(depositAmountNum + currentDepositFee).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </div>
 
             <button
@@ -869,7 +912,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
                 disabled={isVerifyingDeposit}
                 className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-emerald-600/20 hover:bg-emerald-700 transition flex justify-center items-center gap-2 disabled:opacity-70"
             >
-                {isVerifyingDeposit ? <Loader2 className="animate-spin" /> : `Pay ₦${(depositAmountNum + currentDepositFee).toLocaleString()}`}
+                {isVerifyingDeposit ? <Loader2 className="animate-spin" /> : `Pay ₦${Number(depositAmountNum + currentDepositFee).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
             </button>
           </div>
         </div>
@@ -898,27 +941,34 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
                 </select>
             </div>
 
-            {recentWithdraws.length > 0 && (
-              <div className="mb-4">
-                <p className="text-[10px] font-black uppercase text-slate-400 mb-2">Saved Beneficiaries</p>
+            <div className="mb-4">
+              <p className="text-[10px] font-black uppercase text-slate-400 mb-2">Saved Beneficiaries</p>
+              {recentWithdraws.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
-                  {recentWithdraws.map((b) => (
-                    <button
-                      key={b.beneficiary_key}
-                      onClick={() => {
-                        if (b.bank_code) setBankCode(b.bank_code);
-                        if (b.account_number) setAccountNumber(b.account_number);
-                        if (b.account_name) setAccountName(b.account_name);
-                        if (b.account_number && b.bank_code) resolveAccount(b.account_number, b.bank_code);
-                      }}
-                      className="px-3 py-1 rounded-full text-[10px] font-bold border border-slate-700 text-slate-300 hover:text-white hover:border-emerald-500 transition-colors"
-                    >
-                      {b.account_name || b.account_number}
-                    </button>
-                  ))}
+                  {recentWithdraws.map((b) => {
+                    const bankLabel = BANKS.find((bank) => bank.code === b.bank_code)?.name || "Unknown Bank";
+                    return (
+                      <button
+                        key={b.beneficiary_key}
+                        onClick={() => {
+                          if (b.bank_code) setBankCode(b.bank_code);
+                          if (b.account_number) setAccountNumber(b.account_number);
+                          if (b.account_name) setAccountName(b.account_name);
+                          if (b.account_number && b.bank_code) resolveAccount(b.account_number, b.bank_code);
+                        }}
+                        className="px-3 py-2 rounded-2xl text-left border border-slate-700 text-slate-300 hover:text-white hover:border-emerald-500 transition-colors w-full sm:w-auto"
+                      >
+                        <span className="block text-[10px] font-black uppercase text-slate-400">{bankLabel}</span>
+                        <span className="block text-xs font-bold text-white">{b.account_name || "Beneficiary"}</span>
+                        <span className="block text-[10px] text-slate-400">{b.account_number || "---"}</span>
+                      </button>
+                    );
+                  })}
                 </div>
-              </div>
-            )}
+              ) : (
+                <p className="text-[10px] text-slate-500">No saved beneficiaries yet.</p>
+              )}
+            </div>
 
             <label className="block text-xs font-bold text-slate-500 mb-1">Account Number</label>
             <div className="mb-2">
@@ -946,6 +996,24 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
                             {accountName || "---"}
                         </span>
                     )}
+                </div>
+                <div className="flex items-center justify-between mt-2">
+                  <label className="flex items-center gap-2 text-[10px] font-bold uppercase text-slate-500">
+                    <input
+                      type="checkbox"
+                      checked={saveWithdrawBeneficiary}
+                      onChange={(e) => setSaveWithdrawBeneficiary(e.target.checked)}
+                      className="w-4 h-4 accent-emerald-600"
+                    />
+                    Save beneficiary after withdrawal
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleSaveWithdrawBeneficiary}
+                    className="text-[10px] font-black uppercase text-emerald-600 hover:text-emerald-700"
+                  >
+                    Save now
+                  </button>
                 </div>
             </div>
 
@@ -981,11 +1049,11 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
 
             <div className="bg-slate-50 p-3 rounded-xl mb-4 text-xs text-slate-600 flex justify-between items-center border border-slate-100">
                 <span>Withdrawal Fee:</span>
-                <span className="font-bold">₦{currentWithdrawFee}</span>
+                <span className="font-bold">₦{Number(currentWithdrawFee).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </div>
             <div className="flex justify-between items-center mb-4 text-sm font-bold text-slate-800 px-1">
                 <span>Total Deduction:</span>
-                <span>₦{(amountNum + currentWithdrawFee).toLocaleString()}</span>
+                <span>₦{Number(amountNum + currentWithdrawFee).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </div>
 
             <button
@@ -998,6 +1066,19 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
           </div>
         </div>
       )}
+      <ConfirmTransactionModal
+        open={confirmWithdrawOpen}
+        title="Confirm Transaction"
+        subtitle={accountName ? `FOR ${accountName}` : accountNumber ? `FOR ${accountNumber}` : undefined}
+        amountLabel="Total Pay"
+        amount={amountNum + currentWithdrawFee}
+        confirmLabel="Withdraw Now"
+        onConfirm={() => {
+          setConfirmWithdrawOpen(false);
+          requirePin(doWithdraw);
+        }}
+        onClose={() => setConfirmWithdrawOpen(false)}
+      />
       <PinPrompt
         open={pinOpen}
         requiredLength={user?.pinLength || null}

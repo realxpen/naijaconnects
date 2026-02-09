@@ -22,7 +22,7 @@ export const geminiService = {
 
     // BALANCE
     if (lowerText.includes('balance') || lowerText.includes('how much')) {
-      return `Your current wallet balance is ₦${userContext.balance.toLocaleString()}.`;
+      return `Your current wallet balance is ₦${userContext.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`;
     }
 
     // FUNDING

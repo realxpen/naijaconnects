@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Moon, Sun, Monitor, Lock, LogOut, ChevronRight, Mail, ShieldCheck, 
-  Camera, User, Phone, Save, Loader2, Star, KeyRound
+  Camera, User, Phone, Save, Loader2, Star, KeyRound, Zap
 } from 'lucide-react';
 import { dbService } from '../services/dbService';
 import { supabase } from "../supabaseClient"; // <--- Added this import
@@ -253,31 +253,43 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-24">
       
       {/* 1. HEADER CARD */}
-      <div className="bg-emerald-600 p-8 rounded-[35px] text-white shadow-xl text-center relative overflow-hidden group">
+      <div className="bg-emerald-900 p-8 rounded-[35px] text-white shadow-xl text-center relative overflow-hidden group">
          {/* Background Decoration */}
-         <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-white/10 to-transparent pointer-events-none"></div>
-         
-         {/* TIER BADGE */}
-         <div className={`absolute top-6 right-6 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border backdrop-blur-md flex items-center gap-1 ${getTierStyle()}`}>
-            <Star size={10} className="fill-current"/> {user.tier || 'Starter'}
-         </div>
+         <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-emerald-400/10 to-transparent pointer-events-none"></div>
 
          {/* Avatar Section */}
-         <div className="relative w-28 h-28 mx-auto mb-4">
-            <img 
-                src={getAvatar()} 
-                alt="Profile" 
-                onError={(e) => { (e.currentTarget as HTMLImageElement).src = buildDefaultAvatar(user.name); }}
-                className="w-full h-full rounded-full object-cover border-4 border-white/20 shadow-2xl"
-            />
-            <button className="absolute bottom-0 right-0 p-2 bg-white text-emerald-600 rounded-full shadow-lg active:scale-90 transition-transform">
-                <Camera size={16} />
-            </button>
+         <div className="relative w-24 h-24 mx-auto mb-4">
+            <div className="w-full h-full rounded-[26px] bg-emerald-600/80 p-2 shadow-2xl flex items-center justify-center -rotate-6">
+              <img 
+                  src={getAvatar()} 
+                  alt="Profile" 
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).src = buildDefaultAvatar(user.name); }}
+                  className="w-full h-full rounded-[20px] object-cover rotate-6"
+              />
+            </div>
+            <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg border border-emerald-200">
+              <img src="/logo.png" alt="Swifna" className="w-4 h-4" />
+            </div>
          </div>
 
          <h2 className="text-2xl font-black tracking-tight">{user.name}</h2>
-         <p className="text-emerald-100 text-sm font-medium opacity-80 mb-1">{user.email}</p>
-         {user.phone && <p className="text-emerald-200 text-xs font-bold tracking-widest">{user.phone}</p>}
+         <p className="text-emerald-100 text-xs font-bold tracking-widest uppercase mt-1">{user.email}</p>
+
+         <div className="mt-4 flex items-center justify-center gap-3">
+           <span className="px-4 py-2 rounded-full bg-emerald-800/70 border border-emerald-500/40 text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
+             Verified <Zap size={10} className="text-emerald-200" />
+           </span>
+           <span className="px-4 py-2 rounded-full bg-emerald-800/70 border border-emerald-500/40 text-[10px] font-black uppercase tracking-widest">
+             {user.tier || 'Starter'}
+           </span>
+         </div>
+
+         <button
+           onClick={onLogout}
+           className="mt-5 w-full py-3 rounded-2xl border border-rose-400/40 text-rose-200 font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 hover:bg-rose-500/10 transition-colors"
+         >
+           <LogOut size={14} /> Sign Out from Swifna
+         </button>
       </div>
 
       {/* 2. PERSONAL INFO SECTION */}
@@ -475,12 +487,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
          </button>
       </div>
 
-      {/* 4. LOGOUT BUTTON */}
-      <button onClick={onLogout} className="w-full p-5 rounded-[25px] flex items-center justify-center gap-2 text-rose-500 font-black uppercase text-xs tracking-widest border-2 border-rose-100 dark:border-rose-900/30 hover:bg-rose-50 dark:hover:bg-rose-900/10 transition-colors active:scale-95">
-         <LogOut size={16}/> {t("profile.log_out")}
-      </button>
-
-      <p className="text-center text-[9px] text-slate-300 font-black uppercase tracking-[0.2em] pt-4">Swifna v1.0.0</p>
+      <p className="text-center text-[9px] text-slate-300 font-black uppercase tracking-[0.2em] pt-2">Swifna v1.0.0</p>
     </div>
   );
 };

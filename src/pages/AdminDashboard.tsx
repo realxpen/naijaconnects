@@ -49,11 +49,11 @@ const AdminDashboard = ({ onBack }: { onBack: () => void }) => {
     if (!reason) return;
     setProcessingId(tx.id);
     try {
-        const { data: userProfile } = await supabase.from("profiles").select("balance").eq("id", tx.user_id).single();
+        const { data: userProfile } = await supabase.from("profiles").select("wallet_balance").eq("id", tx.user_id).single();
         const refundAmount = tx.meta?.total_deducted || tx.amount;
-        const newBalance = (userProfile?.balance || 0) + refundAmount;
+        const newBalance = (userProfile?.wallet_balance || 0) + refundAmount;
 
-        await supabase.from("profiles").update({ balance: newBalance }).eq("id", tx.user_id);
+        await supabase.from("profiles").update({ wallet_balance: newBalance }).eq("id", tx.user_id);
         
         await supabase.from("transactions").update({ 
             status: "failed", 
@@ -130,7 +130,7 @@ const AdminDashboard = ({ onBack }: { onBack: () => void }) => {
                         <div key={tx.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
                           <div className="flex justify-between items-start mb-4 border-b border-slate-50 pb-3">
                             <div>
-                                <h3 className="font-black text-xl text-slate-800">₦{tx.amount.toLocaleString()}</h3>
+                                <h3 className="font-black text-xl text-slate-800">₦{tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
                                 <p className="text-xs text-slate-500 font-bold uppercase">{new Date(tx.created_at).toLocaleString()}</p>
                             </div>
                             <div className="text-right">
@@ -154,7 +154,7 @@ const AdminDashboard = ({ onBack }: { onBack: () => void }) => {
                             </div>
                             <div className="flex justify-between pt-2 border-t border-slate-200 mt-2">
                                 <span className="text-slate-500">Fee Charged:</span> 
-                                <span className="font-bold text-slate-700">₦{tx.meta?.fee || 0}</span>
+                                <span className="font-bold text-slate-700">₦{Number(tx.meta?.fee || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </div>
                           </div>
 

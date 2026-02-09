@@ -70,11 +70,11 @@ const History = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // 1. Fetch by user_id instead of email
+      // 1. Fetch by user_id OR fallback to user_email for legacy rows
       const { data, error } = await supabase
         .from('transactions')
         .select('*')
-        .eq('user_id', user.id) 
+        .or(`user_id.eq.${user.id},user_email.eq.${user.email}`)
         .order('created_at', { ascending: false }); // No limit = show all
 
       if (error) throw error;
@@ -340,7 +340,7 @@ const History = () => {
                             <div className={`w-16 h-16 rounded-full mx-auto flex items-center justify-center -mt-14 mb-3 border-4 border-white shadow-md ${getColorClass(tx.type)}`}>
                                  <div className="w-10 h-10">{getLogoOrIcon(tx)}</div>
                             </div>
-                            <h2 className="text-3xl font-black text-slate-800">₦{tx.amount.toLocaleString()}</h2>
+                            <h2 className="text-3xl font-black text-slate-800">₦{tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h2>
                             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">{tx.type}</p>
                             
                             <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase ${tx.status.toLowerCase() === 'success' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
@@ -439,7 +439,7 @@ const History = () => {
         <div className="bg-slate-900 text-white p-5 rounded-[30px] shadow-xl relative overflow-hidden">
           <div className="absolute top-0 right-0 p-3 opacity-10"><TrendingUp size={80} /></div>
           <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">{t("history.total_spent")}</p>
-          <h3 className="text-2xl font-black">₦{stats.totalSpent.toLocaleString()}</h3>
+          <h3 className="text-2xl font-black">₦{stats.totalSpent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
           <p className="text-[9px] text-slate-500 font-bold mt-1">{t("history.lifetime_spending")}</p>
         </div>
 
@@ -499,7 +499,7 @@ const History = () => {
                             {/* Tooltip */}
                             {day.amount > 0 && (
                                 <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[9px] font-bold px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
-                                    ₦{day.amount.toLocaleString()}
+                                    ₦{day.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </div>
                             )}
                         </div>
@@ -536,7 +536,7 @@ const History = () => {
                                 strokeWidth="0.5"
                                 className="hover:r-2 transition-all cursor-pointer"
                             >
-                                <title>₦{d.amount.toLocaleString()}</title>
+                                <title>₦{d.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</title>
                             </circle>
                         ))}
                     </svg>
@@ -603,6 +603,7 @@ const History = () => {
            {[
              { key: 'All', label: t("history.filter.all") },
              { key: 'Deposit', label: t("history.filter.deposit") },
+             { key: 'Withdrawal', label: t("dashboard.withdraw") },
              { key: 'Airtime', label: t("dashboard.airtime") },
              { key: 'Data', label: t("dashboard.data") },
              { key: 'Cable', label: t("dashboard.cable") },
@@ -650,7 +651,7 @@ const History = () => {
                   </div>
                   <div className="text-right">
                       <p className={`font-black text-sm ${tx.type.toLowerCase() === 'deposit' ? 'text-emerald-600' : 'text-slate-800 dark:text-white'}`}>
-                          {tx.type.toLowerCase() === 'deposit' ? '+' : '-'}₦{tx.amount.toLocaleString()}
+                          {tx.type.toLowerCase() === 'deposit' ? '+' : '-'}₦{tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
                       <p className={`text-[8px] font-black uppercase tracking-widest ${tx.status.toLowerCase() === 'success' ? 'text-emerald-500' : tx.status.toLowerCase() === 'pending' ? 'text-orange-400' : 'text-rose-500'}`}>
                           {tx.status}

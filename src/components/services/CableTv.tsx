@@ -6,7 +6,9 @@ import { CABLE_PROVIDERS } from "../../constants";
 import { useToast } from "../ui/ToastProvider";
 import { beneficiaryService, Beneficiary } from "../../services/beneficiaryService";
 import PinPrompt from "../PinPrompt";
+import ConfirmTransactionModal from "../ConfirmTransactionModal";
 import { hashPin } from "../../utils/pin";
+import { useSuccessScreen } from "../ui/SuccessScreenProvider";
 
 interface CableTvProps {
   user: any;
@@ -16,6 +18,7 @@ interface CableTvProps {
 
 const CableTv = ({ user, onUpdateBalance, onBack }: CableTvProps) => {
   const { showToast } = useToast();
+  const { showSuccess } = useSuccessScreen();
   const [loading, setLoading] = useState(false);
   const [provider, setProvider] = useState("gotv");
   const [iuc, setIuc] = useState("");
@@ -28,6 +31,7 @@ const CableTv = ({ user, onUpdateBalance, onBack }: CableTvProps) => {
   const [pinOpen, setPinOpen] = useState(false);
   const [pinError, setPinError] = useState("");
   const [pendingAction, setPendingAction] = useState<null | (() => void)>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Recents State
   const [recentBeneficiaries, setRecentBeneficiaries] = useState<Beneficiary[]>([]);
@@ -167,7 +171,12 @@ const CableTv = ({ user, onUpdateBalance, onBack }: CableTvProps) => {
         
         saveRecentIuc(iuc);
 
-        showToast("Cable Subscription Successful!", "success");
+        showSuccess({
+          title: "Transfer successful",
+          amount: Number(cost),
+          message: "Your cable subscription has been processed successfully.",
+          subtitle: iuc ? `FOR ${iuc}` : undefined,
+        });
         setIuc("");
         setCustomerName("");
         setSelectedPlan(null);
@@ -205,7 +214,7 @@ const CableTv = ({ user, onUpdateBalance, onBack }: CableTvProps) => {
   };
 
   const handlePurchase = () => {
-    requirePin(doPurchase);
+    setConfirmOpen(true);
   };
 
   return (
@@ -218,7 +227,7 @@ const CableTv = ({ user, onUpdateBalance, onBack }: CableTvProps) => {
         </button>
         <div className="flex items-center gap-2 bg-emerald-600 px-3 py-1 rounded-full balance-pill">
             <Wallet size={14} className="text-emerald-600"/>
-            <span className="text-sm font-black text-emerald-600">₦{user.balance.toLocaleString()}</span>
+            <span className="text-sm font-black text-emerald-600">₦{user.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         </div>
       </div>
 
@@ -244,7 +253,7 @@ const CableTv = ({ user, onUpdateBalance, onBack }: CableTvProps) => {
         </div>
 
         {/* Smartcard Input Section (Dark Theme style) */}
-        <div className="p-6 bg-slate-900 text-white relative">
+        <div className="p-6 bg-emerald-700 dark:bg-slate-900 text-white relative">
             <div className="flex justify-between items-center mb-2">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Smartcard / IUC</label>
                 <div className="flex items-center gap-2">
@@ -352,7 +361,7 @@ const CableTv = ({ user, onUpdateBalance, onBack }: CableTvProps) => {
                             <div className="mt-3 pt-2 border-t border-slate-200 flex justify-between items-end">
                                 <div>
                                     <p className="text-[10px] text-slate-400">Price</p>
-                                    <span className="block text-lg font-black text-slate-900">₦{parseFloat(p.amount).toLocaleString()}</span>
+                                    <span className="block text-lg font-black text-slate-900">₦{parseFloat(p.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                 </div>
                             </div>
                          </button>
@@ -371,7 +380,7 @@ const CableTv = ({ user, onUpdateBalance, onBack }: CableTvProps) => {
                 {loading ? <Loader2 className="animate-spin" /> : (
                     <>
                         <span>Pay</span>
-                        {selectedPlan && <span className="bg-emerald-700/50 px-2 py-0.5 rounded text-xs">₦{parseFloat(selectedPlan.amount).toLocaleString()}</span>}
+                        {selectedPlan && <span className="bg-emerald-700/50 px-2 py-0.5 rounded text-xs">₦{parseFloat(selectedPlan.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>}
                     </>
                 )}
             </button>
@@ -385,6 +394,19 @@ const CableTv = ({ user, onUpdateBalance, onBack }: CableTvProps) => {
       onConfirm={handlePinConfirm}
       onClose={() => setPinOpen(false)}
       error={pinError}
+    />
+    <ConfirmTransactionModal
+      open={confirmOpen}
+      title="Confirm Transaction"
+      subtitle={iuc ? `FOR ${iuc}` : undefined}
+      amountLabel="Total Pay"
+      amount={Number(selectedPlan ? parseFloat(selectedPlan.amount) : 0)}
+      confirmLabel="Purchase Now"
+      onConfirm={() => {
+        setConfirmOpen(false);
+        requirePin(doPurchase);
+      }}
+      onClose={() => setConfirmOpen(false)}
     />
     </>
   );

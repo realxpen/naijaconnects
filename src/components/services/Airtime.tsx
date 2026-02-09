@@ -6,8 +6,10 @@ import { CARRIERS } from "../../constants";
 import { useI18n } from "../../i18n";
 import { useToast } from "../ui/ToastProvider";
 import PinPrompt from "../PinPrompt";
+import ConfirmTransactionModal from "../ConfirmTransactionModal";
 import { hashPin } from "../../utils/pin";
 import { beneficiaryService, Beneficiary } from "../../services/beneficiaryService";
+import { useSuccessScreen } from "../ui/SuccessScreenProvider";
 
 interface AirtimeProps {
   user: any;
@@ -18,6 +20,7 @@ interface AirtimeProps {
 const Airtime = ({ user, onUpdateBalance, onBack }: AirtimeProps) => {
   const { t } = useI18n();
   const { showToast } = useToast();
+  const { showSuccess } = useSuccessScreen();
   const [loading, setLoading] = useState(false);
   const [networkId, setNetworkId] = useState(1);
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -30,6 +33,7 @@ const Airtime = ({ user, onUpdateBalance, onBack }: AirtimeProps) => {
   const [pinOpen, setPinOpen] = useState(false);
   const [pinError, setPinError] = useState("");
   const [pendingAction, setPendingAction] = useState<null | (() => void)>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // --- 1. INITIALIZE & PRE-FILL USER PHONE ---
   useEffect(() => {
@@ -162,7 +166,12 @@ const Airtime = ({ user, onUpdateBalance, onBack }: AirtimeProps) => {
         // Save to Recents
         saveRecentNumber(phoneNumber);
 
-        showToast(t("airtime.sent_success"), "success");
+        showSuccess({
+          title: "Transfer successful",
+          amount: Number(amount),
+          message: "Your airtime purchase has been processed successfully.",
+          subtitle: phoneNumber ? `FOR ${phoneNumber}` : undefined,
+        });
         setPhoneNumber(userPhone); // Reset to user phone
         setAmount("");
       } else {
@@ -199,7 +208,7 @@ const Airtime = ({ user, onUpdateBalance, onBack }: AirtimeProps) => {
   };
 
   const handlePurchase = () => {
-    requirePin(doPurchase);
+    setConfirmOpen(true);
   };
 
   const presetAmounts = [50, 100, 200, 500, 1000, 2000];
@@ -214,14 +223,14 @@ const Airtime = ({ user, onUpdateBalance, onBack }: AirtimeProps) => {
         </button>
         <div className="flex items-center gap-2 bg-emerald-600 px-3 py-1 rounded-full balance-pill">
             <Wallet size={14} className="text-white"/>
-            <span className="text-sm font-black text-emerald-600">₦{user.balance.toLocaleString()}</span>
+            <span className="text-sm font-black text-emerald-600">₦{user.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         </div>
       </div>
 
       <div className="bg-white rounded-[30px] shadow-sm border border-slate-100 overflow-hidden">
         
         {/* Phone Input Section (Dark Theme) */}
-        <div className="p-6 bg-slate-900 text-white relative">
+        <div className="p-6 bg-emerald-700 dark:bg-slate-900 text-white relative">
             <div className="flex justify-between items-center mb-2">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t("airtime.mobile_number")}</label>
                 <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
@@ -326,7 +335,7 @@ const Airtime = ({ user, onUpdateBalance, onBack }: AirtimeProps) => {
                                 {t("airtime.cashback")}
                             </span>
                         )}
-                        <span className="text-lg font-black text-slate-800">₦{amt}</span>
+                        <span className="text-lg font-black text-slate-800">₦{Number(amt).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                         <span className="text-[9px] font-bold text-slate-400">{t("airtime.pay_amount", { amount: amt })}</span>
                     </button>
                 ))}
@@ -364,6 +373,19 @@ const Airtime = ({ user, onUpdateBalance, onBack }: AirtimeProps) => {
       onConfirm={handlePinConfirm}
       onClose={() => setPinOpen(false)}
       error={pinError}
+    />
+    <ConfirmTransactionModal
+      open={confirmOpen}
+      title="Confirm Transaction"
+      subtitle={phoneNumber ? `FOR ${phoneNumber}` : undefined}
+      amountLabel="Total Pay"
+      amount={Number(amount || 0)}
+      confirmLabel="Purchase Now"
+      onConfirm={() => {
+        setConfirmOpen(false);
+        requirePin(doPurchase);
+      }}
+      onClose={() => setConfirmOpen(false)}
     />
     </>
   );

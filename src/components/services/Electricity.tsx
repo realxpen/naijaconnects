@@ -6,7 +6,9 @@ import { DISCOS } from "../../constants";
 import { useToast } from "../ui/ToastProvider";
 import { beneficiaryService, Beneficiary } from "../../services/beneficiaryService";
 import PinPrompt from "../PinPrompt";
+import ConfirmTransactionModal from "../ConfirmTransactionModal";
 import { hashPin } from "../../utils/pin";
+import { useSuccessScreen } from "../ui/SuccessScreenProvider";
 
 interface ElectricityProps {
   user: any;
@@ -16,6 +18,7 @@ interface ElectricityProps {
 
 const Electricity = ({ user, onUpdateBalance, onBack }: ElectricityProps) => {
   const { showToast } = useToast();
+  const { showSuccess } = useSuccessScreen();
   const [loading, setLoading] = useState(false);
   const [disco, setDisco] = useState<string | null>(null);
   const [meterNumber, setMeterNumber] = useState("");
@@ -27,6 +30,7 @@ const Electricity = ({ user, onUpdateBalance, onBack }: ElectricityProps) => {
   const [pinOpen, setPinOpen] = useState(false);
   const [pinError, setPinError] = useState("");
   const [pendingAction, setPendingAction] = useState<null | (() => void)>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Recents State
   const [recentBeneficiaries, setRecentBeneficiaries] = useState<Beneficiary[]>([]);
@@ -130,7 +134,12 @@ const Electricity = ({ user, onUpdateBalance, onBack }: ElectricityProps) => {
         
         saveRecentMeter(meterNumber);
 
-        showToast(`Success! Token: ${data.token || data.metertoken || "Check receipt"}`, "success", 6000);
+        showSuccess({
+          title: "Transfer successful",
+          amount: Number(amount),
+          message: `Token: ${data.token || data.metertoken || "Check receipt"}`,
+          subtitle: meterNumber ? `FOR ${meterNumber}` : undefined,
+        });
         setMeterNumber("");
         setAmount("");
         setCustomerName("");
@@ -168,7 +177,7 @@ const Electricity = ({ user, onUpdateBalance, onBack }: ElectricityProps) => {
   };
 
   const handlePurchase = () => {
-    requirePin(doPurchase);
+    setConfirmOpen(true);
   };
 
   const presetAmounts = [1000, 2000, 3000, 5000, 10000, 20000];
@@ -184,14 +193,14 @@ const Electricity = ({ user, onUpdateBalance, onBack }: ElectricityProps) => {
         </button>
         <div className="flex items-center gap-2 bg-emerald-600 px-3 py-1 rounded-full balance-pill">
             <Wallet size={14} className="text-emerald-600"/>
-            <span className="text-sm font-black text-emerald-600">₦{user.balance.toLocaleString()}</span>
+            <span className="text-sm font-black text-emerald-600">₦{user.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         </div>
       </div>
 
       <div className="bg-white rounded-[30px] shadow-sm border border-slate-100 overflow-hidden">
         
         {/* Top Section (Dark) */}
-        <div className="p-6 bg-slate-900 text-white">
+        <div className="p-6 bg-emerald-700 dark:bg-slate-900 text-white">
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">Service Provider</label>
             
             {/* Disco Selector Card */}
@@ -302,8 +311,8 @@ const Electricity = ({ user, onUpdateBalance, onBack }: ElectricityProps) => {
                             : "border-slate-100 bg-slate-50 hover:border-emerald-200"
                         }`}
                     >
-                        <span className="text-lg font-black text-slate-800">₦{amt.toLocaleString()}</span>
-                        <span className="text-[9px] font-bold text-slate-400">Pay ₦{amt.toLocaleString()}</span>
+                        <span className="text-lg font-black text-slate-800">₦{amt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        <span className="text-[9px] font-bold text-slate-400">Pay ₦{amt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </button>
                 ))}
             </div>
@@ -368,6 +377,19 @@ const Electricity = ({ user, onUpdateBalance, onBack }: ElectricityProps) => {
       onConfirm={handlePinConfirm}
       onClose={() => setPinOpen(false)}
       error={pinError}
+    />
+    <ConfirmTransactionModal
+      open={confirmOpen}
+      title="Confirm Transaction"
+      subtitle={meterNumber ? `FOR ${meterNumber}` : undefined}
+      amountLabel="Total Pay"
+      amount={Number(amount || 0)}
+      confirmLabel="Purchase Now"
+      onConfirm={() => {
+        setConfirmOpen(false);
+        requirePin(doPurchase);
+      }}
+      onClose={() => setConfirmOpen(false)}
     />
     </>
   );
