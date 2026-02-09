@@ -161,7 +161,7 @@ const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
         <button onClick={onBack} className="flex items-center gap-2 text-slate-500 font-bold text-xs uppercase">
           <ArrowLeft size={16} /> {t("common.back")}
         </button>
-        <div className="flex items-center gap-2 bg-emerald-50 px-3 py-1 rounded-full">
+        <div className="flex items-center gap-2 bg-emerald-600 px-3 py-1 rounded-full balance-pill">
             <span className="text-xs font-bold text-slate-400">{t("common.balance")}:</span>
             <span className="text-sm font-black text-emerald-600">₦{user.balance.toLocaleString()}</span>
         </div>

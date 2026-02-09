@@ -316,7 +316,7 @@ const App: React.FC = () => {
               className="w-20 h-20 mb-4"
             />
             <h1 className="text-4xl font-black tracking-tighter">Swifna</h1>
-            <p className="mt-2 text-sm italic font-semibold text-[#A1A1AA] tracking-wide">
+            <p className="mt-2 text-sm italic font-semibold text-emerald-100 dark:text-[#A1A1AA] tracking-wide">
               Airtime, Data, Bills — Sorted.
             </p>
 
