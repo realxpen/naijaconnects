@@ -205,6 +205,7 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
         onUpdateBalance(newBal);
         await dbService.updateBalance(user.email, newBal);
         await dbService.addTransaction({
+          user_id: user.id,
           user_email: user.email,
           type: "Data",
           amount: plan.amount,

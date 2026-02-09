@@ -162,6 +162,7 @@ const CableTv = ({ user, onUpdateBalance, onBack }: CableTvProps) => {
         onUpdateBalance(newBal);
         await dbService.updateBalance(user.email, newBal);
         await dbService.addTransaction({
+          user_id: user.id,
           user_email: user.email,
           type: "Cable",
           amount: cost,

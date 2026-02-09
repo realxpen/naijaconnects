@@ -68,6 +68,7 @@ const RechargePin = ({ user, onUpdateBalance, onBack }: RechargePinProps) => {
         onUpdateBalance(newBal);
         await dbService.updateBalance(user.email, newBal);
         await dbService.addTransaction({
+          user_id: user.id,
           user_email: user.email,
           type: "RechargePin",
           amount: cost,

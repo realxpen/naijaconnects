@@ -19,14 +19,17 @@
   --input-glow: rgba(255,255,255,0.03);
 }
 
-html {
-  zoom: 0.8;
-}
-
 html,
 body {
   width: 100%;
   min-height: 100%;
+}
+
+.app-scale {
+  transform: scale(0.75);
+  transform-origin: top left;
+  width: 133.3333%;
+  height: 133.3333%;
 }
 
 body {
