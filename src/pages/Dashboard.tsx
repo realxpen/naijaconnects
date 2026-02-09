@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   Smartphone, Tv, Zap, ArrowRight, ArrowLeftRight, X, Loader2,
   RotateCcw, CreditCard, GraduationCap, 
-  Printer, Building2, Activity, ShieldCheck, AlertCircle, CheckCircle2, Copy
+  Printer, Building2, Activity, ShieldCheck, AlertCircle, CheckCircle2, Copy, Search
   // Removed 'Bell' to prevent duplication
 } from "lucide-react";
 import { supabase } from "../supabaseClient";
@@ -254,6 +254,9 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
   const [saveWithdrawBeneficiary, setSaveWithdrawBeneficiary] = useState(true);
   const [confirmWithdrawOpen, setConfirmWithdrawOpen] = useState(false);
   const [recentWithdraws, setRecentWithdraws] = useState<any[]>([]);
+  const [isWithdrawBeneficiariesOpen, setIsWithdrawBeneficiariesOpen] = useState(false);
+  const [withdrawBeneficiaries, setWithdrawBeneficiaries] = useState<any[]>([]);
+  const [withdrawSearch, setWithdrawSearch] = useState("");
   const [pinOpen, setPinOpen] = useState(false);
   const [pinError, setPinError] = useState("");
   const [pendingAction, setPendingAction] = useState<null | (() => void)>(null);
@@ -387,6 +390,21 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
     };
     loadWithdrawBeneficiaries();
   }, []);
+
+  useEffect(() => {
+    if (!isWithdrawBeneficiariesOpen) return;
+    const loadAllWithdrawBeneficiaries = async () => {
+      try {
+        const { data: auth } = await supabase.auth.getUser();
+        if (!auth?.user?.id) return;
+        const list = await beneficiaryService.fetchRecent(auth.user.id, 'withdraw', 100);
+        setWithdrawBeneficiaries(list);
+      } catch (e) {
+        console.error("Failed to load withdraw beneficiaries list:", e);
+      }
+    };
+    loadAllWithdrawBeneficiaries();
+  }, [isWithdrawBeneficiariesOpen]);
 
   // --- OPay DEPOSIT LOGIC ---
   const handleStartDeposit = async () => {
@@ -942,7 +960,16 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
             </div>
 
             <div className="mb-4">
-              <p className="text-[10px] font-black uppercase text-slate-400 mb-2">Saved Beneficiaries</p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] font-black uppercase text-slate-400">Beneficiaries</p>
+                <button
+                  type="button"
+                  onClick={() => setIsWithdrawBeneficiariesOpen(true)}
+                  className="text-[10px] font-black uppercase text-emerald-600 hover:text-emerald-700"
+                >
+                  Open list
+                </button>
+              </div>
               {recentWithdraws.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {recentWithdraws.map((b) => {
@@ -956,11 +983,11 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
                           if (b.account_name) setAccountName(b.account_name);
                           if (b.account_number && b.bank_code) resolveAccount(b.account_number, b.bank_code);
                         }}
-                        className="px-3 py-2 rounded-2xl text-left border border-slate-700 text-slate-300 hover:text-white hover:border-emerald-500 transition-colors w-full sm:w-auto"
+                        className="px-3 py-2 rounded-2xl text-left border border-slate-200 text-slate-700 hover:text-emerald-700 hover:border-emerald-400 transition-colors w-full sm:w-auto"
                       >
                         <span className="block text-[10px] font-black uppercase text-slate-400">{bankLabel}</span>
-                        <span className="block text-xs font-bold text-white">{b.account_name || "Beneficiary"}</span>
-                        <span className="block text-[10px] text-slate-400">{b.account_number || "---"}</span>
+                        <span className="block text-xs font-bold text-slate-800">{b.account_name || "Beneficiary"}</span>
+                        <span className="block text-[10px] text-slate-500">{b.account_number || "---"}</span>
                       </button>
                     );
                   })}
@@ -1063,6 +1090,71 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
             >
               {isWithdrawing ? "Processing..." : "Withdraw Funds"}
             </button>
+          </div>
+        </div>
+      )}
+      {isWithdrawBeneficiariesOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex items-end sm:items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <h3 className="text-base font-black text-slate-800">Withdraw Beneficiaries</h3>
+              <button
+                onClick={() => setIsWithdrawBeneficiariesOpen(false)}
+                className="p-2 rounded-full hover:bg-slate-100 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="px-6 py-4">
+              <div className="flex items-center gap-2 bg-slate-100 rounded-xl px-3 py-2">
+                <Search size={16} className="text-slate-400" />
+                <input
+                  value={withdrawSearch}
+                  onChange={(e) => setWithdrawSearch(e.target.value)}
+                  placeholder="Search"
+                  className="w-full bg-transparent text-sm outline-none text-slate-700 placeholder:text-slate-400"
+                />
+              </div>
+            </div>
+            <div className="px-6 pb-6 max-h-[60vh] overflow-y-auto">
+              {withdrawBeneficiaries.length === 0 ? (
+                <p className="text-sm text-slate-500 py-6 text-center">No beneficiaries saved yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {withdrawBeneficiaries
+                    .filter((b) => {
+                      const bankLabel = BANKS.find((bank) => bank.code === b.bank_code)?.name || "";
+                      const query = withdrawSearch.trim().toLowerCase();
+                      if (!query) return true;
+                      return (
+                        (b.account_name || "").toLowerCase().includes(query) ||
+                        (b.account_number || "").toLowerCase().includes(query) ||
+                        bankLabel.toLowerCase().includes(query)
+                      );
+                    })
+                    .map((b) => {
+                      const bankLabel = BANKS.find((bank) => bank.code === b.bank_code)?.name || "Unknown Bank";
+                      return (
+                        <button
+                          key={b.beneficiary_key}
+                          onClick={() => {
+                            if (b.bank_code) setBankCode(b.bank_code);
+                            if (b.account_number) setAccountNumber(b.account_number);
+                            if (b.account_name) setAccountName(b.account_name);
+                            if (b.account_number && b.bank_code) resolveAccount(b.account_number, b.bank_code);
+                            setIsWithdrawBeneficiariesOpen(false);
+                          }}
+                          className="w-full text-left border border-slate-200 rounded-2xl px-4 py-3 hover:border-emerald-400 hover:bg-emerald-50 transition-colors"
+                        >
+                          <span className="block text-[11px] font-black uppercase text-slate-400">{bankLabel}</span>
+                          <span className="block text-sm font-bold text-slate-800">{b.account_name || "Beneficiary"}</span>
+                          <span className="block text-[11px] text-slate-500">{b.account_number || "---"}</span>
+                        </button>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
