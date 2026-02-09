@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from './supabaseClient';
 import { dbService } from './services/dbService';
 import { I18nProvider, LanguageCode } from './i18n';
 import { ToastProvider, useToast } from './components/ui/ToastProvider';
 // 1. Import the BroadcastManager
 import BroadcastManager from './components/BroadcastManager';
+import { CONSTELLATIONS } from './data/constellations';
 
 // Layouts & Pages
 import DashboardLayout from "./layouts/DashboardLayout"; 
@@ -31,6 +32,59 @@ const App: React.FC = () => {
     const stored = localStorage.getItem("language");
     return (stored as LanguageCode) || "en";
   });
+  const [isNightSky, setIsNightSky] = useState(false);
+  const [moonPhase, setMoonPhase] = useState<{ phase: string; illumination: number } | null>(null);
+  const [constellation, setConstellation] = useState<string | null>(null);
+  const [showLearn, setShowLearn] = useState(false);
+
+  const isNightWindow = (d: Date) => {
+    const h = d.getHours();
+    const m = d.getMinutes();
+    const afterStart = h > 19 || (h === 19 && m >= 0);
+    const beforeEnd = h < 5 || (h === 5 && m < 30);
+    return afterStart || beforeEnd;
+  };
+
+  const getNightKey = (d: Date) => {
+    if (!isNightWindow(d)) return null;
+    const nightDate = new Date(d);
+    if (d.getHours() < 5 || (d.getHours() === 5 && d.getMinutes() < 30)) {
+      nightDate.setDate(d.getDate() - 1);
+    }
+    return nightDate.toISOString().slice(0, 10);
+  };
+
+  const pickConstellationForNight = (nightKey: string) => {
+    const storedKey = localStorage.getItem('night_constellation_date');
+    const storedName = localStorage.getItem('night_constellation_name');
+    if (storedKey === nightKey && storedName) return storedName;
+
+    let hash = 0;
+    for (let i = 0; i < nightKey.length; i += 1) {
+      hash = (hash * 31 + nightKey.charCodeAt(i)) >>> 0;
+    }
+    const idx = hash % CONSTELLATIONS.length;
+    const name = CONSTELLATIONS[idx];
+    localStorage.setItem('night_constellation_date', nightKey);
+    localStorage.setItem('night_constellation_name', name);
+    return name;
+  };
+
+  const constellationStars = useMemo(() => {
+    if (!constellation) return [];
+    let seed = 0;
+    for (let i = 0; i < constellation.length; i += 1) seed = (seed * 31 + constellation.charCodeAt(i)) >>> 0;
+    const rand = () => {
+      seed = (seed * 1664525 + 1013904223) >>> 0;
+      return (seed & 0xfffffff) / 0xfffffff;
+    };
+    const count = 8 + (seed % 6);
+    return Array.from({ length: count }, () => ({
+      x: Math.round(10 + rand() * 200),
+      y: Math.round(10 + rand() * 120),
+      r: Math.round(1 + rand() * 2),
+    }));
+  }, [constellation]);
 
   // --- 1. FETCH USER PROFILE ---
   const fetchUser = async (email: string) => {
@@ -85,17 +139,52 @@ const App: React.FC = () => {
     if (media?.addEventListener) media.addEventListener('change', handleChange);
     else if (media?.addListener) media.addListener(handleChange);
 
+    let cancelled = false;
+
+    const loadNightSky = async () => {
+      const now = new Date();
+      const nightKey = getNightKey(now);
+      if (!nightKey) {
+        setIsNightSky(false);
+        return;
+      }
+      setIsNightSky(true);
+      setConstellation(pickConstellationForNight(nightKey));
+
+      try {
+        const res = await fetch('https://api.phaseofthemoontoday.com/v1/location/Lagos');
+        if (!res.ok) throw new Error('Moon API error');
+        const data = await res.json();
+        if (!cancelled && data?.phase && typeof data?.illumination === 'number') {
+          setMoonPhase({ phase: data.phase, illumination: data.illumination });
+        }
+      } catch {
+        if (!cancelled) setMoonPhase(null);
+      }
+    };
+
     const initSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
 
       if (session && session.user.email) {
         await fetchUser(session.user.email);
       }
-      
-      setIsSplashScreen(false);
     };
 
-    initSession();
+    const run = async () => {
+      const nightKey = getNightKey(new Date());
+      const isNight = !!nightKey;
+      const start = Date.now();
+      await Promise.all([initSession(), loadNightSky()]);
+      const minDelay = isNight ? 3000 : 0;
+      const elapsed = Date.now() - start;
+      if (minDelay > elapsed) {
+        await new Promise((r) => setTimeout(r, minDelay - elapsed));
+      }
+      if (!cancelled) setIsSplashScreen(false);
+    };
+
+    run();
 
     // Listen for Auth Changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
@@ -108,6 +197,7 @@ const App: React.FC = () => {
     });
 
     return () => {
+      cancelled = true;
       subscription.unsubscribe();
       if (media?.removeEventListener) media.removeEventListener('change', handleChange);
       else if (media?.removeListener) media.removeListener(handleChange);
@@ -193,16 +283,91 @@ const App: React.FC = () => {
       <BroadcastManager />
 
       {isSplashScreen ? (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-emerald-600 text-white">
-           <img
-             src="/logo.png"
-             alt="Swifna Logo"
-             className="w-24 h-24 animate-bounce relative z-10"
-           />
-          <h1 className="text-4xl font-black mt-8 tracking-tighter">Swifna</h1>
-          <p className="mt-2 text-sm italic font-semibold text-emerald-100 tracking-wide">
-            Airtime, Data, Bills — Sorted.
-          </p>
+        <div className="min-h-screen flex flex-col items-center justify-center text-white relative overflow-hidden">
+          {isNightSky ? (
+            <div className="absolute inset-0">
+              <div className="absolute inset-0 bg-[radial-gradient(60%_45%_at_10%_-10%,_#0F1A13_0%,_transparent_60%),radial-gradient(60%_45%_at_110%_20%,_#122017_0%,_transparent_60%)]" />
+              <div className="absolute inset-0 opacity-40">
+                <svg width="100%" height="100%" viewBox="0 0 240 160" preserveAspectRatio="none">
+                  {constellationStars.map((s, i) => (
+                    <circle key={`${s.x}-${s.y}-${i}`} cx={s.x} cy={s.y} r={s.r} fill="#A1A1AA" opacity="0.7" />
+                  ))}
+                  {constellationStars.map((s, i) => {
+                    const n = constellationStars[i + 1];
+                    if (!n) return null;
+                    return (
+                      <line key={`l-${i}`} x1={s.x} y1={s.y} x2={n.x} y2={n.y} stroke="#6B7280" strokeWidth="0.5" opacity="0.5" />
+                    );
+                  })}
+                </svg>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="relative z-10 flex flex-col items-center px-6 text-center">
+            <img
+              src="/logo.png"
+              alt="Swifna Logo"
+              className="w-20 h-20 mb-4"
+            />
+            <h1 className="text-4xl font-black tracking-tighter">Swifna</h1>
+            <p className="mt-2 text-sm italic font-semibold text-[#A1A1AA] tracking-wide">
+              Airtime, Data, Bills — Sorted.
+            </p>
+
+            {isNightSky && (
+              <div className="mt-6 w-full max-w-sm rounded-2xl bg-[#151A21] border border-[rgba(255,255,255,0.06)] p-4 text-left">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-widest text-[#A1A1AA]">Tonight’s Sky</p>
+                    <p className="text-sm font-semibold text-white mt-1">{constellation || 'Constellation'}</p>
+                    {moonPhase && (
+                      <p className="text-[10px] text-[#6B7280] mt-1">{moonPhase.phase} · {Math.round(moonPhase.illumination)}% lit</p>
+                    )}
+                  </div>
+                  <div className="w-16 h-16">
+                    {moonPhase ? (
+                      <svg viewBox="0 0 100 100">
+                        <defs>
+                          <mask id="moon-mask">
+                            <rect width="100" height="100" fill="white" />
+                            {(() => {
+                              const f = Math.max(0, Math.min(1, moonPhase.illumination / 100));
+                              if (f >= 0.98) return null;
+                              if (f <= 0.02) return <circle cx="50" cy="50" r="45" fill="black" />;
+                              const waxing = /waxing/i.test(moonPhase.phase);
+                              const offset = (1 - 2 * f) * 45;
+                              const cx = waxing ? 50 + offset : 50 - offset;
+                              return <circle cx={cx} cy="50" r="45" fill="black" />;
+                            })()}
+                          </mask>
+                        </defs>
+                        <circle cx="50" cy="50" r="45" fill="#FFFFFF" mask="url(#moon-mask)" />
+                        <circle cx="50" cy="50" r="45" fill="none" stroke="#6B7280" strokeWidth="1" />
+                      </svg>
+                    ) : (
+                      <div className="w-16 h-16 rounded-full border border-[#6B7280] flex items-center justify-center text-[10px] text-[#6B7280]">
+                        Moon
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setShowLearn((v) => !v)}
+                  className="mt-4 h-12 w-full rounded-[14px] bg-gradient-to-r from-[#22C55E] to-[#16A34A] text-white text-sm font-semibold"
+                >
+                  Learn this constellation
+                </button>
+
+                {showLearn && (
+                  <div className="mt-3 text-xs text-[#A1A1AA] leading-relaxed">
+                    {constellation ? `${constellation} is one of the 88 official constellations recognized by the IAU.` : 'This constellation is one of the 88 official IAU constellations.'}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       ) : !isAuthenticated ? (
         <Auth 

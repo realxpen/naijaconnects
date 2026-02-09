@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   Smartphone, Tv, Zap, ArrowRight, ArrowLeftRight, X, Loader2,
   RotateCcw, CreditCard, GraduationCap, 
-  Printer, Building2, Activity, ShieldCheck, AlertCircle
+  Printer, Building2, Activity, ShieldCheck, AlertCircle, CheckCircle2, Copy
   // Removed 'Bell' to prevent duplication
 } from "lucide-react";
 import { supabase } from "../supabaseClient";
@@ -141,28 +141,85 @@ const getLogoOrIcon = (transaction: Transaction) => {
     }
 };
 
+const getColorClass = (type: string) => {
+    const t = type.toLowerCase();
+    if (t === 'deposit') return 'bg-emerald-100 text-emerald-600';
+    if (t === 'withdrawal') return 'bg-rose-100 text-rose-600';
+    return 'bg-slate-100 text-slate-600';
+};
+
 // --- COMPONENT: RECEIPT VIEW ---
 const ReceiptView = ({ tx, onClose }: { tx: Transaction; onClose: () => void }) => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const [isGenerating, setIsGenerating] = useState(false);
-  
+    const { t } = useI18n();
+    const { showToast } = useToast();
     const displayRef = tx.reference || `TRX-${tx.id.substring(0,8)}`;
-  
+
+    const handleCopyRef = () => {
+        navigator.clipboard.writeText(displayRef).then(() => {
+            showToast(t("history.reference_copied_clipboard"), "success");
+        });
+    };
+
     return (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-200">
-             <div className="bg-white p-6 rounded-xl w-full max-w-sm">
-                 <button onClick={onClose} className="float-right"><X/></button>
-                 <h2 className="text-center font-bold text-xl mb-4">Transaction Receipt</h2>
-                 <div className="space-y-2">
-                     <p><strong>Type:</strong> {tx.type}</p>
-                     <p><strong>Amount:</strong> ₦{tx.amount.toLocaleString()}</p>
-                     <p><strong>Status:</strong> {tx.status}</p>
-                     <p><strong>Reference:</strong> {displayRef}</p>
-                     <p><strong>Date:</strong> {new Date(tx.created_at).toLocaleString()}</p>
-                 </div>
-             </div>
+            <div className="w-full max-w-sm relative">
+                <button onClick={onClose} className="absolute -top-12 right-0 bg-white/20 p-2 rounded-full text-white hover:bg-white/30 transition-colors">
+                    <X size={20}/>
+                </button>
+
+                <div className="bg-white rounded-[30px] overflow-hidden shadow-2xl relative">
+                    <div className="h-24 bg-emerald-600 relative">
+                        <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle, #fff 2px, transparent 2px)', backgroundSize: '10px 10px' }}></div>
+                        <div className="absolute inset-0 flex items-center justify-center text-white/10 font-black text-6xl tracking-widest rotate-[-15deg] pointer-events-none">
+                            {t("history.receipt")}
+                        </div>
+                    </div>
+
+                    <div className="px-6 pb-8 -mt-10 relative">
+                        <div className="bg-white rounded-2xl shadow-lg p-6 text-center border border-slate-100">
+                            <div className={`w-16 h-16 rounded-full mx-auto flex items-center justify-center -mt-14 mb-3 border-4 border-white shadow-md ${getColorClass(tx.type)}`}>
+                                 <div className="w-10 h-10">{getLogoOrIcon(tx)}</div>
+                            </div>
+                            <h2 className="text-3xl font-black text-slate-800">₦{tx.amount.toLocaleString()}</h2>
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">{tx.type}</p>
+                            
+                            <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase ${tx.status.toLowerCase() === 'success' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+                                {tx.status.toLowerCase() === 'success' ? <CheckCircle2 size={12}/> : <X size={12}/>}
+                                {tx.status}
+                            </div>
+                        </div>
+
+                        <div className="mt-6 space-y-4">
+                            <div className="flex justify-between items-center py-2 border-b border-dashed border-slate-200">
+                                <span className="text-xs font-bold text-slate-400">{t("common.date")}</span>
+                                <span className="text-xs font-bold text-slate-700">{new Date(tx.created_at).toLocaleString()}</span>
+                            </div>
+                            
+                            <div className="flex justify-between items-center py-2 border-b border-dashed border-slate-200">
+                                <span className="text-xs font-bold text-slate-400">{t("common.ref_id")}</span>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-bold text-slate-700">{displayRef}</span>
+                                    <button onClick={handleCopyRef} className="text-slate-400 hover:text-emerald-600 transition-colors">
+                                        <Copy size={12}/>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="flex justify-between items-center py-2 border-b border-dashed border-slate-200">
+                                <span className="text-xs font-bold text-slate-400">{t("common.desc")}</span>
+                                <span className="text-xs font-bold text-slate-700 text-right max-w-[150px]">{tx.description || tx.type}</span>
+                            </div>
+                        </div>
+
+                        <div className="mt-6 text-center opacity-30">
+                            <p className="font-black text-xs uppercase">{t("app.name")}</p>
+                            <p className="text-[8px] font-bold">{t("history.generated_receipt")}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-    )
+    );
 };
 
 
@@ -291,7 +348,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
         .select("*")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
-        .limit(10);
+        .limit(5);
         
       if (error) throw error;
       if (data) setHistory(data as unknown as Transaction[]);
@@ -571,7 +628,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
       {/* --- END HEADER --- */}
 
       {/* WALLET CARD */}
-      <section className="bg-emerald-600 p-6 rounded-[35px] text-white shadow-xl relative overflow-hidden">
+      <section className="bg-slate-800 p-6 rounded-[35px] text-white shadow-xl relative overflow-hidden">
         {/* Background Pattern */}
         <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
         <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full blur-2xl -ml-5 -mb-5"></div>

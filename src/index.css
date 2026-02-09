@@ -2,14 +2,190 @@
 @tailwind components;
 @tailwind utilities;
 
-/* You can add global styles here */
+:root {
+  --bg-base: #0B0F0C;
+  --bg-wave-1: #0F1A13;
+  --bg-wave-2: #122017;
+  --brand: #22C55E;
+  --brand-dark: #16A34A;
+  --accent-yellow: #F5C400;
+  --card: #151A21;
+  --text-primary: #FFFFFF;
+  --text-secondary: #A1A1AA;
+  --text-muted: #6B7280;
+  --border-subtle: rgba(255,255,255,0.06);
+  --icon-inactive: #9CA3AF;
+  --icon-active: #22C55E;
+  --input-glow: rgba(255,255,255,0.03);
+}
+
+html {
+  zoom: 0.8;
+}
+
+html,
+body {
+  width: 100%;
+  min-height: 100%;
+}
+
 body {
   margin: 0;
+  color: var(--text-primary);
+  background-color: var(--bg-base);
+  background-image:
+    radial-gradient(60% 45% at 10% -10%, var(--bg-wave-1) 0%, transparent 60%),
+    radial-gradient(60% 45% at 110% 20%, var(--bg-wave-2) 0%, transparent 60%);
+  background-attachment: fixed;
+  font-family: "Inter", "SF Pro", "Manrope", system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Force app to render at 80% zoom */
-html {
-  zoom: 0.8;
+#root {
+  min-height: 100%;
+}
+
+/* Surface & card styling */
+.bg-white,
+.bg-slate-50,
+.bg-slate-800 {
+  background-color: var(--card) !important;
+  border-color: var(--border-subtle) !important;
+}
+
+.bg-slate-900 {
+  background-color: var(--bg-base) !important;
+}
+
+/* Primary brand tones */
+.bg-emerald-600,
+.bg-emerald-700,
+.bg-emerald-800 {
+  background-color: var(--brand) !important;
+}
+
+.bg-emerald-900 {
+  background-color: var(--bg-wave-1) !important;
+}
+
+.bg-emerald-500,
+.bg-green-500,
+.bg-green-600,
+.bg-green-700 {
+  background-color: var(--brand) !important;
+}
+
+.bg-yellow-400,
+.bg-blue-400,
+.bg-blue-500,
+.bg-purple-400,
+.bg-orange-100,
+.bg-orange-200 {
+  background-color: var(--card) !important;
+}
+
+.text-emerald-600,
+.text-emerald-700,
+.text-emerald-400 {
+  color: var(--brand) !important;
+}
+
+.text-emerald-100,
+.text-emerald-200,
+.text-emerald-300 {
+  color: var(--text-secondary) !important;
+}
+
+/* Text colors */
+.text-slate-900,
+.text-slate-800,
+.text-gray-900,
+.text-black {
+  color: var(--text-primary) !important;
+}
+
+.text-yellow-400,
+.text-yellow-500 {
+  color: var(--accent-yellow) !important;
+}
+
+.text-blue-400,
+.text-blue-500,
+.text-purple-400,
+.text-orange-600,
+.text-orange-500 {
+  color: var(--text-secondary) !important;
+}
+
+.text-slate-500,
+.text-slate-400,
+.text-gray-500 {
+  color: var(--text-secondary) !important;
+}
+
+.text-slate-600,
+.text-gray-600 {
+  color: var(--text-muted) !important;
+}
+
+/* Borders */
+.border-slate-100,
+.border-slate-200,
+.border-slate-700,
+.border-gray-200 {
+  border-color: var(--border-subtle) !important;
+}
+
+/* Inputs */
+input,
+select,
+textarea {
+  min-height: 56px;
+  background: var(--card) !important;
+  border: none !important;
+  border-radius: 14px;
+  color: var(--text-primary) !important;
+  box-shadow: inset 0 0 0 1px var(--input-glow);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-muted);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--input-glow), 0 0 0 2px rgba(34,197,94,0.25);
+}
+
+/* Primary button gradient */
+button.bg-emerald-600,
+button.bg-emerald-700 {
+  background-image: linear-gradient(90deg, var(--brand), var(--brand-dark)) !important;
+  color: var(--text-primary) !important;
+  box-shadow: 0 10px 25px rgba(34,197,94,0.10);
+}
+
+/* Secondary button */
+button.text-emerald-600,
+button.text-emerald-700 {
+  color: var(--brand) !important;
+}
+
+/* Reduce blur/glass effects */
+[class*="backdrop-blur"] {
+  backdrop-filter: none !important;
+}
+
+/* Soft depth (avoid heavy shadows) */
+.shadow-sm,
+.shadow,
+.shadow-md,
+.shadow-lg,
+.shadow-xl,
+.shadow-2xl {
+  box-shadow: 0 8px 18px rgba(0,0,0,0.22) !important;
 }

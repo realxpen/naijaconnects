@@ -107,7 +107,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     <div className="min-h-screen flex flex-col max-w-lg mx-auto bg-slate-50 dark:bg-slate-900 relative transition-colors">
       
       {/* HEADER */}
-      <header className="bg-emerald-600 p-4 text-white flex justify-between items-center sticky top-0 z-20 shadow-md">
+      <header className="bg-slate-900 p-4 text-white flex justify-between items-center sticky top-0 z-20 border-b border-slate-700">
         <div className="flex items-center gap-2">
           <img
             src="/logo.png"
@@ -121,7 +121,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           {/* Notification Bell */}
           <button
             onClick={() => setShowNotifications((v) => !v)}
-            className="p-2 bg-white/10 rounded-full relative hover:bg-white/20 transition-colors"
+            className="p-2 bg-slate-800 border border-slate-700 rounded-full relative hover:bg-slate-700 transition-colors"
             aria-label="Notifications"
             aria-expanded={showNotifications}
           >
@@ -184,7 +184,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
           {/* Language Menu */}
           <div className="relative">
-            <button onClick={() => setShowLangMenu(!showLangMenu)} className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors">
+            <button onClick={() => setShowLangMenu(!showLangMenu)} className="p-2 bg-slate-800 border border-slate-700 rounded-full hover:bg-slate-700 transition-colors">
               <LangIcon size={20}/>
             </button>
             
@@ -218,7 +218,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       </main>
 
       {/* BOTTOM NAV */}
-      <nav className="fixed bottom-0 w-full max-w-lg bg-white/95 dark:bg-slate-800/95 backdrop-blur-md border-t dark:border-slate-700 pb-safe pt-2 px-10 flex justify-between items-end shadow-[0_-5px_20px_rgba(0,0,0,0.05)] z-40 h-[80px]">
+      <nav className="fixed bottom-0 w-full max-w-lg bg-slate-800 border-t border-slate-700 pb-safe pt-2 px-10 flex justify-between items-end z-40 h-[80px]">
         
         {/* 1. Ask AI (Left) */}
         <NavButton 
