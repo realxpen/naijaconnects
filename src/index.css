@@ -202,3 +202,18 @@ body {
 .balance-pill span {
   color: #FFFFFF !important;
 }
+
+/* Night sky star glow */
+.star-glow {
+  filter: drop-shadow(0 0 4px rgba(245, 196, 0, 0.55)) drop-shadow(0 0 10px rgba(245, 196, 0, 0.35));
+  animation: starTwinkle 3.6s ease-in-out infinite;
+}
+
+.star-line {
+  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.15));
+}
+
+@keyframes starTwinkle {
+  0%, 100% { opacity: 0.65; }
+  50% { opacity: 1; }
+}

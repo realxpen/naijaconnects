@@ -297,13 +297,32 @@ const App: React.FC = () => {
               <div className="absolute inset-0 opacity-40">
                 <svg width="100%" height="100%" viewBox="0 0 240 160" preserveAspectRatio="none">
                   {constellationStars.map((s, i) => (
-                    <circle key={`${s.x}-${s.y}-${i}`} cx={s.x} cy={s.y} r={s.r} fill="#A1A1AA" opacity="0.7" />
+                    <circle
+                      key={`${s.x}-${s.y}-${i}`}
+                      cx={s.x}
+                      cy={s.y}
+                      r={s.r}
+                      fill="#F5C400"
+                      opacity="0.9"
+                      className="star-glow"
+                      style={{ animationDelay: `${(i % 6) * 0.4}s` }}
+                    />
                   ))}
                   {constellationStars.map((s, i) => {
                     const n = constellationStars[i + 1];
                     if (!n) return null;
                     return (
-                      <line key={`l-${i}`} x1={s.x} y1={s.y} x2={n.x} y2={n.y} stroke="#6B7280" strokeWidth="0.5" opacity="0.5" />
+                      <line
+                        key={`l-${i}`}
+                        x1={s.x}
+                        y1={s.y}
+                        x2={n.x}
+                        y2={n.y}
+                        stroke="#6B7280"
+                        strokeWidth="0.6"
+                        opacity="0.6"
+                        className="star-line"
+                      />
                     );
                   })}
                 </svg>
