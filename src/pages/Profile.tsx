@@ -147,9 +147,34 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
   };
 
   // --- HELPER: Get Default Avatar ---
+  const buildDefaultAvatar = (name: string) => {
+    const initials = (name || 'User')
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map(s => s[0]?.toUpperCase())
+      .join('') || 'U';
+    const svg = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128">
+        <defs>
+          <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#22C55E"/>
+            <stop offset="100%" stop-color="#16A34A"/>
+          </linearGradient>
+        </defs>
+        <rect width="128" height="128" rx="64" fill="url(#g)"/>
+        <text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle"
+          font-family="Inter, SF Pro, Manrope, Arial" font-size="48" font-weight="700" fill="#FFFFFF">
+          ${initials}
+        </text>
+      </svg>
+    `.trim();
+    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+  };
+
   const getAvatar = () => {
     if (user.avatar_url) return user.avatar_url;
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=047857&color=fff&size=128&bold=true`;
+    return buildDefaultAvatar(user.name);
   };
 
   // --- HELPER: Get Tier Color ---
@@ -180,6 +205,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
             <img 
                 src={getAvatar()} 
                 alt="Profile" 
+                onError={(e) => { (e.currentTarget as HTMLImageElement).src = buildDefaultAvatar(user.name); }}
                 className="w-full h-full rounded-full object-cover border-4 border-white/20 shadow-2xl"
             />
             <button className="absolute bottom-0 right-0 p-2 bg-white text-emerald-600 rounded-full shadow-lg active:scale-90 transition-transform">
