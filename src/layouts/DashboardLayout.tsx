@@ -19,6 +19,7 @@ interface DashboardLayoutProps {
   activeTab: 'buy' | 'history' | 'assistant' | 'profile';
   setActiveTab: (tab: 'buy' | 'history' | 'assistant' | 'profile') => void;
   userName: string;
+  userAvatar?: string | null;
 }
 
 interface Broadcast {
@@ -31,7 +32,7 @@ interface Broadcast {
 }
 
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ 
-  children, activeTab, setActiveTab, userName
+  children, activeTab, setActiveTab, userName, userAvatar
 }) => {
   const [showLangMenu, setShowLangMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -102,6 +103,33 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     if (type === 'success') return <CheckCircle size={16} className="text-emerald-500" />;
     return <Info size={16} className="text-blue-500" />;
   };
+
+  const buildDefaultAvatar = (name: string) => {
+    const initials = (name || 'User')
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map(s => s[0]?.toUpperCase())
+      .join('') || 'U';
+    const svg = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128">
+        <defs>
+          <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#22C55E"/>
+            <stop offset="100%" stop-color="#16A34A"/>
+          </linearGradient>
+        </defs>
+        <rect width="128" height="128" rx="64" fill="url(#g)"/>
+        <text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle"
+          font-family="Inter, SF Pro, Manrope, Arial" font-size="48" font-weight="700" fill="#FFFFFF">
+          ${initials}
+        </text>
+      </svg>
+    `.trim();
+    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+  };
+
+  const avatarSrc = userAvatar || buildDefaultAvatar(userName);
 
   return (
     <div className="min-h-screen flex flex-col max-w-lg mx-auto bg-slate-50 dark:bg-slate-900 relative transition-colors">
@@ -204,9 +232,12 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             onClick={() => setActiveTab('profile')} 
             className="flex flex-col items-center gap-0.5 transition-opacity hover:opacity-90"
           >
-            <div className="w-9 h-9 bg-emerald-500 rounded-full flex items-center justify-center font-black border-2 border-white/20 uppercase shadow-inner text-white text-sm">
-              {userName.charAt(0)}
-            </div>
+            <img
+              src={avatarSrc}
+              alt="Profile"
+              className="w-9 h-9 rounded-full object-cover border-2 border-white/20 shadow-inner"
+              onError={(e) => { (e.currentTarget as HTMLImageElement).src = buildDefaultAvatar(userName); }}
+            />
             <span className="text-[8px] font-black uppercase text-emerald-100">{t("nav.me")}</span>
           </button>
         </div>

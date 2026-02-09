@@ -12,12 +12,19 @@ export const dbService = {
     return data.user;
   },
 
-  async registerUser(email: string, name: string, phone: string, preferredLanguage: string, pass: string) {
+  async registerUser(
+    email: string,
+    firstName: string,
+    lastName: string,
+    phone: string,
+    preferredLanguage: string,
+    pass: string
+  ) {
     // 1. Sign up the user in Supabase Auth
     const { data, error } = await supabase.auth.signUp({
       email,
       password: pass,
-      options: { data: { full_name: name, phone, preferred_language: preferredLanguage } }
+      options: { data: { first_name: firstName, last_name: lastName, phone, preferred_language: preferredLanguage } }
     });
     if (error) throw error;
 
@@ -25,8 +32,9 @@ export const dbService = {
     if (data.user) {
       await this.createProfile({ 
         id: data.user.id, 
-        email, 
-        name,
+        email,
+        firstName,
+        lastName,
         phone,
         preferredLanguage
       });
@@ -58,13 +66,14 @@ export const dbService = {
     return data;
   },
 
-  async createProfile(user: { email: string, name: string, id: string, phone?: string, preferredLanguage?: string }) {
+  async createProfile(user: { email: string, firstName: string, lastName: string, id: string, phone?: string, preferredLanguage?: string }) {
     const { data, error } = await supabase
       .from('profiles')
       .insert([{ 
         id: user.id, 
         email: user.email, 
-        full_name: user.name, 
+        first_name: user.firstName,
+        last_name: user.lastName || null,
         phone: user.phone || null,
         preferred_language: user.preferredLanguage || null,
         wallet_balance: 0 
@@ -77,7 +86,7 @@ export const dbService = {
   },
 
   // Added function
-  async updateProfile(email: string, updates: { name?: string; phone?: string }) {
+  async updateProfile(email: string, updates: { first_name?: string; last_name?: string; phone?: string }) {
     const { data, error } = await supabase
       .from('profiles')
       .update(updates)

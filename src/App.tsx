@@ -101,7 +101,7 @@ const App: React.FC = () => {
       if (data) {
         setUser({
           id: data.id, // <--- ADDED: Map the ID from the DB result
-          name: data.full_name || '',
+          name: `${data.first_name || ''} ${data.last_name || ''}`.trim() || data.name || '',
           email: data.email || email,
           balance: data.wallet_balance || 0,
           phone: data.phone || '',
@@ -228,12 +228,13 @@ const App: React.FC = () => {
   };
 
   // UPDATED: Changed preferredLanguage type from LanguageCode to string
-  const handleSignup = async (email: string, name: string, phone: string, preferredLanguage: string, pass: string) => {
+  const handleSignup = async (email: string, firstName: string, lastName: string, phone: string, preferredLanguage: string, pass: string) => {
     setIsProcessing(true);
     try {
-      await dbService.registerUser(email, name, phone, preferredLanguage as LanguageCode, pass);
+      const fullName = `${firstName} ${lastName}`.trim();
+      await dbService.registerUser(email, firstName, lastName, phone, preferredLanguage as LanguageCode, pass);
       // We set a temporary ID here. The real ID will be fetched by the Auth Listener immediately after.
-      setUser({ id: '', name: '', email: '', balance: 0, phone, role: 'user' }); 
+      setUser({ id: '', name: fullName || firstName, email: '', balance: 0, phone, role: 'user' }); 
       setLanguage(preferredLanguage as LanguageCode);
     } catch (e: any) { 
       showToast(e.message || "Signup Failed", "error");
@@ -381,6 +382,7 @@ const App: React.FC = () => {
           activeTab={activeTab} 
           setActiveTab={handleTabChange} // Use the smart handler here
           userName={user?.name || ''} 
+          userAvatar={(user as any)?.avatar_url || null}
         >
           {activeTab === 'buy' && user && (
             <Dashboard 

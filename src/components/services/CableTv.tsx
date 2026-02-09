@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { ArrowLeft, Loader2, Tv, CheckCircle2, User, History, X, Wallet } from "lucide-react";
+import { ArrowLeft, Loader2, Tv, CheckCircle2, User, Wallet } from "lucide-react";
 import { supabase } from "../../supabaseClient";
 import { dbService } from "../../services/dbService";
 import { CABLE_PROVIDERS } from "../../constants";
 import { useToast } from "../ui/ToastProvider";
+import { beneficiaryService, Beneficiary } from "../../services/beneficiaryService";
 
 interface CableTvProps {
   user: any;
@@ -24,13 +25,21 @@ const CableTv = ({ user, onUpdateBalance, onBack }: CableTvProps) => {
   const [activeTab, setActiveTab] = useState("All");
 
   // Recents State
-  const [showRecents, setShowRecents] = useState(false);
-  const [recentIucs, setRecentIucs] = useState<string[]>([]);
+  const [recentBeneficiaries, setRecentBeneficiaries] = useState<Beneficiary[]>([]);
 
   // --- 1. INITIALIZE & LOAD RECENTS ---
   useEffect(() => {
-    const saved = localStorage.getItem("cable_recents");
-    if (saved) setRecentIucs(JSON.parse(saved));
+    const loadRecents = async () => {
+      try {
+        const { data: auth } = await supabase.auth.getUser();
+        if (!auth?.user?.id) return;
+        const recents = await beneficiaryService.fetchRecent(auth.user.id, 'cable', 5);
+        setRecentBeneficiaries(recents);
+      } catch (e) {
+        console.error("Error fetching beneficiaries:", e);
+      }
+    };
+    loadRecents();
     
     // Pre-fill phone if available
     if (user.phone) setPhone(user.phone);
@@ -95,12 +104,23 @@ const CableTv = ({ user, onUpdateBalance, onBack }: CableTvProps) => {
   }, [plans, activeTab]);
 
   // --- 5. SAVE RECENT ---
-  const saveRecentIuc = (number: string) => {
+  const saveRecentIuc = async (number: string) => {
       if (number.length < 10) return;
-      const filtered = recentIucs.filter(n => n !== number);
-      const newRecents = [number, ...filtered].slice(0, 5);
-      setRecentIucs(newRecents);
-      localStorage.setItem("cable_recents", JSON.stringify(newRecents));
+      try {
+        const { data: auth } = await supabase.auth.getUser();
+        if (!auth?.user?.id) return;
+        await beneficiaryService.upsert({
+          user_id: auth.user.id,
+          type: 'cable',
+          beneficiary_key: `iuc:${number}|prov:${provider}`,
+          smart_card_number: number,
+          provider
+        });
+        const recents = await beneficiaryService.fetchRecent(auth.user.id, 'cable', 5);
+        setRecentBeneficiaries(recents);
+      } catch (e) {
+        console.error("Error saving beneficiary:", e);
+      }
   };
 
   // --- 6. PURCHASE ---
@@ -200,12 +220,9 @@ const CableTv = ({ user, onUpdateBalance, onBack }: CableTvProps) => {
                             {customerName}
                         </span>
                     )}
-                    <button 
-                        onClick={() => setShowRecents(!showRecents)}
-                        className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded-full hover:bg-emerald-400/20 transition-colors"
-                    >
-                        <History size={12} /> Recent
-                    </button>
+                    <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                        Recent
+                    </div>
                 </div>
             </div>
             
@@ -225,32 +242,27 @@ const CableTv = ({ user, onUpdateBalance, onBack }: CableTvProps) => {
                 />
             </div>
 
-            {/* Recents Dropdown */}
-            {showRecents && (
-                <div className="mt-1 bg-slate-800 rounded-xl p-2 animate-in slide-in-from-top-2 border border-slate-700 absolute z-20 top-20 left-6 right-6 shadow-2xl">
-                    <div className="flex justify-between items-center px-2 mb-2 border-b border-slate-700 pb-2">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">Saved Cards</span>
-                        <button onClick={() => setShowRecents(false)}><X size={14} className="text-slate-500 hover:text-white"/></button>
-                    </div>
-                    <div className="max-h-[150px] overflow-y-auto custom-scrollbar">
-                        {recentIucs.map((num, i) => (
-                            <button 
-                                key={i}
-                                onClick={() => { setIuc(num); setShowRecents(false); verifyIuc(num); }}
-                                className="w-full flex items-center gap-3 p-2 hover:bg-slate-700 rounded-lg transition-colors text-left border-b border-slate-700/50 last:border-0"
-                            >
-                                <div className="w-8 h-8 rounded-full bg-slate-700 text-slate-400 flex items-center justify-center border border-slate-600">
-                                    <Tv size={14} />
-                                </div>
-                                <span className="text-xs font-bold text-slate-300 font-mono">{num}</span>
-                            </button>
-                        ))}
-                        {recentIucs.length === 0 && (
-                            <p className="text-center text-[10px] text-slate-500 py-4">No saved cards</p>
-                        )}
-                    </div>
-                </div>
-            )}
+            {/* Recent Recipients Chips */}
+            <div className="mt-2 flex flex-wrap gap-2">
+                {recentBeneficiaries.map((b) => (
+                    <button
+                      key={b.beneficiary_key}
+                      onClick={() => {
+                        if (b.smart_card_number) {
+                          setIuc(b.smart_card_number);
+                          verifyIuc(b.smart_card_number);
+                        }
+                        if (b.provider) setProvider(b.provider);
+                      }}
+                      className="px-3 py-1 rounded-full text-[10px] font-bold border border-slate-700 text-slate-300 hover:text-white hover:border-emerald-500 transition-colors"
+                    >
+                      {b.smart_card_number}
+                    </button>
+                ))}
+                {recentBeneficiaries.length === 0 && (
+                  <span className="text-[10px] text-slate-500">No saved cards</span>
+                )}
+            </div>
 
             <input
                 type="tel"

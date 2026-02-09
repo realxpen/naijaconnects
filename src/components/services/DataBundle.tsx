@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { ArrowLeft, Loader2, Zap, Wifi, CheckCircle2, History, User, X } from "lucide-react";
+import { ArrowLeft, Loader2, Zap, Wifi, CheckCircle2 } from "lucide-react";
 import { supabase } from "../../supabaseClient";
 import { dbService } from "../../services/dbService";
 import { CARRIERS } from "../../constants";
 import { useI18n } from "../../i18n";
 import { useToast } from "../ui/ToastProvider";
+import { beneficiaryService, Beneficiary } from "../../services/beneficiaryService";
 
 interface DataBundleProps {
   user: any;
@@ -27,15 +28,22 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
   const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
 
   // Recents & User Phone State
-  const [showRecents, setShowRecents] = useState(false);
-  const [recentNumbers, setRecentNumbers] = useState<string[]>([]);
+  const [recentBeneficiaries, setRecentBeneficiaries] = useState<Beneficiary[]>([]);
   const [userPhone, setUserPhone] = useState("");
 
   // --- 1. INITIALIZE & PRE-FILL USER PHONE ---
   useEffect(() => {
-    // Load local recent numbers
-    const saved = localStorage.getItem("data_recents");
-    if (saved) setRecentNumbers(JSON.parse(saved));
+    const loadRecents = async () => {
+      try {
+        const { data: auth } = await supabase.auth.getUser();
+        if (!auth?.user?.id) return;
+        const recents = await beneficiaryService.fetchRecent(auth.user.id, 'data', 5);
+        setRecentBeneficiaries(recents);
+      } catch (e) {
+        console.error("Error fetching beneficiaries:", e);
+      }
+    };
+    loadRecents();
 
     // Fetch user's phone and PRE-FILL input
     const fetchUserPhone = async () => {
@@ -143,12 +151,23 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
   }, [plans, activeTab, selectedPlanType]);
 
   // --- 5. SAVE RECENT NUMBER ---
-  const saveRecentNumber = (number: string) => {
+  const saveRecentNumber = async (number: string) => {
       if (number.length < 11 || number === userPhone) return;
-      const filtered = recentNumbers.filter(n => n !== number);
-      const newRecents = [number, ...filtered].slice(0, 5); 
-      setRecentNumbers(newRecents);
-      localStorage.setItem("data_recents", JSON.stringify(newRecents));
+      try {
+        const { data: auth } = await supabase.auth.getUser();
+        if (!auth?.user?.id) return;
+        await beneficiaryService.upsert({
+          user_id: auth.user.id,
+          type: 'data',
+          beneficiary_key: `phone:${number}|net:${networkId}`,
+          phone_number: number,
+          network: networkId
+        });
+        const recents = await beneficiaryService.fetchRecent(auth.user.id, 'data', 5);
+        setRecentBeneficiaries(recents);
+      } catch (e) {
+        console.error("Error saving beneficiary:", e);
+      }
   };
 
   // --- 6. PURCHASE LOGIC ---
@@ -204,6 +223,10 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
     return match ? `${match[1]} ${match[2]}` : "DATA";
   };
 
+  const stripSizeFromName = (name: string) => {
+    return name.replace(/(\d+\.?\d*)\s*(GB|MB|TB)/gi, '').replace(/\s+/g, ' ').trim();
+  };
+
   return (
     <div className="animate-in slide-in-from-right duration-300 pb-20">
       {/* Header */}
@@ -224,12 +247,9 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
         <div className="p-6 bg-slate-900 text-white relative">
             <div className="flex justify-between items-center mb-2">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t("airtime.mobile_number")}</label>
-                <button 
-                    onClick={() => setShowRecents(!showRecents)}
-                    className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded-full hover:bg-emerald-400/20 transition-colors"
-                >
-                    <History size={12} /> {t("common.recent")}
-                </button>
+                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    {t("common.recent")}
+                </div>
             </div>
 
             <div className="flex items-center gap-3 bg-slate-800/50 p-2 rounded-2xl border border-slate-700 backdrop-blur-sm relative">
@@ -252,53 +272,32 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
                 />
             </div>
 
-            {/* Recents Dropdown */}
-            {showRecents && (
-                <div className="mt-3 bg-slate-800 rounded-xl p-2 animate-in slide-in-from-top-2 border border-slate-700 absolute z-20 left-6 right-6 shadow-2xl">
-                    <div className="flex justify-between items-center px-2 mb-2 border-b border-slate-700 pb-2">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">{t("data.select_recent")}</span>
-                        <button onClick={() => setShowRecents(false)}><X size={14} className="text-slate-500 hover:text-white"/></button>
-                    </div>
-                    
-                    {/* My Number */}
-                    {userPhone && (
-                        <button 
-                            onClick={() => { setPhoneNumber(userPhone); setShowRecents(false); }}
-                            className="w-full flex items-center gap-3 p-3 bg-emerald-900/30 border border-emerald-900/50 hover:bg-emerald-900/50 rounded-lg transition-colors text-left mb-2 group"
-                        >
-                            <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                                <User size={14} />
-                            </div>
-                            <div>
-                                <p className="text-xs font-bold text-white group-hover:text-emerald-400 transition-colors">{t("common.my_number")}</p>
-                                <p className="text-[10px] text-emerald-400 font-mono tracking-wide">{userPhone}</p>
-                            </div>
-                        </button>
-                    )}
-
-                    {/* Recent Transactions */}
-                    <div className="max-h-[150px] overflow-y-auto custom-scrollbar">
-                        {recentNumbers.map((num, i) => (
-                            <button 
-                                key={i}
-                                onClick={() => { setPhoneNumber(num); setShowRecents(false); }}
-                                className="w-full flex items-center gap-3 p-2 hover:bg-slate-700 rounded-lg transition-colors text-left border-b border-slate-700/50 last:border-0"
-                            >
-                                <div className="w-8 h-8 rounded-full bg-slate-700 text-slate-400 flex items-center justify-center border border-slate-600">
-                                    <History size={14} />
-                                </div>
-                                <div>
-                                    <span className="block text-xs font-bold text-slate-300 font-mono">{num}</span>
-                                    <span className="text-[9px] text-slate-500">{t("data.recent_data")}</span>
-                                </div>
-                            </button>
-                        ))}
-                        {recentNumbers.length === 0 && (
-                            <p className="text-center text-[10px] text-slate-500 py-4">{t("common.no_recent_transactions")}</p>
-                        )}
-                    </div>
-                </div>
-            )}
+            {/* Recent Recipients Chips */}
+            <div className="mt-3 flex flex-wrap gap-2">
+                {userPhone && (
+                    <button
+                      onClick={() => setPhoneNumber(userPhone)}
+                      className="px-3 py-1 rounded-full text-[10px] font-bold border border-slate-700 text-slate-300 hover:text-white hover:border-emerald-500 transition-colors"
+                    >
+                      {t("common.my_number")}
+                    </button>
+                )}
+                {recentBeneficiaries.map((b) => (
+                    <button
+                      key={b.beneficiary_key}
+                      onClick={() => {
+                        if (b.phone_number) setPhoneNumber(b.phone_number);
+                        if (b.network) setNetworkId(b.network);
+                      }}
+                      className="px-3 py-1 rounded-full text-[10px] font-bold border border-slate-700 text-slate-300 hover:text-white hover:border-emerald-500 transition-colors"
+                    >
+                      {b.phone_number}
+                    </button>
+                ))}
+                {recentBeneficiaries.length === 0 && !userPhone && (
+                  <span className="text-[10px] text-slate-500">{t("common.no_recent_transactions")}</span>
+                )}
+            </div>
             
             {/* Manual Network Selector (Optional override) */}
             <div className="flex gap-2 mt-4 justify-end">
@@ -386,7 +385,7 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
                                     {getDisplaySize(plan.plan_name)}
                                 </h3>
                                 <p className="text-[9px] font-bold text-slate-400 line-clamp-2 leading-tight h-6">
-                                    {plan.plan_name}
+                                    {stripSizeFromName(plan.plan_name)}
                                 </p>
                             </div>
 

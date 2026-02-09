@@ -10,7 +10,7 @@ import { useToast } from '../components/ui/ToastProvider';
 
 interface AuthProps {
   onLogin: (email: string, pass: string) => Promise<void>;
-  onSignup: (email: string, name: string, phone: string, preferredLanguage: string, pass: string) => Promise<void>;
+  onSignup: (email: string, firstName: string, lastName: string, phone: string, preferredLanguage: string, pass: string) => Promise<void>;
   onForgotPassword: (email: string) => Promise<void>;
   isProcessing: boolean;
 }
@@ -22,7 +22,8 @@ const Auth: React.FC<AuthProps> = ({ onLogin, onSignup, onForgotPassword, isProc
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
   const [preferredLanguage, setPreferredLanguage] = useState<string>(language);
   const [activeSlide, setActiveSlide] = useState(0);
@@ -70,7 +71,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin, onSignup, onForgotPassword, isProc
       if (view === 'login') {
         await onLogin(email, password);
       } else if (view === 'signup') {
-        await onSignup(email, name, phone, preferredLanguage, password);
+        await onSignup(email, firstName, lastName, phone, preferredLanguage, password);
         showToast(t("auth.alert.account_created"), "success");
       } else if (view === 'forgot-password') {
         await onForgotPassword(email);
@@ -159,11 +160,18 @@ const Auth: React.FC<AuthProps> = ({ onLogin, onSignup, onForgotPassword, isProc
 
           <form onSubmit={handleSubmit} className="space-y-4">
             
-            {/* NAME INPUT (Signup Only) */}
+            {/* FIRST NAME INPUT (Signup Only) */}
             {view === 'signup' && (
               <div className="relative animate-in slide-in-from-bottom-2">
                 <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input type="text" required placeholder={t("auth.full_name")} value={name} onChange={e => setName(e.target.value)} className="w-full pl-12 p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 dark:bg-slate-950 dark:text-white font-bold outline-none focus:border-emerald-500 transition-all text-sm" />
+                <input type="text" required placeholder="First Name" value={firstName} onChange={e => setFirstName(e.target.value)} className="w-full pl-12 p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 dark:bg-slate-950 dark:text-white font-bold outline-none focus:border-emerald-500 transition-all text-sm" />
+              </div>
+            )}
+            {/* LAST NAME INPUT (Signup Only) */}
+            {view === 'signup' && (
+              <div className="relative animate-in slide-in-from-bottom-2">
+                <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <input type="text" placeholder="Last Name (optional)" value={lastName} onChange={e => setLastName(e.target.value)} className="w-full pl-12 p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 dark:bg-slate-950 dark:text-white font-bold outline-none focus:border-emerald-500 transition-all text-sm" />
               </div>
             )}
 

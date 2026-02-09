@@ -34,8 +34,10 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
   const [showEditProfile, setShowEditProfile] = useState(false);
 
   // Profile Data State
+  const nameParts = (user.name || '').trim().split(' ').filter(Boolean);
   const [formData, setFormData] = useState({
-    name: user.name || '',
+    firstName: nameParts[0] || '',
+    lastName: nameParts.slice(1).join(' ') || '',
     phone: user.phone || ''
   });
 
@@ -79,12 +81,19 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
   const handleUpdateProfile = async () => {
     setIsLoading(true);
     try {
+        if (!formData.firstName.trim()) {
+            setMsg({ text: t("profile.fill_all_fields"), type: 'error' });
+            setIsLoading(false);
+            return;
+        }
         await dbService.updateProfile(user.email, {
-            name: formData.name,
+            first_name: formData.firstName.trim(),
+            last_name: formData.lastName.trim() || null,
             phone: formData.phone
         });
         
-        await onUpdateUser(formData); 
+        const fullName = `${formData.firstName} ${formData.lastName}`.trim();
+        await onUpdateUser({ name: fullName, phone: formData.phone }); 
         setMsg({ text: t("profile.updated"), type: 'success' });
         setTimeout(() => {
             setMsg({ text: '', type: '' });
@@ -235,14 +244,26 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
             <div className="px-5 pb-5 animate-in slide-in-from-top-2">
                <div className="space-y-3 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700">
                   
-                  {/* Name Input */}
+                  {/* First Name Input */}
                   <div className="relative">
                       <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
                       <input 
                         type="text" 
-                        placeholder={t("auth.full_name")} 
-                        value={formData.name} 
-                        onChange={e => setFormData({...formData, name: e.target.value})} 
+                        placeholder="First Name" 
+                        value={formData.firstName} 
+                        onChange={e => setFormData({...formData, firstName: e.target.value})} 
+                        className="w-full pl-9 p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500"
+                      />
+                  </div>
+
+                  {/* Last Name Input */}
+                  <div className="relative">
+                      <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
+                      <input 
+                        type="text" 
+                        placeholder="Last Name (optional)" 
+                        value={formData.lastName} 
+                        onChange={e => setFormData({...formData, lastName: e.target.value})} 
                         className="w-full pl-9 p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500"
                       />
                   </div>

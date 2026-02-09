@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { ArrowLeft, Loader2, Building2, ChevronRight, Check, Zap, Wallet, History, X } from "lucide-react";
+import { ArrowLeft, Loader2, Building2, ChevronRight, Check, Zap, Wallet } from "lucide-react";
 import { supabase } from "../../supabaseClient";
 import { dbService } from "../../services/dbService";
 import { DISCOS } from "../../constants";
 import { useToast } from "../ui/ToastProvider";
+import { beneficiaryService, Beneficiary } from "../../services/beneficiaryService";
 
 interface ElectricityProps {
   user: any;
@@ -23,13 +24,21 @@ const Electricity = ({ user, onUpdateBalance, onBack }: ElectricityProps) => {
   const [showDiscoModal, setShowDiscoModal] = useState(false);
 
   // Recents State
-  const [showRecents, setShowRecents] = useState(false);
-  const [recentMeters, setRecentMeters] = useState<string[]>([]);
+  const [recentBeneficiaries, setRecentBeneficiaries] = useState<Beneficiary[]>([]);
 
   // --- 1. INITIALIZE & PRE-FILL ---
   useEffect(() => {
-    const saved = localStorage.getItem("electricity_recents");
-    if (saved) setRecentMeters(JSON.parse(saved));
+    const loadRecents = async () => {
+      try {
+        const { data: auth } = await supabase.auth.getUser();
+        if (!auth?.user?.id) return;
+        const recents = await beneficiaryService.fetchRecent(auth.user.id, 'electricity', 5);
+        setRecentBeneficiaries(recents);
+      } catch (e) {
+        console.error("Error fetching beneficiaries:", e);
+      }
+    };
+    loadRecents();
 
     // Pre-fill phone for token delivery
     if (user.phone) setPhone(user.phone);
@@ -57,12 +66,24 @@ const Electricity = ({ user, onUpdateBalance, onBack }: ElectricityProps) => {
   };
 
   // --- 3. SAVE RECENT METER ---
-  const saveRecentMeter = (meter: string) => {
-      if (meter.length < 10) return;
-      const filtered = recentMeters.filter(m => m !== meter);
-      const newRecents = [meter, ...filtered].slice(0, 5); 
-      setRecentMeters(newRecents);
-      localStorage.setItem("electricity_recents", JSON.stringify(newRecents));
+  const saveRecentMeter = async (meter: string) => {
+      if (meter.length < 10 || !disco) return;
+      try {
+        const { data: auth } = await supabase.auth.getUser();
+        if (!auth?.user?.id) return;
+        await beneficiaryService.upsert({
+          user_id: auth.user.id,
+          type: 'electricity',
+          beneficiary_key: `meter:${meter}|disco:${disco}|type:${meterType}`,
+          meter_number: meter,
+          disco,
+          meter_type: String(meterType)
+        });
+        const recents = await beneficiaryService.fetchRecent(auth.user.id, 'electricity', 5);
+        setRecentBeneficiaries(recents);
+      } catch (e) {
+        console.error("Error saving beneficiary:", e);
+      }
   };
 
   // --- 4. PURCHASE LOGIC ---
@@ -191,12 +212,9 @@ const Electricity = ({ user, onUpdateBalance, onBack }: ElectricityProps) => {
                                 {customerName}
                             </span>
                         )}
-                        <button 
-                            onClick={() => setShowRecents(!showRecents)}
-                            className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded-full hover:bg-emerald-400/20 transition-colors"
-                        >
-                            <History size={12} /> Recent
-                        </button>
+                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                            Recent
+                        </div>
                     </div>
                 </div>
                 
@@ -214,32 +232,26 @@ const Electricity = ({ user, onUpdateBalance, onBack }: ElectricityProps) => {
                     />
                 </div>
 
-                {/* Recents Dropdown */}
-                {showRecents && (
-                    <div className="mt-3 bg-slate-800 rounded-xl p-2 animate-in slide-in-from-top-2 border border-slate-700 absolute z-20 left-0 right-0 shadow-2xl">
-                        <div className="flex justify-between items-center px-2 mb-2 border-b border-slate-700 pb-2">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase">Select Recent Meter</span>
-                            <button onClick={() => setShowRecents(false)}><X size={14} className="text-slate-500 hover:text-white"/></button>
-                        </div>
-                        <div className="max-h-[150px] overflow-y-auto custom-scrollbar">
-                            {recentMeters.map((m, i) => (
-                                <button 
-                                    key={i}
-                                    onClick={() => { setMeterNumber(m); setShowRecents(false); if(disco) verifyMeter(m); }}
-                                    className="w-full flex items-center gap-3 p-2 hover:bg-slate-700 rounded-lg transition-colors text-left border-b border-slate-700/50 last:border-0"
-                                >
-                                    <div className="w-8 h-8 rounded-full bg-slate-700 text-slate-400 flex items-center justify-center border border-slate-600">
-                                        <Zap size={14} />
-                                    </div>
-                                    <span className="text-xs font-bold text-slate-300 font-mono">{m}</span>
-                                </button>
-                            ))}
-                            {recentMeters.length === 0 && (
-                                <p className="text-center text-[10px] text-slate-500 py-4">No saved meters</p>
-                            )}
-                        </div>
-                    </div>
-                )}
+                {/* Recent Recipients Chips */}
+                <div className="mt-3 flex flex-wrap gap-2">
+                    {recentBeneficiaries.map((b) => (
+                        <button
+                          key={b.beneficiary_key}
+                          onClick={() => {
+                            if (b.meter_number) setMeterNumber(b.meter_number);
+                            if (b.disco) setDisco(b.disco);
+                            if (b.meter_type) setMeterType(Number(b.meter_type));
+                            if (b.meter_number && (b.disco || disco)) verifyMeter(b.meter_number);
+                          }}
+                          className="px-3 py-1 rounded-full text-[10px] font-bold border border-slate-700 text-slate-300 hover:text-white hover:border-emerald-500 transition-colors"
+                        >
+                          {b.meter_number}
+                        </button>
+                    ))}
+                    {recentBeneficiaries.length === 0 && (
+                      <span className="text-[10px] text-slate-500">No saved meters</span>
+                    )}
+                </div>
             </div>
         </div>
 

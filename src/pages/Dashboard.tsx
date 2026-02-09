@@ -8,6 +8,7 @@ import {
 import { supabase } from "../supabaseClient";
 import { useI18n } from "../i18n";
 import { useToast } from "../components/ui/ToastProvider";
+import { beneficiaryService } from "../services/beneficiaryService";
 
 // --- SERVICE COMPONENTS ---
 import Airtime from "../components/services/Airtime";
@@ -245,6 +246,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
   const [bankCode, setBankCode] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [isWithdrawing, setIsWithdrawing] = useState(false);
+  const [recentWithdraws, setRecentWithdraws] = useState<any[]>([]);
   
   // --- STATE VARIABLES ---
   const [accountName, setAccountName] = useState("");
@@ -256,7 +258,10 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
 
   useEffect(() => {
     const hour = new Date().getHours();
-    const firstName = user?.name?.split(' ')[0] || 'User';
+    const firstName =
+      user?.name?.trim()?.split(' ')[0] ||
+      user?.email?.split('@')[0] ||
+      'User';
 
     let messages: string[] = [];
 
@@ -358,6 +363,20 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
   };
 
   useEffect(() => { fetchHistory(); fetchUser(); }, [user.email]);
+
+  useEffect(() => {
+    const loadWithdrawBeneficiaries = async () => {
+      try {
+        const { data: auth } = await supabase.auth.getUser();
+        if (!auth?.user?.id) return;
+        const recents = await beneficiaryService.fetchRecent(auth.user.id, 'withdraw', 5);
+        setRecentWithdraws(recents);
+      } catch (e) {
+        console.error("Failed to load withdraw beneficiaries:", e);
+      }
+    };
+    loadWithdrawBeneficiaries();
+  }, []);
 
   // --- OPay DEPOSIT LOGIC ---
   const handleStartDeposit = async () => {
@@ -563,6 +582,24 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
       setAccountNumber("");
       setAccountName(""); 
       setBankCode("");
+
+      try {
+        const { data: auth } = await supabase.auth.getUser();
+        if (auth?.user?.id) {
+          await beneficiaryService.upsert({
+            user_id: auth.user.id,
+            type: 'withdraw',
+            beneficiary_key: `acct:${accountNumber}|bank:${bankCode}`,
+            account_number: accountNumber,
+            bank_code: bankCode,
+            account_name: accountName
+          });
+          const recents = await beneficiaryService.fetchRecent(auth.user.id, 'withdraw', 5);
+          setRecentWithdraws(recents);
+        }
+      } catch (e) {
+        console.error("Failed to save withdraw beneficiary:", e);
+      }
       
     } catch (error: any) {
       console.error("Withdrawal Error Full:", error);
@@ -828,6 +865,28 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
                     ))}
                 </select>
             </div>
+
+            {recentWithdraws.length > 0 && (
+              <div className="mb-4">
+                <p className="text-[10px] font-black uppercase text-slate-400 mb-2">Saved Beneficiaries</p>
+                <div className="flex flex-wrap gap-2">
+                  {recentWithdraws.map((b) => (
+                    <button
+                      key={b.beneficiary_key}
+                      onClick={() => {
+                        if (b.bank_code) setBankCode(b.bank_code);
+                        if (b.account_number) setAccountNumber(b.account_number);
+                        if (b.account_name) setAccountName(b.account_name);
+                        if (b.account_number && b.bank_code) resolveAccount(b.account_number, b.bank_code);
+                      }}
+                      className="px-3 py-1 rounded-full text-[10px] font-bold border border-slate-700 text-slate-300 hover:text-white hover:border-emerald-500 transition-colors"
+                    >
+                      {b.account_name || b.account_number}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <label className="block text-xs font-bold text-slate-500 mb-1">Account Number</label>
             <div className="mb-2">
