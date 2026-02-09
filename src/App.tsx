@@ -3,6 +3,7 @@ import { supabase } from './supabaseClient';
 import { dbService } from './services/dbService';
 import { I18nProvider, LanguageCode } from './i18n';
 import { ToastProvider, useToast } from './components/ui/ToastProvider';
+import { Analytics } from '@vercel/analytics/react';
 // 1. Import the BroadcastManager
 import BroadcastManager from './components/BroadcastManager';
 import { CONSTELLATIONS } from './data/constellations';
@@ -441,6 +442,7 @@ const App: React.FC = () => {
 const AppWithProviders: React.FC = () => (
   <ToastProvider>
     <App />
+    <Analytics />
   </ToastProvider>
 );
 
