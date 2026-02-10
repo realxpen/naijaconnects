@@ -173,6 +173,8 @@ const App: React.FC = () => {
       const nightKey = getNightKey(now);
       if (!nightKey) {
         setIsNightSky(false);
+        setShowLearn(false);
+        learnHoldRef.current = false;
         return;
       }
       setIsNightSky(true);
@@ -212,7 +214,7 @@ const App: React.FC = () => {
       }
       if (!cancelled) {
         setSplashDelayDone(true);
-        if (!learnHoldRef.current) setIsSplashScreen(false);
+        if (!learnHoldRef.current || !isNight) setIsSplashScreen(false);
       }
     };
 
