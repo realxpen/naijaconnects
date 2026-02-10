@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">NaijaConnect</string>
+    <string name="title_activity_main">NaijaConnect</string>
+    <string name="package_name">com.swifna.app</string>
+    <string name="custom_url_scheme">com.swifna.app</string>
+</resources>

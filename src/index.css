@@ -199,3 +199,8 @@ body {
 .balance-pill span {
   color: #FFFFFF !important;
 }
+
+/* Hide overlays during receipt capture */
+body.capture-mode .toast-overlay {
+  display: none !important;
+}

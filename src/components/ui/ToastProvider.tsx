@@ -72,7 +72,7 @@ export const ToastProvider = ({ children }: { children: React.ReactNode }) => {
       {activeToast && (() => {
         const v = variantStyles[activeToast.variant];
         return (
-          <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 p-4">
+          <div className="toast-overlay fixed inset-0 z-[90] flex items-center justify-center bg-black/40 p-4">
             <div className={`w-full max-w-sm rounded-3xl border p-6 shadow-2xl ${v.wrap}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">

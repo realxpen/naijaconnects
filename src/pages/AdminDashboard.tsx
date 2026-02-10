@@ -30,7 +30,8 @@ const AdminDashboard = ({ onBack }: { onBack: () => void }) => {
   useEffect(() => { fetchRequests(); }, []);
 
   const handleApprove = async (tx: any) => {
-    if(!window.confirm(`Confirm transfer of ₦${tx.amount} to ${tx.meta?.account_name}?`)) return;
+    const meta = tx.meta || tx.metadata || {};
+    if(!window.confirm(`Confirm transfer of ₦${tx.amount} to ${meta?.account_name}?`)) return;
     setProcessingId(tx.id);
     try {
         const { error } = await supabase.from("transactions").update({ status: "success" }).eq("id", tx.id);
@@ -50,7 +51,8 @@ const AdminDashboard = ({ onBack }: { onBack: () => void }) => {
     setProcessingId(tx.id);
     try {
         const { data: userProfile } = await supabase.from("profiles").select("wallet_balance").eq("id", tx.user_id).single();
-        const refundAmount = tx.meta?.total_deducted || tx.amount;
+        const meta = tx.meta || tx.metadata || {};
+        const refundAmount = meta?.total_deducted || tx.amount;
         const newBalance = (userProfile?.wallet_balance || 0) + refundAmount;
 
         await supabase.from("profiles").update({ wallet_balance: newBalance }).eq("id", tx.user_id);
@@ -128,6 +130,10 @@ const AdminDashboard = ({ onBack }: { onBack: () => void }) => {
                   ) : (
                     requests.map((tx) => (
                         <div key={tx.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+                          {(() => {
+                            const meta = tx.meta || tx.metadata || {};
+                            return (
+                              <>
                           <div className="flex justify-between items-start mb-4 border-b border-slate-50 pb-3">
                             <div>
                                 <h3 className="font-black text-xl text-slate-800">₦{tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
@@ -142,19 +148,19 @@ const AdminDashboard = ({ onBack }: { onBack: () => void }) => {
                           <div className="bg-slate-50 p-4 rounded-xl text-sm space-y-2 mb-4 border border-slate-100">
                             <div className="flex justify-between">
                                 <span className="text-slate-500">Bank:</span> 
-                                <span className="font-bold text-slate-700">{tx.meta?.bank_name}</span>
+                                <span className="font-bold text-slate-700">{meta?.bank_name}</span>
                             </div>
                             <div className="flex justify-between items-center cursor-pointer hover:bg-slate-200 p-1 -mx-1 rounded transition" onClick={() => copyToClipboard(tx.meta?.account_number)}>
                                 <span className="text-slate-500">Account:</span> 
-                                <span className="font-bold text-blue-600 flex items-center gap-1">{tx.meta?.account_number} <Copy size={12}/></span>
+                                <span className="font-bold text-blue-600 flex items-center gap-1">{meta?.account_number} <Copy size={12}/></span>
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-slate-500">Name:</span> 
-                                <span className="font-bold text-slate-800">{tx.meta?.account_name}</span>
+                                <span className="font-bold text-slate-800">{meta?.account_name}</span>
                             </div>
                             <div className="flex justify-between pt-2 border-t border-slate-200 mt-2">
                                 <span className="text-slate-500">Fee Charged:</span> 
-                                <span className="font-bold text-slate-700">₦{Number(tx.meta?.fee || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                <span className="font-bold text-slate-700">₦{Number(meta?.fee || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </div>
                           </div>
 
@@ -175,6 +181,9 @@ const AdminDashboard = ({ onBack }: { onBack: () => void }) => {
                                 {processingId === tx.id ? <Loader2 className="animate-spin" size={18}/> : <><Check size={18}/> Approve</>}
                              </button>
                           </div>
+                              </>
+                            );
+                          })()}
                         </div>
                     ))
                   )}

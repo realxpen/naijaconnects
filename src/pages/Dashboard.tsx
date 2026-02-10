@@ -177,11 +177,13 @@ const ReceiptView = ({ tx, onClose }: { tx: Transaction; onClose: () => void }) 
 
     const exportCanvas = async () => {
       if (!receiptRef.current) return null;
+      document.body.classList.add("capture-mode");
       const canvas = await html2canvas(receiptRef.current, {
         backgroundColor: "#ffffff",
         scale: 2,
         ignoreElements: (el) => (el as HTMLElement).dataset?.noCapture === "true",
       });
+      document.body.classList.remove("capture-mode");
       return canvas;
     };
 
