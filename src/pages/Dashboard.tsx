@@ -470,6 +470,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
   const [history, setHistory] = useState<Transaction[]>([]);
   const [pullDistance, setPullDistance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [pushStatus, setPushStatus] = useState<'idle' | 'enabled' | 'blocked' | 'error' | 'loading'>('idle');
   const pullStartY = useRef<number | null>(null);
   
   // Receipt & Modal States
@@ -496,6 +497,93 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
   // --- STATE VARIABLES ---
   const [accountName, setAccountName] = useState("");
   const [isResolving, setIsResolving] = useState(false);
+
+  const urlBase64ToUint8Array = (base64String: string) => {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  };
+
+  const checkPushStatus = async () => {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+      setPushStatus('error');
+      return;
+    }
+    if (Notification.permission === 'denied') {
+      setPushStatus('blocked');
+      return;
+    }
+    if (Notification.permission !== 'granted') {
+      setPushStatus('idle');
+      return;
+    }
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (!reg) {
+        setPushStatus('idle');
+        return;
+      }
+      const sub = await reg.pushManager.getSubscription();
+      setPushStatus(sub ? 'enabled' : 'idle');
+    } catch {
+      setPushStatus('error');
+    }
+  };
+
+  const enablePushFromDashboard = async () => {
+    try {
+      if (!user?.id) return;
+      if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+        setPushStatus('error');
+        return;
+      }
+      setPushStatus('loading');
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        setPushStatus('blocked');
+        return;
+      }
+      const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
+      if (!vapidPublicKey) {
+        setPushStatus('error');
+        return;
+      }
+      const reg = await navigator.serviceWorker.register("/sw.js");
+      const existing = await reg.pushManager.getSubscription();
+      const sub =
+        existing ||
+        (await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+        }));
+
+      const json = sub.toJSON();
+      const endpoint = json.endpoint;
+      const p256dh = json.keys?.p256dh || "";
+      const auth = json.keys?.auth || "";
+      if (!endpoint || !p256dh || !auth) {
+        setPushStatus('error');
+        return;
+      }
+
+      await supabase
+        .from("push_subscriptions")
+        .upsert(
+          { user_id: user.id, endpoint, p256dh, auth, updated_at: new Date().toISOString() },
+          { onConflict: "endpoint" }
+        );
+
+      setPushStatus('enabled');
+      showToast("Notifications enabled", "success");
+    } catch {
+      setPushStatus('error');
+    }
+  };
 
   // --- DYNAMIC GREETING STATE (FIXED LOGIC) ---
   const [greeting, setGreeting] = useState("");
@@ -564,6 +652,10 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
     return () => clearInterval(interval);
   }, [user]);
   // --- END DYNAMIC GREETING STATE ---
+
+  useEffect(() => {
+    checkPushStatus();
+  }, []);
 
 
   // --- DYNAMIC FEE CALCULATORS ---
@@ -1018,6 +1110,23 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
         </h1>
       </div>
       {/* --- END HEADER --- */}
+
+      {/* PUSH NOTIFICATIONS PROMPT */}
+      {pushStatus !== 'enabled' && (
+        <section className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-black text-emerald-700 uppercase tracking-widest">Stay Up To Date</p>
+            <p className="text-[10px] text-emerald-700/80 font-bold">Enable alerts for new broadcasts & updates.</p>
+          </div>
+          <button
+            onClick={enablePushFromDashboard}
+            disabled={pushStatus === 'loading'}
+            className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest shadow-sm disabled:opacity-70"
+          >
+            {pushStatus === 'loading' ? 'Requesting…' : 'Enable'}
+          </button>
+        </section>
+      )}
 
       {/* WALLET CARD */}
       <section className="bg-emerald-600 dark:bg-slate-800 p-6 rounded-[35px] text-white shadow-xl relative overflow-hidden">

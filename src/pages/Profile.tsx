@@ -246,6 +246,32 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
     return outputArray;
   };
 
+  const checkPushStatus = async () => {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+      setPushStatus('error');
+      return;
+    }
+    if (Notification.permission === 'denied') {
+      setPushStatus('blocked');
+      return;
+    }
+    if (Notification.permission !== 'granted') {
+      setPushStatus('idle');
+      return;
+    }
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (!reg) {
+        setPushStatus('idle');
+        return;
+      }
+      const sub = await reg.pushManager.getSubscription();
+      setPushStatus(sub ? 'enabled' : 'idle');
+    } catch {
+      setPushStatus('error');
+    }
+  };
+
   const enablePushNotifications = async () => {
     try {
       if (!user.id) return;
@@ -294,6 +320,10 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
       setPushStatus('error');
     }
   };
+
+  useEffect(() => {
+    checkPushStatus();
+  }, []);
 
   const getAvatar = () => {
     if (user.avatar_url) return user.avatar_url;

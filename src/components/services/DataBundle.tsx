@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { ArrowLeft, Loader2, Zap, Wifi, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Loader2, Zap, Wifi, CheckCircle2, Star } from "lucide-react";
 import { supabase } from "../../supabaseClient";
 import { dbService } from "../../services/dbService";
 import { CARRIERS } from "../../constants";
@@ -31,6 +31,8 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
   const [activeTab, setActiveTab] = useState<"HOT" | "Daily" | "Weekly" | "Monthly">("HOT");
   const [selectedPlanType, setSelectedPlanType] = useState("ALL"); // ALL, SME, CG, GIFTING
   const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
+  const [favoriteOnly, setFavoriteOnly] = useState(false);
+  const [favoritePlans, setFavoritePlans] = useState<Set<string>>(new Set());
 
   // Recents & User Phone State
   const [recentBeneficiaries, setRecentBeneficiaries] = useState<Beneficiary[]>([]);
@@ -79,6 +81,29 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
     };
     fetchUserPhone();
   }, [user]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const key = `swifna_fav_plans_${user.id}`;
+    const raw = localStorage.getItem(key);
+    if (!raw) return setFavoritePlans(new Set());
+    try {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) setFavoritePlans(new Set(arr));
+    } catch {
+      setFavoritePlans(new Set());
+    }
+  }, [user?.id]);
+
+  const toggleFavorite = (planId: string) => {
+    if (!user?.id) return;
+    const next = new Set(favoritePlans);
+    if (next.has(planId)) next.delete(planId);
+    else next.add(planId);
+    setFavoritePlans(next);
+    const key = `swifna_fav_plans_${user.id}`;
+    localStorage.setItem(key, JSON.stringify(Array.from(next)));
+  };
 
   // --- 2. ROBUST AUTO-DETECT NETWORK ---
   useEffect(() => {
@@ -131,6 +156,7 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
   // --- 4. FILTERING LOGIC ---
   const filteredPlans = useMemo(() => {
     return plans.filter((p) => {
+      if (favoriteOnly && !favoritePlans.has(String(p.plan_id))) return false;
       const name = (p.plan_name || "").toUpperCase();
       const validity = (p.validity || "").toUpperCase();
 
@@ -157,7 +183,7 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
 
       return true;
     });
-  }, [plans, activeTab, selectedPlanType]);
+  }, [plans, activeTab, selectedPlanType, favoriteOnly, favoritePlans]);
 
   // --- 5. SAVE RECENT NUMBER ---
   const saveRecentNumber = async (number: string) => {
@@ -387,6 +413,17 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
 
             {/* SUB-TABS */}
             <div className="flex gap-2 mb-6 overflow-x-auto custom-scrollbar pb-2">
+                 <button
+                    onClick={() => setFavoriteOnly(!favoriteOnly)}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase whitespace-nowrap transition-all flex items-center gap-1 ${
+                        favoriteOnly
+                        ? "bg-emerald-700 text-white shadow-md dark:bg-slate-900"
+                        : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                    }`}
+                 >
+                    <Star size={12} className={favoriteOnly ? "text-yellow-300" : "text-slate-400"} />
+                    Favorites
+                 </button>
                  {[
                    { key: "ALL", label: t("data.type.all") },
                    { key: "SME", label: t("data.type.sme") },
@@ -424,8 +461,21 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
                                 : "border-slate-100 bg-slate-50 hover:border-emerald-200"
                             }`}
                         >
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleFavorite(String(plan.plan_id));
+                              }}
+                              className="absolute top-2 right-2 p-1 rounded-full bg-white/80 border border-slate-200 hover:border-emerald-400 transition-colors"
+                            >
+                              <Star
+                                size={14}
+                                className={favoritePlans.has(String(plan.plan_id)) ? "text-yellow-400 fill-yellow-400" : "text-slate-300"}
+                              />
+                            </button>
                             {selectedPlan?.plan_id === plan.plan_id && (
-                                <div className="absolute top-2 right-2 text-emerald-600">
+                                <div className="absolute top-2 left-2 text-emerald-600">
                                     <CheckCircle2 size={16} fill="currentColor" className="text-white" />
                                 </div>
                             )}

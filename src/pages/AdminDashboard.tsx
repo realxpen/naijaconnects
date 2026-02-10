@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
-import { Check, X, Loader2, Copy, ArrowLeft, Megaphone, Banknote } from "lucide-react";
+import { Check, X, Loader2, Copy, ArrowLeft, Megaphone, Banknote, Send } from "lucide-react";
 import { useToast } from "../components/ui/ToastProvider";
 import AdminBroadcasts from "../components/AdminBroadcasts"; // <--- ENSURE THIS IMPORT EXISTS
+import AdminPush from "../components/AdminPush";
 
 const AdminDashboard = ({ onBack }: { onBack: () => void }) => {
   // 1. ADDED TAB STATE
-  const [activeTab, setActiveTab] = useState<'withdrawals' | 'broadcasts'>('withdrawals');
+  const [activeTab, setActiveTab] = useState<'withdrawals' | 'broadcasts' | 'push'>('withdrawals');
   
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -104,6 +105,12 @@ const AdminDashboard = ({ onBack }: { onBack: () => void }) => {
           >
               <Megaphone size={16}/> Broadcasts
           </button>
+          <button 
+            onClick={() => setActiveTab('push')}
+            className={`flex-1 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all ${activeTab === 'push' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+          >
+              <Send size={16}/> Push
+          </button>
       </div>
 
       {/* 3. CONDITIONAL RENDERING */}
@@ -113,6 +120,12 @@ const AdminDashboard = ({ onBack }: { onBack: () => void }) => {
           {activeTab === 'broadcasts' && (
               <div className="animate-in slide-in-from-right-4 duration-300">
                   <AdminBroadcasts />
+              </div>
+          )}
+
+          {activeTab === 'push' && (
+              <div className="animate-in slide-in-from-right-4 duration-300">
+                  <AdminPush />
               </div>
           )}
 

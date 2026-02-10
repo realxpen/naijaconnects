@@ -315,12 +315,7 @@ const App: React.FC = () => {
 
   const ensurePushSubscription = async (userId: string) => {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
-    if (localStorage.getItem("push_permission_requested") === "true") return;
-    localStorage.setItem("push_permission_requested", "true");
-
-    const permission = await Notification.requestPermission();
-    if (permission !== "granted") return;
-
+    if (typeof Notification !== "undefined" && Notification.permission !== "granted") return;
     const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
     if (!vapidPublicKey) return;
 
