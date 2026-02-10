@@ -19,17 +19,14 @@
   --input-glow: rgba(255,255,255,0.03);
 }
 
+html {
+  zoom: 0.8;
+}
+
 html,
 body {
   width: 100%;
   min-height: 100%;
-}
-
-.app-scale {
-  transform: scale(0.75);
-  transform-origin: top left;
-  width: 133.3333%;
-  height: 133.3333%;
 }
 
 body {
@@ -201,19 +198,4 @@ body {
 .balance-pill svg,
 .balance-pill span {
   color: #FFFFFF !important;
-}
-
-/* Night sky star glow */
-.star-glow {
-  filter: drop-shadow(0 0 4px rgba(245, 196, 0, 0.55)) drop-shadow(0 0 10px rgba(245, 196, 0, 0.35));
-  animation: starTwinkle 3.6s ease-in-out infinite;
-}
-
-.star-line {
-  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.15));
-}
-
-@keyframes starTwinkle {
-  0%, 100% { opacity: 0.65; }
-  50% { opacity: 1; }
 }
