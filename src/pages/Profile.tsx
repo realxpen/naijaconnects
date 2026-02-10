@@ -55,6 +55,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
     confirm: '',
     length: (user.pinLength === 4 || user.pinLength === 6) ? user.pinLength : 4
   });
+  const [pushStatus, setPushStatus] = useState<'idle' | 'enabled' | 'blocked' | 'error' | 'loading'>('idle');
 
   // --- THEME LOGIC ---
   const applyThemeMode = (mode: ThemeMode) => {
@@ -231,6 +232,66 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
       setMsg({ text: e.message || "Failed to update PIN", type: 'error' });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const urlBase64ToUint8Array = (base64String: string) => {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  };
+
+  const enablePushNotifications = async () => {
+    try {
+      if (!user.id) return;
+      if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+        setPushStatus('error');
+        return;
+      }
+      setPushStatus('loading');
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        setPushStatus('blocked');
+        return;
+      }
+      const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
+      if (!vapidPublicKey) {
+        setPushStatus('error');
+        return;
+      }
+      const reg = await navigator.serviceWorker.register("/sw.js");
+      const existing = await reg.pushManager.getSubscription();
+      const sub =
+        existing ||
+        (await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+        }));
+
+      const json = sub.toJSON();
+      const endpoint = json.endpoint;
+      const p256dh = json.keys?.p256dh || "";
+      const auth = json.keys?.auth || "";
+      if (!endpoint || !p256dh || !auth) {
+        setPushStatus('error');
+        return;
+      }
+
+      await supabase
+        .from("push_subscriptions")
+        .upsert(
+          { user_id: user.id, endpoint, p256dh, auth, updated_at: new Date().toISOString() },
+          { onConflict: "endpoint" }
+        );
+
+      setPushStatus('enabled');
+    } catch {
+      setPushStatus('error');
     }
   };
 
@@ -471,11 +532,11 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
             </div>
          </div>
 
-         {/* Support */}
-         <button
-           onClick={() => window.open('https://wa.me/2349151618451', '_blank')}
-           className="w-full bg-white dark:bg-slate-800 p-5 rounded-[25px] flex items-center justify-between shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-all"
-         >
+      {/* Support */}
+      <button
+        onClick={() => window.open('https://wa.me/2349151618451', '_blank')}
+        className="w-full bg-white dark:bg-slate-800 p-5 rounded-[25px] flex items-center justify-between shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-all"
+      >
             <div className="flex items-center gap-4">
                <div className="p-3 bg-orange-100 text-orange-600 rounded-xl dark:bg-orange-900/30 dark:text-orange-300"><Mail size={20}/></div>
                <div className="text-left">
@@ -484,7 +545,31 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
                </div>
             </div>
             <ChevronRight size={18} className="text-slate-300"/>
-         </button>
+        </button>
+
+      {/* Push Notifications */}
+      <button
+        onClick={enablePushNotifications}
+        className="w-full bg-white dark:bg-slate-800 p-5 rounded-[25px] flex items-center justify-between shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-all"
+      >
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-emerald-100 text-emerald-600 rounded-xl dark:bg-emerald-900/30 dark:text-emerald-300"><ShieldCheck size={20}/></div>
+          <div className="text-left">
+            <h4 className="font-black text-sm dark:text-white">Notifications</h4>
+            <p className="text-[10px] text-slate-400 font-bold uppercase">
+              {pushStatus === 'enabled' ? 'Enabled' : pushStatus === 'blocked' ? 'Blocked' : 'Enable push alerts'}
+            </p>
+          </div>
+        </div>
+        <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${
+          pushStatus === 'enabled' ? 'bg-emerald-100 text-emerald-700' :
+          pushStatus === 'blocked' ? 'bg-rose-100 text-rose-600' :
+          pushStatus === 'loading' ? 'bg-slate-100 text-slate-500' :
+          'bg-slate-100 text-slate-500'
+        }`}>
+          {pushStatus === 'loading' ? 'Requesting…' : 'Enable'}
+        </div>
+      </button>
       </div>
 
       <p className="text-center text-[9px] text-slate-300 font-black uppercase tracking-[0.2em] pt-2">Swifna v1.0.0</p>
