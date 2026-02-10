@@ -41,6 +41,7 @@ const App: React.FC = () => {
   const learnHoldRef = useRef(false);
   const [splashDelayDone, setSplashDelayDone] = useState(false);
   const [showPinSetup, setShowPinSetup] = useState(false);
+  const [pushReady, setPushReady] = useState(false);
 
   const isNightWindow = (d: Date) => {
     const h = d.getHours();
@@ -301,10 +302,60 @@ const App: React.FC = () => {
     setUser(prev => prev ? { ...prev, balance: newBalance } : prev);
   };
 
+  const urlBase64ToUint8Array = (base64String: string) => {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  };
+
+  const ensurePushSubscription = async (userId: string) => {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    if (localStorage.getItem("push_permission_requested") === "true") return;
+    localStorage.setItem("push_permission_requested", "true");
+
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") return;
+
+    const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
+    if (!vapidPublicKey) return;
+
+    const reg = await navigator.serviceWorker.register("/sw.js");
+    const existing = await reg.pushManager.getSubscription();
+    const sub =
+      existing ||
+      (await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+      }));
+
+    const json = sub.toJSON();
+    const endpoint = json.endpoint;
+    const p256dh = json.keys?.p256dh || "";
+    const auth = json.keys?.auth || "";
+    if (!endpoint || !p256dh || !auth) return;
+
+    await supabase
+      .from("push_subscriptions")
+      .upsert(
+        { user_id: userId, endpoint, p256dh, auth, updated_at: new Date().toISOString() },
+        { onConflict: "endpoint" }
+      );
+  };
+
   // Persist language
   useEffect(() => {
     localStorage.setItem("language", language);
   }, [language]);
+
+  useEffect(() => {
+    if (!user?.id || pushReady) return;
+    ensurePushSubscription(user.id).finally(() => setPushReady(true));
+  }, [user?.id, pushReady]);
 
   // --- RENDER ---
 

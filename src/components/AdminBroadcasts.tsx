@@ -28,17 +28,28 @@ const AdminBroadcasts = () => {
     const endTime = new Date();
     endTime.setHours(endTime.getHours() + Number(hoursValid));
 
-    const { error } = await supabase.from('broadcasts').insert({
+    const { data: created, error } = await supabase.from('broadcasts').insert({
       message,
       type,
       show_once: showOnce,
       end_time: endTime.toISOString(),
       duration: Number(duration) // <--- Save the duration
-    });
+    }).select().single();
 
     if (error) {
         showToast(error.message, "error");
     } else {
+        try {
+          await supabase.functions.invoke("send-push", {
+            body: {
+              title: "Swifna",
+              message,
+              url: "https://swifna-liart.vercel.app/"
+            }
+          });
+        } catch (e) {
+          console.error("Push send failed", e);
+        }
         showToast("Broadcast Live!", "success");
         setIsCreating(false);
         setMessage('');
