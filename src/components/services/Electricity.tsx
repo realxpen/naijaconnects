@@ -24,6 +24,7 @@ const Electricity = ({ user, onUpdateBalance, onBack }: ElectricityProps) => {
   const [meterNumber, setMeterNumber] = useState("");
   const [meterType, setMeterType] = useState(1); // 1 = Prepaid, 2 = Postpaid
   const [amount, setAmount] = useState("");
+  const [amountWarning, setAmountWarning] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState("");
   const [phone, setPhone] = useState("");
   const [showDiscoModal, setShowDiscoModal] = useState(false);
@@ -31,6 +32,7 @@ const Electricity = ({ user, onUpdateBalance, onBack }: ElectricityProps) => {
   const [pinError, setPinError] = useState("");
   const [pendingAction, setPendingAction] = useState<null | (() => void)>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [saveBeneficiary, setSaveBeneficiary] = useState(true);
 
   // Recents State
   const [recentBeneficiaries, setRecentBeneficiaries] = useState<Beneficiary[]>([]);
@@ -95,9 +97,27 @@ const Electricity = ({ user, onUpdateBalance, onBack }: ElectricityProps) => {
       }
   };
 
+  const validateAmount = (value: string) => {
+    if (!value) {
+      setAmountWarning(null);
+      return;
+    }
+    const amt = Number(value);
+    if (Number.isNaN(amt)) {
+      setAmountWarning(null);
+      return;
+    }
+    if (amt < 600) setAmountWarning("Minimum vend amount is ₦600");
+    else if (amt > 200000) setAmountWarning("Maximum vend amount is ₦200,000");
+    else setAmountWarning(null);
+  };
+
   // --- 4. PURCHASE LOGIC ---
   const doPurchase = async () => {
     if (!amount || !meterNumber || !disco || !customerName || customerName.includes("Invalid")) return;
+    const amtNum = Number(amount);
+    if (amtNum < 600) return showToast("Minimum vend amount is ₦600", "error");
+    if (amtNum > 200000) return showToast("Maximum vend amount is ₦200,000", "error");
     if (user.balance < Number(amount)) return showToast("Insufficient Balance", "error");
 
     setLoading(true);
@@ -117,7 +137,12 @@ const Electricity = ({ user, onUpdateBalance, onBack }: ElectricityProps) => {
 
       if (error) throw new Error(error.message);
 
-      const isSuccess = data.status === "success" || data.success === true || (data.data && data.data.status === "ORDER_RECEIVED");
+      const txnStatus = data?.data?.transactionstatus || data?.data?.status;
+      const isSuccess =
+        data?.status === "success" ||
+        data?.success === true ||
+        txnStatus === "ORDER_RECEIVED" ||
+        data?.message === "TXN_HISTORY";
 
       if (isSuccess) {
         const newBal = user.balance - Number(amount);
@@ -130,15 +155,27 @@ const Electricity = ({ user, onUpdateBalance, onBack }: ElectricityProps) => {
           amount: Number(amount),
           status: "Success",
           ref: `ELEC-${Date.now()}`,
-          meta: { token: data.token || data.metertoken || "Token sent to phone" }
+          meta: {
+            token: data.token || data.metertoken || data?.data?.metertoken || "Token sent to phone",
+            provider: data?.data?.productname || DISCOS.find(d => d.id === disco)?.name || disco,
+            meter_number: data?.data?.meterno || meterNumber,
+            customer_name: customerName,
+            meter_type: meterType,
+            meter_type_label: meterType === 1 ? "Prepaid" : "Postpaid",
+            transactionid: data?.data?.transactionid,
+            transactiondate: data?.data?.transactiondate,
+            units_purchased: data?.data?.units || data?.data?.units_purchased,
+            service_address: data?.data?.serviceaddress || data?.data?.address,
+            hotline: data?.data?.hotline || data?.data?.hotline_number
+          }
         });
         
-        saveRecentMeter(meterNumber);
+        if (saveBeneficiary) saveRecentMeter(meterNumber);
 
         showSuccess({
           title: "Transfer successful",
           amount: Number(amount),
-          message: `Token: ${data.token || data.metertoken || "Check receipt"}`,
+          message: `Token: ${data.token || data.metertoken || data?.data?.metertoken || "Check receipt"}`,
           subtitle: meterNumber ? `FOR ${meterNumber}` : undefined,
         });
         setMeterNumber("");
@@ -295,6 +332,24 @@ const Electricity = ({ user, onUpdateBalance, onBack }: ElectricityProps) => {
                       <span className="text-[10px] text-slate-500">No saved meters</span>
                     )}
                 </div>
+                <div className="mt-3 flex items-center justify-between">
+                  <label className="flex items-center gap-2 text-[10px] font-bold uppercase text-slate-400">
+                    <input
+                      type="checkbox"
+                      checked={saveBeneficiary}
+                      onChange={(e) => setSaveBeneficiary(e.target.checked)}
+                      className="w-4 h-4 accent-emerald-600"
+                    />
+                    Save beneficiary after purchase
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => saveRecentMeter(meterNumber)}
+                    className="text-[10px] font-black uppercase text-emerald-500 hover:text-emerald-400"
+                  >
+                    Save now
+                  </button>
+                </div>
             </div>
         </div>
 
@@ -305,7 +360,11 @@ const Electricity = ({ user, onUpdateBalance, onBack }: ElectricityProps) => {
                 {presetAmounts.map((amt) => (
                     <button
                         key={amt}
-                        onClick={() => setAmount(amt.toString())}
+                        onClick={() => {
+                          const v = amt.toString();
+                          setAmount(v);
+                          validateAmount(v);
+                        }}
                         className={`p-3 rounded-2xl border-2 flex flex-col items-center justify-center transition-all py-4 ${
                             amount === amt.toString() 
                             ? "border-emerald-600 bg-emerald-50 shadow-md" 
@@ -326,11 +385,19 @@ const Electricity = ({ user, onUpdateBalance, onBack }: ElectricityProps) => {
                 <input 
                     type="number" 
                     value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
+                    onChange={(e) => {
+                      setAmount(e.target.value);
+                      validateAmount(e.target.value);
+                    }}
                     className="bg-transparent w-full h-full font-black text-slate-800 outline-none text-lg"
                     placeholder="Enter Amount"
                 />
              </div>
+             {amountWarning && (
+               <div className="mt-2 text-[10px] font-bold text-rose-500">
+                 {amountWarning}
+               </div>
+             )}
              <button
                 onClick={handlePurchase}
                 disabled={loading || !customerName || customerName.includes("Invalid") || !amount}
