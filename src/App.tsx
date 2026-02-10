@@ -35,6 +35,7 @@ const App: React.FC = () => {
   });
   const [isNightSky, setIsNightSky] = useState(false);
   const [moonPhase, setMoonPhase] = useState<{ phase: string; illumination: number } | null>(null);
+  const [moonImageUrl, setMoonImageUrl] = useState<string | null>(null);
   const [constellation, setConstellation] = useState<string | null>(null);
   const [showLearn, setShowLearn] = useState(false);
   const learnHoldRef = useRef(false);
@@ -89,6 +90,26 @@ const App: React.FC = () => {
       r: Math.round(1 + rand() * 2),
     }));
   }, [constellation]);
+
+  const getLocalMoonPhase = (date: Date) => {
+    const synodicMonth = 29.53058867;
+    const knownNewMoon = Date.UTC(2000, 0, 6, 18, 14, 0);
+    const daysSince = (Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()) - knownNewMoon) / 86400000;
+    const phase = ((daysSince % synodicMonth) + synodicMonth) % synodicMonth;
+    const phaseFrac = phase / synodicMonth;
+    const illumination = Math.round(((1 - Math.cos(2 * Math.PI * phaseFrac)) / 2) * 100);
+
+    let name = "New Moon";
+    if (phaseFrac >= 0.03 && phaseFrac < 0.22) name = "Waxing Crescent";
+    else if (phaseFrac < 0.28) name = "First Quarter";
+    else if (phaseFrac < 0.47) name = "Waxing Gibbous";
+    else if (phaseFrac < 0.53) name = "Full Moon";
+    else if (phaseFrac < 0.72) name = "Waning Gibbous";
+    else if (phaseFrac < 0.78) name = "Last Quarter";
+    else if (phaseFrac < 0.97) name = "Waning Crescent";
+
+    return { phase: name, illumination };
+  };
 
   // --- 1. FETCH USER PROFILE ---
   const fetchUser = async (email: string) => {
@@ -156,16 +177,18 @@ const App: React.FC = () => {
       }
       setIsNightSky(true);
       setConstellation(pickConstellationForNight(nightKey));
+      setMoonPhase(getLocalMoonPhase(now));
 
       try {
-        const res = await fetch('https://api.phaseofthemoontoday.com/v1/location/Lagos');
-        if (!res.ok) throw new Error('Moon API error');
-        const data = await res.json();
-        if (!cancelled && data?.phase && typeof data?.illumination === 'number') {
-          setMoonPhase({ phase: data.phase, illumination: data.illumination });
+        const { data, error } = await supabase.functions.invoke("moon-phase", {
+          body: { location: "Lagos" }
+        });
+        if (error) throw error;
+        if (!cancelled && data?.imageUrl) {
+          setMoonImageUrl(data.imageUrl);
         }
       } catch {
-        if (!cancelled) setMoonPhase(null);
+        if (!cancelled) setMoonImageUrl(null);
       }
     };
 
@@ -352,25 +375,8 @@ const App: React.FC = () => {
                     )}
                   </div>
                   <div className="w-16 h-16">
-                    {moonPhase ? (
-                      <svg viewBox="0 0 100 100">
-                        <defs>
-                          <mask id="moon-mask">
-                            <rect width="100" height="100" fill="white" />
-                            {(() => {
-                              const f = Math.max(0, Math.min(1, moonPhase.illumination / 100));
-                              if (f >= 0.98) return null;
-                              if (f <= 0.02) return <circle cx="50" cy="50" r="45" fill="black" />;
-                              const waxing = /waxing/i.test(moonPhase.phase);
-                              const offset = (1 - 2 * f) * 45;
-                              const cx = waxing ? 50 + offset : 50 - offset;
-                              return <circle cx={cx} cy="50" r="45" fill="black" />;
-                            })()}
-                          </mask>
-                        </defs>
-                        <circle cx="50" cy="50" r="45" fill="#FFFFFF" mask="url(#moon-mask)" />
-                        <circle cx="50" cy="50" r="45" fill="none" stroke="#6B7280" strokeWidth="1" />
-                      </svg>
+                    {moonImageUrl ? (
+                      <img src={moonImageUrl} alt="Moon phase" className="w-16 h-16 rounded-full object-cover border border-[#6B7280]" />
                     ) : (
                       <div className="w-16 h-16 rounded-full border border-[#6B7280] flex items-center justify-center text-[10px] text-[#6B7280]">
                         Moon
