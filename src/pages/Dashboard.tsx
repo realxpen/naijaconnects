@@ -15,6 +15,7 @@ import PinPrompt from "../components/PinPrompt";
 import ConfirmTransactionModal from "../components/ConfirmTransactionModal";
 import { hashPin } from "../utils/pin";
 import { useSuccessScreen } from "../components/ui/SuccessScreenProvider";
+import { usePushNotifications } from "../hooks/usePushNotifications";
 
 // --- SERVICE COMPONENTS ---
 import Airtime from "../components/services/Airtime";
@@ -470,7 +471,6 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
   const [history, setHistory] = useState<Transaction[]>([]);
   const [pullDistance, setPullDistance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [pushStatus, setPushStatus] = useState<'idle' | 'enabled' | 'blocked' | 'error' | 'loading'>('idle');
   const pullStartY = useRef<number | null>(null);
   
   // Receipt & Modal States
@@ -498,95 +498,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
   const [accountName, setAccountName] = useState("");
   const [isResolving, setIsResolving] = useState(false);
 
-  const urlBase64ToUint8Array = (base64String: string) => {
-    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-    const rawData = window.atob(base64);
-    const outputArray = new Uint8Array(rawData.length);
-    for (let i = 0; i < rawData.length; ++i) {
-      outputArray[i] = rawData.charCodeAt(i);
-    }
-    return outputArray;
-  };
-
-  const checkPushStatus = async () => {
-    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-      setPushStatus('error');
-      return;
-    }
-    if (Notification.permission === 'denied') {
-      setPushStatus('blocked');
-      return;
-    }
-    if (Notification.permission !== 'granted') {
-      setPushStatus('idle');
-      return;
-    }
-    try {
-      const reg = await navigator.serviceWorker.getRegistration();
-      if (!reg) {
-        setPushStatus('idle');
-        return;
-      }
-      const sub = await reg.pushManager.getSubscription();
-      setPushStatus(sub ? 'enabled' : 'idle');
-    } catch (e: any) {
-      showToast(e?.message || "Failed to enable notifications", "error");
-      setPushStatus('error');
-    }
-  };
-
-  const enablePushFromDashboard = async () => {
-    try {
-      if (!user?.id) return;
-      if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-        setPushStatus('error');
-        return;
-      }
-      setPushStatus('loading');
-      const permission = await Notification.requestPermission();
-      if (permission !== 'granted') {
-        setPushStatus('blocked');
-        return;
-      }
-      const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
-      if (!vapidPublicKey) {
-        setPushStatus('error');
-        return;
-      }
-      const reg = await navigator.serviceWorker.register("/sw.js");
-      const existing = await reg.pushManager.getSubscription();
-      const sub =
-        existing ||
-        (await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
-        }));
-
-      const json = sub.toJSON();
-      const endpoint = json.endpoint;
-      const p256dh = json.keys?.p256dh || "";
-      const auth = json.keys?.auth || "";
-      if (!endpoint || !p256dh || !auth) {
-        setPushStatus('error');
-        return;
-      }
-
-      const { error } = await supabase
-        .from("push_subscriptions")
-        .upsert(
-          { user_id: user.id, endpoint, p256dh, auth, updated_at: new Date().toISOString() },
-          { onConflict: "endpoint" }
-        );
-      if (error) throw error;
-
-      setPushStatus('enabled');
-      checkPushStatus();
-      showToast("Notifications enabled", "success");
-    } catch {
-      setPushStatus('error');
-    }
-  };
+  const { permission, loading: pushLoading, subscribeToPush } = usePushNotifications(user?.id);
 
   // --- DYNAMIC GREETING STATE (FIXED LOGIC) ---
   const [greeting, setGreeting] = useState("");
@@ -656,9 +568,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
   }, [user]);
   // --- END DYNAMIC GREETING STATE ---
 
-  useEffect(() => {
-    checkPushStatus();
-  }, []);
+
 
 
   // --- DYNAMIC FEE CALCULATORS ---
@@ -1115,20 +1025,20 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
       {/* --- END HEADER --- */}
 
       {/* PUSH NOTIFICATIONS PROMPT */}
-      {pushStatus !== 'enabled' && (
-        <section className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center justify-between gap-3">
+      {permission === 'default' && (
+        <div className="bg-emerald-900/40 border border-emerald-500/30 p-4 rounded-xl mb-6 flex justify-between items-center">
           <div>
-            <p className="text-xs font-black text-emerald-700 uppercase tracking-widest">Stay Up To Date</p>
-            <p className="text-[10px] text-emerald-700/80 font-bold">Enable alerts for new broadcasts & updates.</p>
+            <h3 className="font-bold text-white text-sm">Enable Notifications</h3>
+            <p className="text-xs text-slate-400">Get alerts for deposits and transfers.</p>
           </div>
-          <button
-            onClick={enablePushFromDashboard}
-            disabled={pushStatus === 'loading'}
-            className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest shadow-sm disabled:opacity-70"
+          <button 
+            onClick={subscribeToPush}
+            disabled={pushLoading}
+            className="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-500 transition"
           >
-            {pushStatus === 'loading' ? 'Requesting…' : 'Enable'}
+            {pushLoading ? 'Enabling...' : 'Enable'}
           </button>
-        </section>
+        </div>
       )}
 
       {/* WALLET CARD */}

@@ -52,10 +52,12 @@ serve(async (req) => {
     let failed = 0;
 
     for (const s of subs) {
-      const subscription = {
-        endpoint: s.endpoint,
-        keys: { p256dh: s.p256dh, auth: s.auth },
-      };
+      const subscription = s.subscription && s.subscription.endpoint
+        ? s.subscription
+        : {
+            endpoint: s.endpoint,
+            keys: { p256dh: s.p256dh, auth: s.auth },
+          };
       try {
         await webpush.sendNotification(subscription, payload);
         sent += 1;

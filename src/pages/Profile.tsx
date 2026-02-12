@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Moon, Sun, Monitor, Lock, LogOut, ChevronRight, Mail, ShieldCheck, 
+  Moon, Sun, Monitor, Lock, LogOut, ChevronRight, Mail, ShieldCheck, Bell,
   Camera, User, Phone, Save, Loader2, Star, KeyRound, Zap
 } from 'lucide-react';
 import { dbService } from '../services/dbService';
 import { supabase } from "../supabaseClient"; // <--- Added this import
 import { useI18n } from '../i18n';
 import { hashPin, isValidPin } from '../utils/pin';
+import { usePushNotifications } from '../hooks/usePushNotifications';
 
 interface ProfileProps {
   user: { 
@@ -55,7 +56,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
     confirm: '',
     length: (user.pinLength === 4 || user.pinLength === 6) ? user.pinLength : 4
   });
-  const [pushStatus, setPushStatus] = useState<'idle' | 'enabled' | 'blocked' | 'error' | 'loading'>('idle');
+  const { isSubscribed, subscribeToPush, unsubscribeFromPush, loading: pushLoading } = usePushNotifications(user?.id);
 
   // --- THEME LOGIC ---
   const applyThemeMode = (mode: ThemeMode) => {
@@ -235,125 +236,13 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
     }
   };
 
-  const urlBase64ToUint8Array = (base64String: string) => {
-    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-    const rawData = window.atob(base64);
-    const outputArray = new Uint8Array(rawData.length);
-    for (let i = 0; i < rawData.length; ++i) {
-      outputArray[i] = rawData.charCodeAt(i);
-    }
-    return outputArray;
-  };
-
-  const checkPushStatus = async () => {
-    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-      setPushStatus('error');
-      return;
-    }
-    if (Notification.permission === 'denied') {
-      setPushStatus('blocked');
-      return;
-    }
-    if (Notification.permission !== 'granted') {
-      setPushStatus('idle');
-      return;
-    }
-    try {
-      const reg = await navigator.serviceWorker.getRegistration();
-      if (!reg) {
-        setPushStatus('idle');
-        return;
-      }
-      const sub = await reg.pushManager.getSubscription();
-      setPushStatus(sub ? 'enabled' : 'idle');
-    } catch {
-      setPushStatus('error');
+  const handleToggleNotifications = () => {
+    if (isSubscribed) {
+      unsubscribeFromPush();
+    } else {
+      subscribeToPush();
     }
   };
-
-  const enablePushNotifications = async () => {
-    try {
-      if (!user.id) return;
-      if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-        setPushStatus('error');
-        return;
-      }
-      setPushStatus('loading');
-      const permission = await Notification.requestPermission();
-      if (permission !== 'granted') {
-        setPushStatus('blocked');
-        return;
-      }
-      const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
-      if (!vapidPublicKey) {
-        setPushStatus('error');
-        return;
-      }
-      const reg = await navigator.serviceWorker.register("/sw.js");
-      const existing = await reg.pushManager.getSubscription();
-      const sub =
-        existing ||
-        (await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
-        }));
-
-      const json = sub.toJSON();
-      const endpoint = json.endpoint;
-      const p256dh = json.keys?.p256dh || "";
-      const auth = json.keys?.auth || "";
-      if (!endpoint || !p256dh || !auth) {
-        setPushStatus('error');
-        return;
-      }
-
-      const { error } = await supabase
-        .from("push_subscriptions")
-        .upsert(
-          { user_id: user.id, endpoint, p256dh, auth, updated_at: new Date().toISOString() },
-          { onConflict: "endpoint" }
-        );
-      if (error) throw error;
-
-      setPushStatus('enabled');
-      checkPushStatus();
-    } catch {
-      setPushStatus('error');
-    }
-  };
-
-  const disablePushNotifications = async () => {
-    try {
-      if (!user.id) return;
-      setPushStatus('loading');
-      const reg = await navigator.serviceWorker.getRegistration();
-      if (reg) {
-        const sub = await reg.pushManager.getSubscription();
-        if (sub) {
-          const json = sub.toJSON();
-          const endpoint = json.endpoint;
-          await sub.unsubscribe();
-          if (endpoint) {
-            await supabase
-              .from("push_subscriptions")
-              .delete()
-              .eq("endpoint", endpoint);
-          }
-        }
-      }
-      setPushStatus('idle');
-    } catch {
-      setPushStatus('error');
-    }
-  };
-
-  useEffect(() => {
-    checkPushStatus();
-    const onVisibility = () => checkPushStatus();
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => document.removeEventListener("visibilitychange", onVisibility);
-  }, []);
 
   const getAvatar = () => {
     if (user.avatar_url) return user.avatar_url;
@@ -608,23 +497,29 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
         </button>
 
       {/* Push Notifications */}
-      <div className="w-full bg-white dark:bg-slate-800 p-5 rounded-[25px] flex items-center justify-between shadow-sm border border-slate-100 dark:border-slate-700">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-emerald-100 text-emerald-600 rounded-xl dark:bg-emerald-900/30 dark:text-emerald-300"><ShieldCheck size={20}/></div>
-          <div className="text-left">
-            <h4 className="font-black text-sm dark:text-white">Notifications</h4>
-            <p className="text-[10px] text-slate-400 font-bold uppercase">
-              {pushStatus === "enabled" ? "Enabled" : pushStatus === "blocked" ? "Blocked" : "Enable push alerts"}
-            </p>
+      <div className="flex justify-between items-center p-4 bg-white/5 rounded-xl border border-white/10">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-emerald-500/20 rounded-lg text-emerald-400">
+            <Bell size={20} />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-white">Push Notifications</p>
+            <p className="text-xs text-slate-400">Receive transaction alerts</p>
           </div>
         </div>
+        
         <button
-          onClick={pushStatus === "enabled" ? disablePushNotifications : enablePushNotifications}
-          disabled={pushStatus === "loading"}
-          className={`w-12 h-6 rounded-full p-1 transition-colors ${pushStatus === "enabled" ? "bg-emerald-500" : "bg-slate-200"} ${pushStatus === "loading" ? "opacity-70" : ""}`}
-          aria-label="Toggle notifications"
+          onClick={handleToggleNotifications}
+          disabled={pushLoading}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+            isSubscribed ? 'bg-emerald-500' : 'bg-slate-700'
+          }`}
         >
-          <div className={`w-4 h-4 bg-white rounded-full shadow-md transition-transform ${pushStatus === "enabled" ? "translate-x-6" : "translate-x-0"}`}></div>
+          <span
+            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+              isSubscribed ? 'translate-x-6' : 'translate-x-1'
+            }`}
+          />
         </button>
       </div>
       </div>
