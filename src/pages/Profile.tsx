@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Moon, Sun, Monitor, Lock, LogOut, ChevronRight, Mail, ShieldCheck, Bell,
-  Camera, User, Phone, Save, Loader2, Star, KeyRound, Zap
+  Moon, Sun, Monitor, Lock, LogOut, ChevronRight, Mail, Bell,
+  User, Phone, Save, Loader2, KeyRound, Zap
 } from 'lucide-react';
 import { dbService } from '../services/dbService';
-import { supabase } from "../supabaseClient"; // <--- Added this import
+import { supabase } from "../supabaseClient"; 
 import { useI18n } from '../i18n';
 import { hashPin, isValidPin } from '../utils/pin';
 import { usePushNotifications } from '../hooks/usePushNotifications';
@@ -27,11 +27,13 @@ interface ProfileProps {
 const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
   const { t } = useI18n();
   type ThemeMode = 'light' | 'dark' | 'system';
+  
   const getInitialTheme = (): ThemeMode => {
     const stored = localStorage.getItem('theme');
     if (stored === 'light' || stored === 'dark' || stored === 'system') return stored;
     return 'system';
   };
+  
   const [themeMode, setThemeMode] = useState<ThemeMode>(getInitialTheme);
   
   // Accordion States
@@ -46,7 +48,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
     phone: user.phone || ''
   });
 
-  // Password State
+  // Password & Pin State
   const [passwords, setPasswords] = useState({ current: '', new: '', confirm: '' });
   const [msg, setMsg] = useState({ text: '', type: '' });
   const [isLoading, setIsLoading] = useState(false);
@@ -56,6 +58,8 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
     confirm: '',
     length: (user.pinLength === 4 || user.pinLength === 6) ? user.pinLength : 4
   });
+
+  // Push Notification Hook
   const { isSubscribed, subscribeToPush, unsubscribeFromPush, loading: pushLoading } = usePushNotifications(user?.id);
 
   // --- THEME LOGIC ---
@@ -118,79 +122,45 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
     }
   };
 
-  // --- PASSWORD CHANGE LOGIC (FIXED) ---
+  // --- PASSWORD CHANGE LOGIC ---
   const handleChangePassword = async () => {
-     // 1. Basic Validation
-     if (!passwords.current || !passwords.new || !passwords.confirm) {
+      if (!passwords.current || !passwords.new || !passwords.confirm) {
         return setMsg({ text: t("profile.fill_all_fields"), type: 'error' });
-     }
-     if (passwords.new !== passwords.confirm) {
+      }
+      if (passwords.new !== passwords.confirm) {
         return setMsg({ text: t("profile.passwords_no_match"), type: 'error' });
-     }
-     if (passwords.new.length < 6) {
+      }
+      if (passwords.new.length < 6) {
         return setMsg({ text: t("profile.password_min"), type: 'error' });
-     }
-     
-     setIsLoading(true);
-     setMsg({ text: '', type: '' }); // Clear old messages
+      }
+      
+      setIsLoading(true);
+      setMsg({ text: '', type: '' }); 
 
-     try {
-       // 2. Verify Old Password (Re-authentication)
-       const { error: loginError } = await supabase.auth.signInWithPassword({
+      try {
+        const { error: loginError } = await supabase.auth.signInWithPassword({
           email: user.email,
           password: passwords.current
-       });
+        });
 
-       if (loginError) {
-          throw new Error(t("profile.incorrect_current_password"));
-       }
+        if (loginError) throw new Error(t("profile.incorrect_current_password"));
 
-       // 3. Update to New Password
-       const { error: updateError } = await supabase.auth.updateUser({
+        const { error: updateError } = await supabase.auth.updateUser({
           password: passwords.new
-       });
+        });
 
-       if (updateError) {
-          throw new Error(updateError.message); // e.g. "Password should be different"
-       }
+        if (updateError) throw new Error(updateError.message);
 
-       // 4. Success
-       setMsg({ text: t("profile.password_updated"), type: 'success' });
-       setPasswords({ current: '', new: '', confirm: '' });
-       setTimeout(() => setShowPasswordForm(false), 2000);
+        setMsg({ text: t("profile.password_updated"), type: 'success' });
+        setPasswords({ current: '', new: '', confirm: '' });
+        setTimeout(() => setShowPasswordForm(false), 2000);
 
-     } catch (e: any) {
-       console.error("Password Error:", e);
-       setMsg({ text: e.message || t("profile.password_update_failed"), type: 'error' });
-     } finally {
-       setIsLoading(false);
-     }
-  };
-
-  // --- HELPER: Get Default Avatar ---
-  const buildDefaultAvatar = (name: string) => {
-    const initials = (name || 'User')
-      .split(' ')
-      .filter(Boolean)
-      .slice(0, 2)
-      .map(s => s[0]?.toUpperCase())
-      .join('') || 'U';
-    const svg = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128">
-        <defs>
-          <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stop-color="#22C55E"/>
-            <stop offset="100%" stop-color="#16A34A"/>
-          </linearGradient>
-        </defs>
-        <rect width="128" height="128" rx="64" fill="url(#g)"/>
-        <text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle"
-          font-family="Inter, SF Pro, Manrope, Arial" font-size="48" font-weight="700" fill="#FFFFFF">
-          ${initials}
-        </text>
-      </svg>
-    `.trim();
-    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+      } catch (e: any) {
+        console.error("Password Error:", e);
+        setMsg({ text: e.message || t("profile.password_update_failed"), type: 'error' });
+      } finally {
+        setIsLoading(false);
+      }
   };
 
   const handleUpdatePin = async () => {
@@ -198,7 +168,13 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
     try {
       if (!user.id) throw new Error("Missing user id");
       const len = pinForm.length;
-      if (!isValidPin(pinForm.next, len)) {
+      
+      if (!pinForm.length || (pinForm.length !== 4 && pinForm.length !== 6)) {
+          // Default fallback
+          setPinForm(prev => ({ ...prev, length: 4 }));
+      }
+
+      if (!isValidPin(pinForm.next, len || 4)) {
         setMsg({ text: `PIN must be ${len} digits`, type: 'error' });
         setIsLoading(false);
         return;
@@ -227,7 +203,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
         pin_length: len
       });
       await onUpdateUser({ pinHash: nextHash, pinLength: len });
-      setPinForm({ current: '', next: '', confirm: '', length: len });
+      setPinForm({ current: '', next: '', confirm: '', length: len || 4 });
       setMsg({ text: "PIN updated", type: 'success' });
     } catch (e: any) {
       setMsg({ text: e.message || "Failed to update PIN", type: 'error' });
@@ -236,12 +212,41 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
     }
   };
 
-  const handleToggleNotifications = () => {
+  // --- NOTIFICATION TOGGLE ---
+  const handleToggleNotifications = async () => {
+    if (pushLoading) return;
+    
     if (isSubscribed) {
-      unsubscribeFromPush();
+      await unsubscribeFromPush();
     } else {
-      subscribeToPush();
+      await subscribeToPush();
     }
+  };
+
+  // --- HELPER: Avatar ---
+  const buildDefaultAvatar = (name: string) => {
+    const initials = (name || 'User')
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map(s => s[0]?.toUpperCase())
+      .join('') || 'U';
+    const svg = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128">
+        <defs>
+          <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#22C55E"/>
+            <stop offset="100%" stop-color="#16A34A"/>
+          </linearGradient>
+        </defs>
+        <rect width="128" height="128" rx="64" fill="url(#g)"/>
+        <text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle"
+          font-family="Inter, SF Pro, Manrope, Arial" font-size="48" font-weight="700" fill="#FFFFFF">
+          ${initials}
+        </text>
+      </svg>
+    `.trim();
+    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
   };
 
   const getAvatar = () => {
@@ -249,25 +254,13 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
     return buildDefaultAvatar(user.name);
   };
 
-  // --- HELPER: Get Tier Color ---
-  const getTierStyle = () => {
-      const tier = user.tier || 'Starter';
-      switch(tier) {
-          case 'Gold': return 'bg-amber-100 text-amber-700 border-amber-200';
-          case 'Platinum': return 'bg-slate-200 text-slate-800 border-slate-300';
-          default: return 'bg-emerald-800/30 text-emerald-100 border-emerald-500/30';
-      }
-  };
-
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-24">
       
       {/* 1. HEADER CARD */}
       <div className="bg-emerald-900 p-8 rounded-[35px] text-white shadow-xl text-center relative overflow-hidden group">
-         {/* Background Decoration */}
          <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-emerald-400/10 to-transparent pointer-events-none"></div>
 
-         {/* Avatar Section */}
          <div className="relative w-24 h-24 mx-auto mb-4">
             <div className="w-full h-full rounded-[26px] bg-emerald-600/80 p-2 shadow-2xl flex items-center justify-center -rotate-6">
               <img 
@@ -318,46 +311,19 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
          {showEditProfile && (
             <div className="px-5 pb-5 animate-in slide-in-from-top-2">
                <div className="space-y-3 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700">
-                  
-                  {/* First Name Input */}
                   <div className="relative">
                       <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
-                      <input 
-                        type="text" 
-                        placeholder="First Name" 
-                        value={formData.firstName} 
-                        onChange={e => setFormData({...formData, firstName: e.target.value})} 
-                        className="w-full pl-9 p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500"
-                      />
+                      <input type="text" placeholder="First Name" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} className="w-full pl-9 p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500"/>
                   </div>
-
-                  {/* Last Name Input */}
                   <div className="relative">
                       <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
-                      <input 
-                        type="text" 
-                        placeholder="Last Name (optional)" 
-                        value={formData.lastName} 
-                        onChange={e => setFormData({...formData, lastName: e.target.value})} 
-                        className="w-full pl-9 p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500"
-                      />
+                      <input type="text" placeholder="Last Name" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} className="w-full pl-9 p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500"/>
                   </div>
-
-                  {/* Phone Input */}
                   <div className="relative">
                       <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
-                      <input 
-                        type="tel" 
-                        placeholder={t("profile.phone_number")} 
-                        value={formData.phone} 
-                        onChange={e => setFormData({...formData, phone: e.target.value.replace(/\D/g,'')})} 
-                        className="w-full pl-9 p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500"
-                      />
+                      <input type="tel" placeholder={t("profile.phone_number")} value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value.replace(/\D/g,'')})} className="w-full pl-9 p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500"/>
                   </div>
-                  
-                  {/* Show success/error msg only if NOT showing password form msg */}
                   {msg.text && !showPasswordForm && <p className={`text-[10px] font-black uppercase text-center ${msg.type === 'error' ? 'text-rose-500' : 'text-emerald-500'}`}>{msg.text}</p>}
-                  
                   <button onClick={handleUpdateProfile} disabled={isLoading} className="w-full py-3 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2">
                       {isLoading ? <Loader2 className="animate-spin" size={14}/> : <Save size={14}/>} {t("profile.save_changes")}
                   </button>
@@ -406,9 +372,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
                      <input type="password" placeholder={t("profile.current_password")} value={passwords.current} onChange={e => setPasswords({...passwords, current: e.target.value})} className="w-full p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500"/>
                      <input type="password" placeholder={t("profile.new_password")} value={passwords.new} onChange={e => setPasswords({...passwords, new: e.target.value})} className="w-full p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500"/>
                      <input type="password" placeholder={t("profile.confirm_new_password")} value={passwords.confirm} onChange={e => setPasswords({...passwords, confirm: e.target.value})} className="w-full p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500"/>
-                     
                      {msg.text && showPasswordForm && <p className={`text-[10px] font-black uppercase text-center ${msg.type === 'error' ? 'text-rose-500' : 'text-emerald-500'}`}>{msg.text}</p>}
-                     
                      <button onClick={handleChangePassword} disabled={isLoading} className="w-full py-3 bg-slate-900 dark:bg-white dark:text-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-800 transition-colors flex justify-center">
                         {isLoading ? <Loader2 className="animate-spin" size={14}/> : t("profile.update_password")}
                      </button>
@@ -433,53 +397,50 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
             <div className="px-5 pb-5 animate-in slide-in-from-top-2">
                <div className="space-y-3 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700">
                   {user.pinHash && (
-                    <input
-                      type="password"
-                      placeholder="Current PIN"
-                      value={pinForm.current}
-                      onChange={e => setPinForm({ ...pinForm, current: e.target.value.replace(/\D/g, '').slice(0, pinForm.length) })}
-                      className="w-full p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500"
-                    />
+                    <input type="password" placeholder="Current PIN" value={pinForm.current} onChange={e => setPinForm({ ...pinForm, current: e.target.value.replace(/\D/g, '').slice(0, pinForm.length) })} className="w-full p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500"/>
                   )}
                   <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setPinForm({ ...pinForm, length: 4 })}
-                      className={`flex-1 py-2 rounded-xl text-xs font-bold ${pinForm.length === 4 ? 'bg-emerald-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-500'}`}
-                    >
-                      4 Digits
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPinForm({ ...pinForm, length: 6 })}
-                      className={`flex-1 py-2 rounded-xl text-xs font-bold ${pinForm.length === 6 ? 'bg-emerald-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-500'}`}
-                    >
-                      6 Digits
-                    </button>
+                    <button type="button" onClick={() => setPinForm({ ...pinForm, length: 4 })} className={`flex-1 py-2 rounded-xl text-xs font-bold ${pinForm.length === 4 ? 'bg-emerald-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-500'}`}>4 Digits</button>
+                    <button type="button" onClick={() => setPinForm({ ...pinForm, length: 6 })} className={`flex-1 py-2 rounded-xl text-xs font-bold ${pinForm.length === 6 ? 'bg-emerald-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-500'}`}>6 Digits</button>
                   </div>
-                  <input
-                    type="password"
-                    placeholder={`New ${pinForm.length}-digit PIN`}
-                    value={pinForm.next}
-                    onChange={e => setPinForm({ ...pinForm, next: e.target.value.replace(/\D/g, '').slice(0, pinForm.length) })}
-                    className="w-full p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500"
-                  />
-                  <input
-                    type="password"
-                    placeholder="Confirm PIN"
-                    value={pinForm.confirm}
-                    onChange={e => setPinForm({ ...pinForm, confirm: e.target.value.replace(/\D/g, '').slice(0, pinForm.length) })}
-                    className="w-full p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500"
-                  />
-                  {msg.text && !showPasswordForm && (
-                    <p className={`text-[10px] font-black uppercase text-center ${msg.type === 'error' ? 'text-rose-500' : 'text-emerald-500'}`}>{msg.text}</p>
-                  )}
+                  <input type="password" placeholder={`New ${pinForm.length}-digit PIN`} value={pinForm.next} onChange={e => setPinForm({ ...pinForm, next: e.target.value.replace(/\D/g, '').slice(0, pinForm.length) })} className="w-full p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500"/>
+                  <input type="password" placeholder="Confirm PIN" value={pinForm.confirm} onChange={e => setPinForm({ ...pinForm, confirm: e.target.value.replace(/\D/g, '').slice(0, pinForm.length) })} className="w-full p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500"/>
+                  {msg.text && !showPasswordForm && <p className={`text-[10px] font-black uppercase text-center ${msg.type === 'error' ? 'text-rose-500' : 'text-emerald-500'}`}>{msg.text}</p>}
                   <button onClick={handleUpdatePin} disabled={isLoading} className="w-full py-3 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2">
                       {isLoading ? <Loader2 className="animate-spin" size={14}/> : <Save size={14}/>} Save PIN
                   </button>
                </div>
             </div>
          </div>
+
+         {/* Push Notifications Toggle */}
+         <div className="bg-white dark:bg-slate-800 rounded-[25px] shadow-sm border border-slate-100 dark:border-slate-700 p-5 flex justify-between items-center">
+            <div className="flex items-center gap-4">
+               <div className="p-3 bg-emerald-100 text-emerald-600 rounded-xl dark:bg-emerald-900/30 dark:text-emerald-300">
+                 <Bell size={20} />
+               </div>
+               <div className="text-left">
+                  <h4 className="font-black text-sm dark:text-white">Push Notifications</h4>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase">Receive alerts for transactions</p>
+               </div>
+            </div>
+            
+            <button
+              onClick={handleToggleNotifications}
+              disabled={pushLoading}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                isSubscribed ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'
+              } ${pushLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ease-in-out ${
+                  isSubscribed ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+         </div>
+
+      </div>
 
       {/* Support */}
       <button
@@ -495,34 +456,6 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
             </div>
             <ChevronRight size={18} className="text-slate-300"/>
         </button>
-
-      {/* Push Notifications */}
-      <div className="flex justify-between items-center p-4 bg-white/5 rounded-xl border border-white/10">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-emerald-500/20 rounded-lg text-emerald-400">
-            <Bell size={20} />
-          </div>
-          <div>
-            <p className="text-sm font-bold text-white">Push Notifications</p>
-            <p className="text-xs text-slate-400">Receive transaction alerts</p>
-          </div>
-        </div>
-        
-        <button
-          onClick={handleToggleNotifications}
-          disabled={pushLoading}
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
-            isSubscribed ? 'bg-emerald-500' : 'bg-slate-700'
-          }`}
-        >
-          <span
-            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-              isSubscribed ? 'translate-x-6' : 'translate-x-1'
-            }`}
-          />
-        </button>
-      </div>
-      </div>
 
       <p className="text-center text-[9px] text-slate-300 font-black uppercase tracking-[0.2em] pt-2">Swifna v1.0.0</p>
     </div>
