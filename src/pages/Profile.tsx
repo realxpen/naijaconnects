@@ -308,14 +308,16 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
         return;
       }
 
-      await supabase
+      const { error } = await supabase
         .from("push_subscriptions")
         .upsert(
           { user_id: user.id, endpoint, p256dh, auth, updated_at: new Date().toISOString() },
           { onConflict: "endpoint" }
         );
+      if (error) throw error;
 
       setPushStatus('enabled');
+      checkPushStatus();
     } catch {
       setPushStatus('error');
     }
@@ -348,6 +350,9 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
 
   useEffect(() => {
     checkPushStatus();
+    const onVisibility = () => checkPushStatus();
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
   }, []);
 
   const getAvatar = () => {
@@ -621,6 +626,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
         >
           <div className={`w-4 h-4 bg-white rounded-full shadow-md transition-transform ${pushStatus === "enabled" ? "translate-x-6" : "translate-x-0"}`}></div>
         </button>
+      </div>
       </div>
       </div>
 

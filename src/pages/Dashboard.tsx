@@ -530,7 +530,8 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
       }
       const sub = await reg.pushManager.getSubscription();
       setPushStatus(sub ? 'enabled' : 'idle');
-    } catch {
+    } catch (e: any) {
+      showToast(e?.message || "Failed to enable notifications", "error");
       setPushStatus('error');
     }
   };
