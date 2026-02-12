@@ -628,7 +628,6 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
         </button>
       </div>
       </div>
-      </div>
 
       <p className="text-center text-[9px] text-slate-300 font-black uppercase tracking-[0.2em] pt-2">Swifna v1.0.0</p>
     </div>
