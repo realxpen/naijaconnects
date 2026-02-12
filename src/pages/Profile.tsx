@@ -321,6 +321,31 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
     }
   };
 
+  const disablePushNotifications = async () => {
+    try {
+      if (!user.id) return;
+      setPushStatus('loading');
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (reg) {
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) {
+          const json = sub.toJSON();
+          const endpoint = json.endpoint;
+          await sub.unsubscribe();
+          if (endpoint) {
+            await supabase
+              .from("push_subscriptions")
+              .delete()
+              .eq("endpoint", endpoint);
+          }
+        }
+      }
+      setPushStatus('idle');
+    } catch {
+      setPushStatus('error');
+    }
+  };
+
   useEffect(() => {
     checkPushStatus();
   }, []);
@@ -578,28 +603,25 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
         </button>
 
       {/* Push Notifications */}
-      <button
-        onClick={enablePushNotifications}
-        className="w-full bg-white dark:bg-slate-800 p-5 rounded-[25px] flex items-center justify-between shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-all"
-      >
+      <div className="w-full bg-white dark:bg-slate-800 p-5 rounded-[25px] flex items-center justify-between shadow-sm border border-slate-100 dark:border-slate-700">
         <div className="flex items-center gap-4">
           <div className="p-3 bg-emerald-100 text-emerald-600 rounded-xl dark:bg-emerald-900/30 dark:text-emerald-300"><ShieldCheck size={20}/></div>
           <div className="text-left">
             <h4 className="font-black text-sm dark:text-white">Notifications</h4>
             <p className="text-[10px] text-slate-400 font-bold uppercase">
-              {pushStatus === 'enabled' ? 'Enabled' : pushStatus === 'blocked' ? 'Blocked' : 'Enable push alerts'}
+              {pushStatus === "enabled" ? "Enabled" : pushStatus === "blocked" ? "Blocked" : "Enable push alerts"}
             </p>
           </div>
         </div>
-        <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${
-          pushStatus === 'enabled' ? 'bg-emerald-100 text-emerald-700' :
-          pushStatus === 'blocked' ? 'bg-rose-100 text-rose-600' :
-          pushStatus === 'loading' ? 'bg-slate-100 text-slate-500' :
-          'bg-slate-100 text-slate-500'
-        }`}>
-          {pushStatus === 'loading' ? 'Requesting…' : 'Enable'}
-        </div>
-      </button>
+        <button
+          onClick={pushStatus === "enabled" ? disablePushNotifications : enablePushNotifications}
+          disabled={pushStatus === "loading"}
+          className={`w-12 h-6 rounded-full p-1 transition-colors ${pushStatus === "enabled" ? "bg-emerald-500" : "bg-slate-200"} ${pushStatus === "loading" ? "opacity-70" : ""}`}
+          aria-label="Toggle notifications"
+        >
+          <div className={`w-4 h-4 bg-white rounded-full shadow-md transition-transform ${pushStatus === "enabled" ? "translate-x-6" : "translate-x-0"}`}></div>
+        </button>
+      </div>
       </div>
 
       <p className="text-center text-[9px] text-slate-300 font-black uppercase tracking-[0.2em] pt-2">Swifna v1.0.0</p>

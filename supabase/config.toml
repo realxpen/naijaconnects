@@ -39,5 +39,5 @@ entrypoint = "./functions/moon-phase/index.ts"
 
 [functions.send-push]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 entrypoint = "./functions/send-push/index.ts"

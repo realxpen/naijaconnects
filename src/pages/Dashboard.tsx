@@ -571,14 +571,16 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
         return;
       }
 
-      await supabase
+      const { error } = await supabase
         .from("push_subscriptions")
         .upsert(
           { user_id: user.id, endpoint, p256dh, auth, updated_at: new Date().toISOString() },
           { onConflict: "endpoint" }
         );
+      if (error) throw error;
 
       setPushStatus('enabled');
+      checkPushStatus();
       showToast("Notifications enabled", "success");
     } catch {
       setPushStatus('error');
