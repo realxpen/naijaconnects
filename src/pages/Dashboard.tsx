@@ -121,12 +121,12 @@ const BANKS = [
   { code: "057", name: "Zenith Bank" }
 ];
 
-// --- INTERFACES ---
-interface DashboardProps {
-  user: { name: string; email: string; balance: number; phone?: string; id: string; role?: string; pinHash?: string | null; pinLength?: number | null };
-  onUpdateBalance: (newBalance: number) => void;
-  activeTab?: string; 
-}
+  // --- INTERFACES ---
+  interface DashboardProps {
+    user: { name: string; email: string; balance: number; phone?: string; id: string; role?: string; roles?: string[]; pinHash?: string | null; pinLength?: number | null };
+    onUpdateBalance: (newBalance: number) => void;
+    activeTab?: string; 
+  }
 
 interface Transaction {
   id: string; 
@@ -1074,7 +1074,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
       </section>
 
       {/* ADMIN PANEL BUTTON - Only visible to Admins */}
-      {user.role === 'admin' && (
+      {(user.roles?.includes('admin') || user.role === 'admin') && (
           <button 
             onClick={() => setView("Admin")}
             className="w-full bg-emerald-600 dark:bg-slate-900 text-white p-5 rounded-[25px] flex items-center justify-between shadow-xl shadow-slate-200 hover:shadow-2xl transition-all active:scale-[0.98] mb-6 border border-emerald-700 dark:border-slate-800"

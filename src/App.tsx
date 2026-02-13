@@ -26,7 +26,7 @@ const App: React.FC = () => {
   const [dashboardResetKey, setDashboardResetKey] = useState(0);
 
   // UPDATED: Added 'id' to the user interface definition to fix "Property 'id' is missing"
-  const [user, setUser] = useState<{id: string, name: string, email: string, balance: number, phone?: string, role?: string, pinHash?: string | null, pinLength?: number | null} | null>(null);
+  const [user, setUser] = useState<{id: string, name: string, email: string, balance: number, phone?: string, role?: string, roles?: string[], pinHash?: string | null, pinLength?: number | null} | null>(null);
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [language, setLanguage] = useState<LanguageCode>(() => {
@@ -125,6 +125,20 @@ const App: React.FC = () => {
       if (error) console.error('Error fetching profile:', error);
       
       if (data) {
+        let roles: string[] = [];
+        const { data: roleRows, error: roleError } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', data.id);
+        if (roleError) {
+          console.warn('Error fetching roles:', roleError);
+        } else if (roleRows && roleRows.length) {
+          roles = roleRows.map((r: any) => r.role);
+        }
+        if (!roles.length && data.role) {
+          roles = [data.role];
+        }
+
         setUser({
           id: data.id, // <--- ADDED: Map the ID from the DB result
           name: `${data.first_name || ''} ${data.last_name || ''}`.trim() || data.name || '',
@@ -132,6 +146,7 @@ const App: React.FC = () => {
           balance: data.wallet_balance || 0,
           phone: data.phone || '',
           role: data.role || 'user',
+          roles,
           pinHash: data.pin_hash || null,
           pinLength: data.pin_length || null
         });
