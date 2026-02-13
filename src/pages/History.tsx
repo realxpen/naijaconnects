@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   TrendingUp, Activity, CheckCircle2, Search, ArrowUpRight, ArrowDownLeft, Calendar,
-  Smartphone, Zap, Tv, GraduationCap, Printer, ArrowLeftRight, Loader2, X, Share2, Download, Copy, 
-  Image as ImageIcon, FileText, BarChart3, LineChart, PieChart
+  Smartphone, Zap, Tv, GraduationCap, Printer, ArrowLeftRight, Loader2, X, Copy,
+  BarChart3, LineChart, PieChart
 } from 'lucide-react';
 import { supabase } from "../supabaseClient";
 import html2canvas from 'html2canvas';
@@ -226,93 +226,19 @@ const History = () => {
       return 'bg-slate-100 text-slate-600';
   };
 
-  // --- RECEIPT VIEW COMPONENT ---
+  // --- RECEIPT VIEW COMPONENT (match Dashboard) ---
   const ReceiptView = ({ tx, onClose }: { tx: Transaction; onClose: () => void }) => {
-    const receiptRef = useRef<HTMLDivElement>(null);
-    const [isGenerating, setIsGenerating] = useState(false);
-    const [saveMenuOpen, setSaveMenuOpen] = useState(false);
+    const { t } = useI18n();
+    const { showToast } = useToast();
+    const displayRef = tx.reference || `TRX-${tx.id.substring(0,8)}`;
+    const meta = (tx as any)?.meta || (tx as any)?.metadata || {};
+    const receiptRef = useRef<HTMLDivElement | null>(null);
+    const [shareOpen, setShareOpen] = useState(false);
+    const [sharing, setSharing] = useState(false);
+    const WHATSAPP_NUMBER = "2349151618451";
 
-    const displayRef = tx.ref || tx.reference || tx.request_id || `TRX-${tx.id}`;
-
-    const generateImage = async (): Promise<Blob | null> => {
-        if (!receiptRef.current) return null;
-        try {
-            const canvas = await html2canvas(receiptRef.current, {
-                backgroundColor: '#ffffff',
-                scale: 2, 
-                logging: false,
-                useCORS: true 
-            });
-            return new Promise((resolve) => {
-                canvas.toBlob((blob) => resolve(blob), 'image/png');
-            });
-        } catch (error) {
-            console.error("Receipt generation failed", error);
-            return null;
-        }
-    };
-
-    const handleShare = async () => {
-        setIsGenerating(true);
-        const blob = await generateImage();
-        if (blob) {
-            const file = new File([blob], `receipt_${displayRef}.png`, { type: 'image/png' });
-            if (navigator.share) {
-                try {
-                    await navigator.share({
-                        title: t("dashboard.receipt_title"),
-                        text: t("dashboard.receipt_for", { type: tx.type, amount: tx.amount }),
-                        files: [file]
-                    });
-                } catch (e) {
-                    console.log("Share cancelled or failed", e);
-                }
-            } else {
-                showToast(t("history.share_not_supported"), "info");
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `receipt_${displayRef}.png`;
-                a.click();
-            }
-        }
-        setIsGenerating(false);
-    };
-
-    const handleSaveImage = async () => {
-        setIsGenerating(true);
-        const blob = await generateImage();
-        if (blob) {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `receipt_${displayRef}.png`;
-            a.click();
-            setSaveMenuOpen(false);
-        }
-        setIsGenerating(false);
-    };
-
-    const handleSavePDF = async () => {
-        setIsGenerating(true);
-        if (!receiptRef.current) return;
-        
-        try {
-            const canvas = await html2canvas(receiptRef.current, { scale: 2 });
-            const imgData = canvas.toDataURL('image/png');
-            const pdf = new jsPDF({
-                orientation: 'portrait',
-                unit: 'px',
-                format: [canvas.width, canvas.height]
-            });
-            pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
-            pdf.save(`receipt_${displayRef}.pdf`);
-            setSaveMenuOpen(false);
-        } catch (e) {
-            showToast(t("dashboard.error_generating_pdf"), "error");
-        }
-        setIsGenerating(false);
-    };
+    const getWhatsAppUrl = (message: string) =>
+      `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
 
     const handleCopyRef = () => {
         navigator.clipboard.writeText(displayRef).then(() => {
@@ -320,18 +246,140 @@ const History = () => {
         });
     };
 
+    const exportCanvas = async () => {
+      if (!receiptRef.current) return null;
+      document.body.classList.add("capture-mode");
+      const canvas = await html2canvas(receiptRef.current, {
+        backgroundColor: "#ffffff",
+        scale: 2,
+        ignoreElements: (el) => (el as HTMLElement).dataset?.noCapture === "true",
+      });
+      document.body.classList.remove("capture-mode");
+      return canvas;
+    };
+
+    const downloadBlob = (blob: Blob, filename: string) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+
+    const shareFile = async (file: File) => {
+      if (navigator.share && (navigator as any).canShare?.({ files: [file] })) {
+        await navigator.share({ title: "Swifna Receipt", files: [file] });
+        return true;
+      }
+      return false;
+    };
+
+    const handleSaveImage = async () => {
+      setSharing(true);
+      try {
+        const canvas = await exportCanvas();
+        if (!canvas) return;
+        const blob = await new Promise<Blob | null>((resolve) =>
+          canvas.toBlob(resolve, "image/png", 1)
+        );
+        if (!blob) return;
+        downloadBlob(blob, "swifna-receipt.png");
+      } finally {
+        setSharing(false);
+      }
+    };
+
+    const handleShareImage = async () => {
+      setSharing(true);
+      try {
+        const canvas = await exportCanvas();
+        if (!canvas) return;
+        const blob = await new Promise<Blob | null>((resolve) =>
+          canvas.toBlob(resolve, "image/png", 1)
+        );
+        if (!blob) return;
+        const file = new File([blob], "swifna-receipt.png", { type: "image/png" });
+        const ok = await shareFile(file);
+        if (!ok) {
+          downloadBlob(blob, "swifna-receipt.png");
+          showToast("Sharing not supported. Image downloaded instead.", "info");
+        }
+      } finally {
+        setSharing(false);
+      }
+    };
+
+    const handleSavePdf = async () => {
+      setSharing(true);
+      try {
+        const canvas = await exportCanvas();
+        if (!canvas) return;
+        const imgData = canvas.toDataURL("image/png");
+        const pdf = new jsPDF({
+          orientation: "p",
+          unit: "px",
+          format: [canvas.width, canvas.height],
+        });
+        pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
+        pdf.save("swifna-receipt.pdf");
+      } finally {
+        setSharing(false);
+      }
+    };
+
+    const handleSharePdf = async () => {
+      setSharing(true);
+      try {
+        const canvas = await exportCanvas();
+        if (!canvas) return;
+        const imgData = canvas.toDataURL("image/png");
+        const pdf = new jsPDF({
+          orientation: "p",
+          unit: "px",
+          format: [canvas.width, canvas.height],
+        });
+        pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
+        const blob = pdf.output("blob");
+        const file = new File([blob], "swifna-receipt.pdf", { type: "application/pdf" });
+        const ok = await shareFile(file);
+        if (!ok) {
+          downloadBlob(blob, "swifna-receipt.pdf");
+          showToast("Sharing not supported. PDF downloaded instead.", "info");
+        }
+      } finally {
+        setSharing(false);
+      }
+    };
+
     return (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-200">
             <div className="w-full max-w-sm relative">
                 <button onClick={onClose} className="absolute -top-12 right-0 bg-white/20 p-2 rounded-full text-white hover:bg-white/30 transition-colors">
                     <X size={20}/>
                 </button>
 
                 <div ref={receiptRef} className="bg-white rounded-[30px] overflow-hidden shadow-2xl relative">
-                    <div className="h-24 bg-emerald-600 relative">
+                    <div
+                      className="absolute inset-0 pointer-events-none opacity-[0.1]"
+                      style={{
+                        backgroundImage: `url("data:image/svg+xml;utf8,${encodeURIComponent(
+                          "<svg xmlns='http://www.w3.org/2000/svg' width='260' height='160' viewBox='0 0 260 160'><g transform='rotate(-18 130 80)'><text x='60' y='86' fill='rgba(15,23,42,0.12)' font-size='20' font-family='Inter, Arial, sans-serif' font-weight='800'>Swifna</text><rect x='24' y='58' width='28' height='28' rx='6' ry='6' fill='rgba(34,197,94,0.18)'/><text x='32' y='79' fill='rgba(245,196,0,0.35)' font-size='22' font-family='Inter, Arial, sans-serif' font-weight='800'>S</text></g></svg>"
+                        )}")`,
+                        backgroundRepeat: "repeat",
+                        backgroundSize: "260px 160px",
+                      }}
+                    />
+                    <div className="h-32 bg-emerald-600 relative">
                         <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle, #fff 2px, transparent 2px)', backgroundSize: '10px 10px' }}></div>
-                        <div className="absolute inset-0 flex items-center justify-center text-white/10 font-black text-6xl tracking-widest rotate-[-15deg] pointer-events-none">
-                            {t("history.receipt")}
+                        <div className="absolute inset-0 flex items-start justify-between px-6 pt-3">
+                          <div className="flex items-center gap-2 bg-white/25 px-3 py-1.5 rounded-full">
+                            <img src="/logo.png" alt="Swifna" className="w-10 h-10 rounded-lg" />
+                            <span className="text-white font-black text-base">Swifna</span>
+                          </div>
+                          <span className="text-white text-xs font-black uppercase tracking-widest bg-white/25 px-3 py-1.5 rounded-full">
+                            Transaction Receipt
+                          </span>
                         </div>
                     </div>
 
@@ -340,7 +388,7 @@ const History = () => {
                             <div className={`w-16 h-16 rounded-full mx-auto flex items-center justify-center -mt-14 mb-3 border-4 border-white shadow-md ${getColorClass(tx.type)}`}>
                                  <div className="w-10 h-10">{getLogoOrIcon(tx)}</div>
                             </div>
-                            <h2 className="text-3xl font-black text-slate-800">₦{tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h2>
+                            <h2 className="text-3xl font-black text-slate-800">{"\u20A6"}{tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h2>
                             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">{tx.type}</p>
                             
                             <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase ${tx.status.toLowerCase() === 'success' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
@@ -369,13 +417,106 @@ const History = () => {
                                 <span className="text-xs font-bold text-slate-400">{t("common.desc")}</span>
                                 <span className="text-xs font-bold text-slate-700 text-right max-w-[150px]">{tx.description || tx.type}</span>
                             </div>
-                            
-                            {tx.meta && tx.meta.pin && (
-                                <div className="bg-slate-100 p-3 rounded-xl text-center mt-2 border border-dashed border-slate-300">
-                                    <p className="text-[10px] font-black uppercase text-slate-400">{t("history.pin_token")}</p>
-                                    <p className="text-xl font-black text-slate-800 tracking-widest select-all">{tx.meta.pin}</p>
-                                </div>
+
+                            {String(tx.type).toLowerCase() === "electricity" && (
+                              <div className="pt-2 space-y-3">
+                                {meta.provider && (
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-xs font-bold text-slate-400">Provider</span>
+                                    <span className="text-xs font-bold text-slate-700 text-right">{meta.provider}</span>
+                                  </div>
+                                )}
+                                {meta.meter_number && (
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-xs font-bold text-slate-400">Meter Number</span>
+                                    <span className="text-xs font-bold text-slate-700 text-right">{meta.meter_number}</span>
+                                  </div>
+                                )}
+                                {meta.customer_name && (
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-xs font-bold text-slate-400">Customer Name</span>
+                                    <span className="text-xs font-bold text-slate-700 text-right">{meta.customer_name}</span>
+                                  </div>
+                                )}
+                                {meta.service_address && (
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-xs font-bold text-slate-400">Service Address</span>
+                                    <span className="text-xs font-bold text-slate-700 text-right max-w-[170px]">{meta.service_address}</span>
+                                  </div>
+                                )}
+                                {(meta.meter_type_label || meta.meter_type) && (
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-xs font-bold text-slate-400">Purchase Type</span>
+                                    <span className="text-xs font-bold text-slate-700 text-right">
+                                      {meta.meter_type_label || (Number(meta.meter_type) === 1 ? "Prepaid" : "Postpaid")}
+                                    </span>
+                                  </div>
+                                )}
+                                {(meta.units_purchased || meta.units) && (
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-xs font-bold text-slate-400">Units Purchased</span>
+                                    <span className="text-xs font-bold text-slate-700 text-right">{meta.units_purchased || meta.units}</span>
+                                  </div>
+                                )}
+                                {meta.token && (
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-xs font-bold text-slate-400">Token</span>
+                                    <span className="text-xs font-bold text-slate-700 text-right">{meta.token}</span>
+                                  </div>
+                                )}
+                                {meta.hotline && (
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-xs font-bold text-slate-400">Hotline Number</span>
+                                    <a
+                                      href={getWhatsAppUrl(`Hello Swifna Support, I need help with transaction ${displayRef}.`)}
+                                      className="text-xs font-bold text-emerald-600 text-right hover:text-emerald-700"
+                                    >
+                                      {meta.hotline}
+                                    </a>
+                                  </div>
+                                )}
+                                {meta.transactionid && (
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-xs font-bold text-slate-400">Transaction No.</span>
+                                    <span className="text-xs font-bold text-slate-700 text-right">{meta.transactionid}</span>
+                                  </div>
+                                )}
+                              </div>
                             )}
+                        </div>
+
+                        <div className="mt-6">
+                          <div className="flex items-center gap-3" data-no-capture="true">
+                            <button
+                              onClick={() => setShareOpen((v) => !v)}
+                              className="flex-1 h-12 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-colors"
+                              disabled={sharing}
+                            >
+                              {sharing ? "Preparing..." : "Share Receipt"}
+                            </button>
+                            <a
+                              href={getWhatsAppUrl(`Hello Swifna Support, please help resolve an issue with transaction ${displayRef}.`)}
+                              className="flex-1 h-12 rounded-xl border border-emerald-200 text-emerald-700 text-sm font-bold flex items-center justify-center hover:border-emerald-400"
+                            >
+                              Resolve Issue
+                            </a>
+                          </div>
+                          {shareOpen && (
+                            <div className="mt-3 grid grid-cols-2 gap-2" data-no-capture="true">
+                              <button onClick={handleShareImage} className="h-10 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200">
+                                Share Image
+                              </button>
+                              <button onClick={handleSaveImage} className="h-10 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200">
+                                Save Image
+                              </button>
+                              <button onClick={handleSharePdf} className="h-10 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200">
+                                Share PDF
+                              </button>
+                              <button onClick={handleSavePdf} className="h-10 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200">
+                                Save PDF
+                              </button>
+                            </div>
+                          )}
                         </div>
 
                         <div className="mt-6 text-center opacity-30">
@@ -384,35 +525,10 @@ const History = () => {
                         </div>
                     </div>
                 </div>
-
-                <div className="mt-4 flex gap-3">
-                    <button onClick={handleShare} disabled={isGenerating} className="flex-1 bg-emerald-600 text-white py-3 rounded-xl font-bold text-xs uppercase flex items-center justify-center gap-2 hover:bg-emerald-700 transition-colors shadow-lg">
-                        {isGenerating ? <Loader2 className="animate-spin" size={16}/> : <Share2 size={16}/>} {t("common.share")}
-                    </button>
-                    
-                    <div className="relative flex-1">
-                        <button onClick={() => setSaveMenuOpen(!saveMenuOpen)} disabled={isGenerating} className="w-full bg-white text-slate-700 py-3 rounded-xl font-bold text-xs uppercase flex items-center justify-center gap-2 hover:bg-slate-50 transition-colors shadow-lg">
-                            <Download size={16}/> {t("common.save")}
-                        </button>
-
-                        {saveMenuOpen && (
-                            <div className="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-xl shadow-xl overflow-hidden animate-in slide-in-from-bottom-2">
-                                <button onClick={handleSaveImage} className="w-full p-3 text-left text-xs font-bold hover:bg-slate-50 flex items-center gap-2 border-b border-slate-100">
-                                    <ImageIcon size={14} className="text-emerald-600"/> {t("common.save_image")}
-                                </button>
-                                <button onClick={handleSavePDF} className="w-full p-3 text-left text-xs font-bold hover:bg-slate-50 flex items-center gap-2">
-                                    <FileText size={14} className="text-rose-600"/> {t("common.save_pdf")}
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
             </div>
         </div>
     );
   };
-
   if (loading) return (
     <div className="flex flex-col items-center justify-center h-64 space-y-4">
         <Loader2 className="animate-spin text-emerald-600" size={32} />
