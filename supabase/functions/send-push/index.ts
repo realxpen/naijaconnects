@@ -1,98 +1,83 @@
-// supabase/functions/send-push/index.ts
-
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serve } from "https://deno.land/std@0.192.0/http/server.ts";
 import webpush from "npm:web-push";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const VAPID_PUBLIC_KEY = Deno.env.get("VAPID_PUBLIC_KEY") || "";
+const VAPID_PRIVATE_KEY = Deno.env.get("VAPID_PRIVATE_KEY") || "";
+const VAPID_SUBJECT = Deno.env.get("VAPID_SUBJECT") || "mailto:support@swifna.com";
 
-// 1. Setup Keys (Make sure these are set in Supabase Secrets!)
-const vapidKeys = {
-  publicKey: Deno.env.get('VAPID_PUBLIC_KEY')!,
-  privateKey: Deno.env.get('VAPID_PRIVATE_KEY')!,
-  subject: 'mailto:admin@swifna.com' // Your admin email
-};
-
-webpush.setVapidDetails(
-  vapidKeys.subject,
-  vapidKeys.publicKey,
-  vapidKeys.privateKey
-);
+const jsonResponse = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      "content-type": "application/json",
+      "access-control-allow-origin": "*",
+      "access-control-allow-headers": "authorization, x-client-info, apikey, content-type",
+    },
+  });
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+  if (req.method === "OPTIONS") return jsonResponse({}, 200);
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    return jsonResponse({ error: "Missing Supabase service role" }, 500);
+  }
+  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
+    return jsonResponse({ error: "Missing VAPID keys" }, 500);
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    const { title, message, url } = await req.json();
+    const payload = JSON.stringify({
+      title: title || "Swifna",
+      body: message || "",
+      url: url || "https://swifna-liart.vercel.app/",
+    });
 
-    // 2. Get Data from Request
-    const { user_id, title, body, url } = await req.json();
+    webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 
-    if (!user_id || !title || !body) {
-      throw new Error("Missing user_id, title, or body");
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/push_subscriptions?select=*`, {
+      headers: {
+        apikey: SUPABASE_SERVICE_ROLE_KEY,
+        authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      },
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      return jsonResponse({ error: "Failed to fetch subscriptions", details: text }, 500);
     }
+    const subs = await res.json();
 
-    // 3. Fetch Subscriptions for User
-    // We select the 'subscription' column which contains the JSON object { endpoint, keys: { ... } }
-    const { data: subscriptions, error } = await supabase
-      .from('push_subscriptions')
-      .select('subscription') 
-      .eq('user_id', user_id);
+    let sent = 0;
+    let failed = 0;
 
-    if (error) throw error;
-
-    if (!subscriptions || subscriptions.length === 0) {
-      console.log(`No subscriptions found for user ${user_id}`);
-      return new Response(JSON.stringify({ success: true, message: "User has no devices registered" }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    console.log(`Found ${subscriptions.length} devices for user ${user_id}`);
-
-    // 4. Send Notification to all devices
-    const notificationPayload = JSON.stringify({ title, body, url });
-
-    const sendPromises = subscriptions.map(async (row) => {
+    for (const s of subs) {
+      const subscription = s.subscription && s.subscription.endpoint
+        ? s.subscription
+        : {
+            endpoint: s.endpoint,
+            keys: { p256dh: s.p256dh, auth: s.auth },
+          };
       try {
-        // row.subscription is the JSON object we saved from the frontend
-        await webpush.sendNotification(row.subscription, notificationPayload);
-        return { success: true };
-      } catch (err: any) {
-        console.error("Push Error:", err);
-
-        // If subscription is dead (410 Gone), delete it from DB to clean up
-        if (err.statusCode === 410 || err.statusCode === 404) {
-          console.log("Cleaning up dead subscription...");
-          // We use the endpoint to find and delete the exact row
-          await supabase
-            .from('push_subscriptions')
-            .delete()
-            .eq('subscription->>endpoint', row.subscription.endpoint); 
+        await webpush.sendNotification(subscription, payload);
+        sent += 1;
+      } catch (err) {
+        failed += 1;
+        const status = (err as any)?.statusCode;
+        if (status === 404 || status === 410) {
+          await fetch(`${SUPABASE_URL}/rest/v1/push_subscriptions?endpoint=eq.${encodeURIComponent(s.endpoint)}`, {
+            method: "DELETE",
+            headers: {
+              apikey: SUPABASE_SERVICE_ROLE_KEY,
+              authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            },
+          });
         }
-        return { success: false, error: err.message };
       }
-    });
+    }
 
-    await Promise.all(sendPromises);
-
-    return new Response(JSON.stringify({ success: true, count: subscriptions.length }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-
-  } catch (error: any) {
-    console.error("Function Error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return jsonResponse({ sent, failed });
+  } catch (e) {
+    return jsonResponse({ error: "Push send failed", details: String(e) }, 500);
   }
 });
