@@ -16,6 +16,7 @@ import ConfirmTransactionModal from "../components/ConfirmTransactionModal";
 import { hashPin } from "../utils/pin";
 import { useSuccessScreen } from "../components/ui/SuccessScreenProvider";
 import { usePushNotifications } from "../hooks/usePushNotifications";
+import InstallPwaModal from "../components/InstallPwaModal";
 
 // --- SERVICE COMPONENTS ---
 import Airtime from "../components/services/Airtime";
@@ -26,6 +27,15 @@ import Exams from "../components/services/Exams";
 import RechargePin from "../components/services/RechargePin";
 import AirtimeToCash from "../components/services/AirtimeToCash";
 import AdminDashboard from "./AdminDashboard";
+
+// Inside Dashboard component...
+const { 
+   permission, 
+   loading: pushLoading, 
+   subscribeToPush, 
+   showInstallPrompt,       // <--- Add this
+   setShowInstallPrompt     // <--- Add this
+} = usePushNotifications(user?.id);
 
 // --- CONSTANTS ---
 const BANKS = [
@@ -1388,7 +1398,16 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
         onClose={() => setPinOpen(false)}
         error={pinError}
       />
-    </div>
+
+      {/* ... rest of your dashboard code ... */}
+
+  {/* INSTALL PWA MODAL (Only shows on iOS browsers when clicking Enable) */}
+  {showInstallPrompt && (
+    <InstallPwaModal onClose={() => setShowInstallPrompt(false)} />
+  )}
+
+  {/* End of Dashboard */}
+</div>
   );
   }
 

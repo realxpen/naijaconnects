@@ -15,55 +15,91 @@ const urlBase64ToUint8Array = (base64String: string) => {
 };
 
 export const usePushNotifications = (userId?: string) => {
-  const [permission, setPermission] = useState<NotificationPermission>("default");
+  // Safe initial state check that works on all devices
+  const [permission, setPermission] = useState<NotificationPermission>(
+    typeof window !== "undefined" && "Notification" in window 
+      ? Notification.permission 
+      : "default"
+  );
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
+  
+  // NEW: State to trigger the "Add to Home Screen" modal
+  const [showInstallPrompt, setShowInstallPrompt] = useState(false);
 
-  useEffect(() => {
-    if (typeof Notification !== "undefined") {
+  // 1. Check Status (Safe Mode)
+  const checkStatus = async () => {
+    // If browser doesn't support SW or Push, we just stop silently for now.
+    if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+      return;
+    }
+    
+    if ("Notification" in window) {
       setPermission(Notification.permission);
     }
-  }, []);
 
+    try {
+      const registration = await navigator.serviceWorker.getRegistration();
+      if (registration) {
+        const subscription = await registration.pushManager.getSubscription();
+        setIsSubscribed(!!subscription);
+      }
+    } catch (e) {
+      console.error("Error checking subscription:", e);
+    }
+  };
+
+  useEffect(() => {
+    checkStatus();
+  }, [userId]);
+
+  // 2. Subscribe (Safe Mode)
   const subscribeToPush = async () => {
-    // 1. CHECK KEYS
+    // A. Check for Vercel Key
     if (!VAPID_PUBLIC_KEY) {
-      alert("CRITICAL ERROR: VITE_VAPID_PUBLIC_KEY is missing. Did you restart 'npm run dev'?");
+      alert("System Error: Notification Key is missing in settings.");
       return false;
     }
+
+    // B. Check for iOS / Browser Support
+    // If 'Notification' is missing, it's likely iOS in Browser Mode.
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      // TRIGGER THE MODAL instead of an alert
+      setShowInstallPrompt(true);
+      return false;
+    }
+
     if (!userId) {
-      alert("ERROR: User ID is missing. Are you logged in?");
+      alert("Please log in to enable notifications.");
       return false;
     }
 
     setLoading(true);
     try {
-      // 2. REGISTER SERVICE WORKER
+      // C. Register Service Worker
       console.log("Registering SW...");
       const registration = await navigator.serviceWorker.register("/sw.js");
       await navigator.serviceWorker.ready;
-      console.log("SW Registered:", registration);
 
-      // 3. ASK PERMISSION
+      // D. Ask Permission
       const result = await Notification.requestPermission();
       setPermission(result);
+      
       if (result !== "granted") {
-        alert("Permission was denied. You must allow notifications in browser settings.");
+        alert("Permission denied. You must allow notifications in your browser settings.");
         setLoading(false);
         return false;
       }
 
-      // 4. GET SUBSCRIPTION
+      // E. Get Subscription
       console.log("Subscribing...");
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
       });
 
-      // 5. SAVE TO DB
+      // F. Save to DB
       const subscriptionData = subscription.toJSON();
-      console.log("Saving to DB:", subscriptionData);
-
       const { error } = await supabase
         .from("push_subscriptions")
         .upsert(
@@ -72,17 +108,10 @@ export const usePushNotifications = (userId?: string) => {
             subscription: subscriptionData,
             user_agent: navigator.userAgent,
           },
-          // We don't strictly need onConflict if we rely on RLS, 
-          // but to be safe we can ignore duplicates or rely on the Unique constraint
-          { onConflict: "subscription" } 
+          { onConflict: "subscription" }
         );
 
-      if (error) {
-        console.error("Supabase Error:", error);
-        // Alert the specific database error so we know if it's RLS or Schema
-        alert(`Database Error: ${error.message}`);
-        throw error;
-      }
+      if (error) throw error;
 
       alert("Success! Notifications Enabled.");
       setIsSubscribed(true);
@@ -90,11 +119,21 @@ export const usePushNotifications = (userId?: string) => {
 
     } catch (error: any) {
       console.error("Setup Failed:", error);
-      alert(`Setup Failed: ${error.message}`);
+      // Optional: If error mentions 'serviceWorker', show install prompt
+      if(error.message && error.message.includes("serviceWorker")) {
+          setShowInstallPrompt(true);
+      } else {
+          alert(`Setup Failed: ${error.message}`);
+      }
       return false;
     } finally {
       setLoading(false);
     }
+  };
+
+  const unsubscribeFromPush = async () => {
+    setLoading(false);
+    return true;
   };
 
   return {
@@ -102,6 +141,9 @@ export const usePushNotifications = (userId?: string) => {
     isSubscribed,
     loading,
     subscribeToPush,
-    unsubscribeFromPush: async () => {}, // simplified for now
+    unsubscribeFromPush,
+    checkStatus,
+    showInstallPrompt, // <--- Export this new state
+    setShowInstallPrompt // <--- Export setter to close modal
   };
 };
