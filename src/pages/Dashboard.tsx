@@ -1392,11 +1392,6 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
 
       {/* ... rest of your dashboard code ... */}
 
-  {/* INSTALL PWA MODAL (Only shows on iOS browsers when clicking Enable) */}
-  {showInstallPrompt && (
-    <InstallPwaModal onClose={() => setShowInstallPrompt(false)} />
-  )}
-
   {/* End of Dashboard */}
 </div>
   );
