@@ -499,7 +499,13 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
   const [accountName, setAccountName] = useState("");
   const [isResolving, setIsResolving] = useState(false);
 
-  const { permission, loading: pushLoading, subscribeToPush } = usePushNotifications(user?.id);
+  const {
+    permission,
+    loading: pushLoading,
+    subscribeToPush,
+    showInstallPrompt,
+    setShowInstallPrompt,
+  } = usePushNotifications(user?.id);
 
   // --- DYNAMIC GREETING STATE (FIXED LOGIC) ---
   const [greeting, setGreeting] = useState("");
@@ -1392,7 +1398,12 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
 
       {/* ... rest of your dashboard code ... */}
 
-  {/* End of Dashboard */}
+      {/* INSTALL PWA MODAL */}
+      {showInstallPrompt && (
+        <InstallPwaModal onClose={() => setShowInstallPrompt(false)} />
+      )}
+
+      {/* End of Dashboard */}
 </div>
   );
   }
