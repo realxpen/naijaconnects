@@ -28,15 +28,6 @@ import RechargePin from "../components/services/RechargePin";
 import AirtimeToCash from "../components/services/AirtimeToCash";
 import AdminDashboard from "./AdminDashboard";
 
-// Inside Dashboard component...
-const { 
-   permission, 
-   loading: pushLoading, 
-   subscribeToPush, 
-   showInstallPrompt,       // <--- Add this
-   setShowInstallPrompt     // <--- Add this
-} = usePushNotifications(user?.id);
-
 // --- CONSTANTS ---
 const BANKS = [
   { code: "", name: "Select Bank" },
