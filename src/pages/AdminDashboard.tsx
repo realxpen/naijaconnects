@@ -12,6 +12,8 @@ const AdminDashboard = ({ onBack }: { onBack: () => void }) => {
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [reconcileRef, setReconcileRef] = useState("");
+  const [reconciling, setReconciling] = useState(false);
   const { showToast } = useToast();
 
   const fetchRequests = async () => {
@@ -77,6 +79,30 @@ const AdminDashboard = ({ onBack }: { onBack: () => void }) => {
     showToast("Copied!", "info");
   };
 
+  const handleReconcileDeposit = async () => {
+    const reference = reconcileRef.trim();
+    if (!reference) {
+      showToast("Enter a deposit reference", "error");
+      return;
+    }
+    setReconciling(true);
+    try {
+      const { data, error } = await supabase.rpc("reconcile_deposit_reference", {
+        p_reference: reference,
+        p_credit_if_success: true,
+      });
+      if (error) throw error;
+      const status = (data as any)?.status || "success";
+      const credited = (data as any)?.credited ? "credited" : "not credited";
+      showToast(`Reconciled: ${status} (${credited})`, "success");
+      setReconcileRef("");
+    } catch (e: any) {
+      showToast(e.message || "Failed to reconcile reference", "error");
+    } finally {
+      setReconciling(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 p-4 pb-20 animate-in fade-in">
       {/* HEADER */}
@@ -132,6 +158,29 @@ const AdminDashboard = ({ onBack }: { onBack: () => void }) => {
           {/* SHOW WITHDRAWAL LIST */}
           {activeTab === 'withdrawals' && (
               <div className="space-y-4 animate-in slide-in-from-left-4 duration-300">
+                  <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+                    <h3 className="text-sm font-black text-slate-800 mb-2">Reconcile Deposit</h3>
+                    <p className="text-xs text-slate-500 mb-3">
+                      Fix a successful deposit stuck in pending and credit wallet once.
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <input
+                        type="text"
+                        placeholder="DEP-..."
+                        value={reconcileRef}
+                        onChange={(e) => setReconcileRef(e.target.value)}
+                        className="md:col-span-2 w-full p-3 rounded-xl text-xs font-bold bg-slate-50 border border-slate-200 outline-none focus:border-emerald-500"
+                      />
+                      <button
+                        onClick={handleReconcileDeposit}
+                        disabled={reconciling}
+                        className="w-full py-3 rounded-xl font-bold bg-emerald-600 text-white shadow-lg shadow-emerald-200 hover:bg-emerald-700 flex items-center justify-center gap-2 transition disabled:opacity-70"
+                      >
+                        {reconciling ? <Loader2 className="animate-spin" size={18}/> : "Run Reconcile"}
+                      </button>
+                    </div>
+                  </div>
+
                   {loading ? (
                     <div className="flex justify-center py-10"><Loader2 className="animate-spin text-emerald-600"/></div>
                   ) : requests.length === 0 ? (

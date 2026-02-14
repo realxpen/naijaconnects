@@ -714,6 +714,11 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
                 data = retry.data;
                 error = retry.error;
             }
+            if ((error as any)?.context?.status === 401) {
+                const fallback = await supabase.functions.invoke("opay-deposit", invokePayload);
+                data = fallback.data;
+                error = fallback.error;
+            }
         }
 
         if (error) {
