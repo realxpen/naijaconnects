@@ -1322,14 +1322,6 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
                 >
                   Proceed to Checkout
                 </a>
-                <a
-                  href={paymentUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block text-xs font-bold text-emerald-600 underline"
-                >
-                  Open checkout link
-                </a>
                 <button
                   onClick={() => {
                     setPaymentUrl(null);
