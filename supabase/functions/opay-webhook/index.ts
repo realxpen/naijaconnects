@@ -71,20 +71,20 @@ serve(async (req) => {
       // B. Update User Balance (The Critical Part)
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
-        .select("balance")
+        .select("wallet_balance")
         .eq("id", txn.user_id)
         .single();
 
       if (profileError || !profile) {
         console.error("❌ Profile not found for user:", txn.user_id);
       } else {
-        const currentBalance = Number(profile.balance) || 0;
+        const currentBalance = Number(profile.wallet_balance) || 0;
         const depositAmount = Number(txn.amount);
         const newBalance = currentBalance + depositAmount;
 
         const { error: balanceError } = await supabase
           .from("profiles")
-          .update({ balance: newBalance })
+          .update({ wallet_balance: newBalance })
           .eq("id", txn.user_id);
 
         if (balanceError) {

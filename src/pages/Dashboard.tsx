@@ -481,6 +481,8 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
   const [depositMethod, setDepositMethod] = useState("BankCard");
   const [currentTxRef, setCurrentTxRef] = useState<string>(""); 
   const [isVerifyingDeposit, setIsVerifyingDeposit] = useState(false);
+  const [isCheckingPendingDeposit, setIsCheckingPendingDeposit] = useState(false);
+  const pendingDepositPollRef = useRef<number | null>(null);
 
   // Withdraw States
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
@@ -712,8 +714,19 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
         }
         
         if (data?.url) {
-            setCurrentTxRef(data.reference); 
-            window.location.href = data.url;
+            setCurrentTxRef(data.reference);
+            localStorage.setItem("pending_deposit_ref", data.reference);
+
+            const isStandalone =
+              window.matchMedia("(display-mode: standalone)").matches ||
+              (window.navigator as any).standalone === true;
+
+            if (isStandalone) {
+              const opened = window.open(data.url, "_blank", "noopener,noreferrer");
+              if (!opened) window.location.assign(data.url);
+            } else {
+              window.location.assign(data.url);
+            }
         } else {
             throw new Error("Failed to get payment URL");
         }
@@ -751,8 +764,11 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
   }, [user.id]);
 
   // --- VERIFY DEPOSIT (Direct DB Check) ---
-  const verifyDeposit = async (reference: string) => {
-    if(!reference) return showToast("No transaction reference found", "error");
+  const verifyDeposit = async (reference: string, opts?: { silent?: boolean }) => {
+    if(!reference) {
+      if (!opts?.silent) showToast("No transaction reference found", "error");
+      return "missing";
+    }
     
     setIsVerifyingDeposit(true);
     try {
@@ -764,23 +780,68 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
 
       if (error) throw error;
 
-      if (data?.status === 'success') {
-          showToast("Payment confirmed! Updating balance...", "success");
+      const status = String(data?.status || "").toLowerCase();
+      if (status === 'success') {
+          if (!opts?.silent) showToast("Payment confirmed! Updating balance...", "success");
           await fetchUser();
           await fetchHistory();
           setIsDepositModalOpen(false);
           setDepositAmount("");
-      } else if (data?.status === 'failed') {
-          showToast("Payment failed or cancelled.", "error");
+          localStorage.removeItem("pending_deposit_ref");
+          return "success";
+      } else if (status === 'failed') {
+          if (!opts?.silent) showToast("Payment failed or cancelled.", "error");
+          localStorage.removeItem("pending_deposit_ref");
+          return "failed";
       } else {
-          showToast("Payment is still pending. Please wait.", "info");
+          if (!opts?.silent) showToast("Payment is still pending. Please wait.", "info");
+          return "pending";
       }
     } catch (e: any) {
-      showToast(e.message || "Verification failed", "error");
+      if (!opts?.silent) showToast(e.message || "Verification failed", "error");
+      return "error";
     } finally {
       setIsVerifyingDeposit(false);
     }
   };
+
+  useEffect(() => {
+    const pendingRef = localStorage.getItem("pending_deposit_ref");
+    if (!pendingRef) {
+      setIsCheckingPendingDeposit(false);
+      return;
+    }
+
+    let attempts = 0;
+    const maxAttempts = 8;
+    setIsCheckingPendingDeposit(true);
+
+    const poll = async () => {
+      attempts += 1;
+      const result = await verifyDeposit(pendingRef, { silent: true });
+      if (result === "success") {
+        showToast("Payment confirmed! Balance updated.", "success");
+        setIsCheckingPendingDeposit(false);
+        if (pendingDepositPollRef.current) window.clearInterval(pendingDepositPollRef.current);
+        pendingDepositPollRef.current = null;
+        return;
+      }
+      if (result === "failed" || result === "missing" || attempts >= maxAttempts) {
+        setIsCheckingPendingDeposit(false);
+        if (pendingDepositPollRef.current) window.clearInterval(pendingDepositPollRef.current);
+        pendingDepositPollRef.current = null;
+      }
+    };
+
+    poll();
+    pendingDepositPollRef.current = window.setInterval(poll, 5000);
+
+    return () => {
+      setIsCheckingPendingDeposit(false);
+      if (pendingDepositPollRef.current) window.clearInterval(pendingDepositPollRef.current);
+      pendingDepositPollRef.current = null;
+    };
+  }, [user.id]);
 
   // --- VERIFY ACCOUNT (PAYSTACK) ---
   const resolveAccount = async (acct: string, bank: string) => {
@@ -1030,6 +1091,13 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
         </h1>
       </div>
       {/* --- END HEADER --- */}
+
+      {isCheckingPendingDeposit && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-xl flex items-center gap-2">
+          <Loader2 size={14} className="animate-spin" />
+          <p className="text-xs font-bold">Checking your payment status and updating wallet balance...</p>
+        </div>
+      )}
 
       {/* PUSH NOTIFICATIONS PROMPT */}
       {permission === 'default' && (
