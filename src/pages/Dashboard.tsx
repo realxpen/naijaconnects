@@ -683,10 +683,27 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
     setDepositInitError("");
     
     try {
-        const { data: currentSession } = await supabase.auth.getSession();
+        const withTimeout = async <T,>(promise: Promise<T>, ms: number, label: string): Promise<T> => {
+          return await Promise.race([
+            promise,
+            new Promise<T>((_, reject) =>
+              setTimeout(() => reject(new Error(`${label} timed out. Please retry.`)), ms)
+            ),
+          ]);
+        };
+
+        const { data: currentSession } = await withTimeout(
+          supabase.auth.getSession(),
+          12000,
+          "Session check"
+        );
         if (!currentSession?.session) throw new Error("Session expired. Please log in again.");
 
-        const { data: refreshedSession, error: refreshError } = await supabase.auth.refreshSession();
+        const { data: refreshedSession, error: refreshError } = await withTimeout(
+          supabase.auth.refreshSession(),
+          12000,
+          "Session refresh"
+        );
         if (refreshError || !refreshedSession?.session?.access_token) {
             throw new Error("Session refresh failed. Please log in again.");
         }
@@ -700,24 +717,36 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
             }
         };
 
-        let { data, error } = await supabase.functions.invoke("opay-deposit", {
+        let { data, error } = await withTimeout(
+          supabase.functions.invoke("opay-deposit", {
             ...invokePayload,
             headers: { Authorization: `Bearer ${refreshedSession.session.access_token}` }
-        });
+          }),
+          20000,
+          "Deposit initialization"
+        );
 
         const firstStatus = (error as any)?.context?.status;
         if (firstStatus === 401) {
             const { data: retrySession, error: retryRefreshError } = await supabase.auth.refreshSession();
             if (!retryRefreshError && retrySession?.session?.access_token) {
-                const retry = await supabase.functions.invoke("opay-deposit", {
+                const retry = await withTimeout(
+                  supabase.functions.invoke("opay-deposit", {
                     ...invokePayload,
                     headers: { Authorization: `Bearer ${retrySession.session.access_token}` }
-                });
+                  }),
+                  20000,
+                  "Deposit retry"
+                );
                 data = retry.data;
                 error = retry.error;
             }
             if ((error as any)?.context?.status === 401) {
-                const fallback = await supabase.functions.invoke("opay-deposit", invokePayload);
+                const fallback = await withTimeout(
+                  supabase.functions.invoke("opay-deposit", invokePayload),
+                  20000,
+                  "Deposit fallback"
+                );
                 data = fallback.data;
                 error = fallback.error;
             }
