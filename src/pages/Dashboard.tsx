@@ -681,19 +681,40 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
     setIsStartingDeposit(true);
     
     try {
-        const { data: sessionData } = await supabase.auth.getSession();
-        const accessToken = sessionData?.session?.access_token;
-        if (!accessToken) throw new Error("You are not logged in. Please log in again.");
+        const { data: currentSession } = await supabase.auth.getSession();
+        if (!currentSession?.session) throw new Error("Session expired. Please log in again.");
 
-        const { data, error } = await supabase.functions.invoke("opay-deposit", {
-            headers: { Authorization: `Bearer ${accessToken}` },
-            body: { 
-                amount: totalToPay.toString(), 
+        const { data: refreshedSession, error: refreshError } = await supabase.auth.refreshSession();
+        if (refreshError || !refreshedSession?.session?.access_token) {
+            throw new Error("Session refresh failed. Please log in again.");
+        }
+
+        const invokePayload = {
+            body: {
+                amount: totalToPay.toString(),
                 email: user.email,
                 name: user.name,
                 method: depositMethod
             }
+        };
+
+        let { data, error } = await supabase.functions.invoke("opay-deposit", {
+            ...invokePayload,
+            headers: { Authorization: `Bearer ${refreshedSession.session.access_token}` }
         });
+
+        const firstStatus = (error as any)?.context?.status;
+        if (firstStatus === 401) {
+            const { data: retrySession, error: retryRefreshError } = await supabase.auth.refreshSession();
+            if (!retryRefreshError && retrySession?.session?.access_token) {
+                const retry = await supabase.functions.invoke("opay-deposit", {
+                    ...invokePayload,
+                    headers: { Authorization: `Bearer ${retrySession.session.access_token}` }
+                });
+                data = retry.data;
+                error = retry.error;
+            }
+        }
 
         if (error) {
             let detailMessage = "";

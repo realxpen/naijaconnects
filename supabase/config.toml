@@ -41,3 +41,13 @@ entrypoint = "./functions/moon-phase/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/send-push/index.ts"
+
+[functions.opay-deposit]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/opay-deposit/index.ts"
+
+[functions.opay-webhook]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/opay-webhook/index.ts"
