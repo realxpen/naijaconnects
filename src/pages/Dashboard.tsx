@@ -481,6 +481,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
   const [depositMethod, setDepositMethod] = useState("BankCard");
   const [currentTxRef, setCurrentTxRef] = useState<string>(""); 
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
+  const [depositInitError, setDepositInitError] = useState<string>("");
   const [isStartingDeposit, setIsStartingDeposit] = useState(false);
   const [isVerifyingDeposit, setIsVerifyingDeposit] = useState(false);
   const [isCheckingPendingDeposit, setIsCheckingPendingDeposit] = useState(false);
@@ -679,6 +680,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
 
     showToast("Initializing Payment...", "info");
     setIsStartingDeposit(true);
+    setDepositInitError("");
     
     try {
         const { data: currentSession } = await supabase.auth.getSession();
@@ -742,17 +744,26 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
             throw new Error(status ? `${fullMessage} (status ${status})` : fullMessage);
         }
         
+        let payload: any = data;
+        if (typeof data === "string") {
+          try {
+            payload = JSON.parse(data);
+          } catch {
+            payload = { raw: data };
+          }
+        }
+
         const rawCheckoutUrl =
-          data?.url ??
-          data?.cashierUrl ??
-          data?.checkout_url ??
-          data?.data?.url ??
-          data?.data?.cashierUrl;
+          payload?.url ??
+          payload?.cashierUrl ??
+          payload?.checkout_url ??
+          payload?.data?.url ??
+          payload?.data?.cashierUrl;
 
         const rawReference =
-          data?.reference ??
-          data?.txnRef ??
-          data?.data?.reference;
+          payload?.reference ??
+          payload?.txnRef ??
+          payload?.data?.reference;
 
         if (rawCheckoutUrl) {
           const checkoutUrl = String(rawCheckoutUrl).trim();
@@ -766,10 +777,11 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
           setPaymentUrl(checkoutUrl);
           showToast("Payment link generated. Tap Proceed to Checkout.", "success");
         } else {
-          throw new Error(`Failed to get payment URL. Response: ${JSON.stringify(data || {})}`);
+          throw new Error(`Failed to get payment URL. Response: ${JSON.stringify(payload || {})}`);
         }
 
     } catch (e: any) {
+        setDepositInitError(e.message || "Failed to start payment");
         showToast(e.message || "Failed to start payment", "error");
     } finally {
         setIsStartingDeposit(false);
@@ -828,6 +840,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
           setIsDepositModalOpen(false);
           setDepositAmount("");
           setPaymentUrl(null);
+          setDepositInitError("");
           localStorage.removeItem("pending_deposit_ref");
           return "success";
       } else if (status === 'failed') {
@@ -1198,7 +1211,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
             </div>
             <h2 className="text-4xl font-black mb-6">₦{user.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h2>
             <div className="flex gap-3">
-            <button onClick={() => { setPaymentUrl(null); setIsDepositModalOpen(true); }} className="flex-1 bg-white text-emerald-700 py-4 rounded-2xl font-black text-xs uppercase shadow-lg flex items-center justify-center gap-2 hover:bg-emerald-50 transition-colors">
+            <button onClick={() => { setPaymentUrl(null); setDepositInitError(""); setIsDepositModalOpen(true); }} className="flex-1 bg-white text-emerald-700 py-4 rounded-2xl font-black text-xs uppercase shadow-lg flex items-center justify-center gap-2 hover:bg-emerald-50 transition-colors">
                 <CreditCard size={16} /> {t("dashboard.fund")}
             </button>
             <button onClick={() => { setIsWithdrawModalOpen(true); }} className="flex-1 bg-emerald-700/70 border border-emerald-300/40 text-white py-4 rounded-2xl font-black text-xs uppercase hover:bg-emerald-800/80 transition-colors">
@@ -1313,6 +1326,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
               onClick={() => {
                 setIsDepositModalOpen(false);
                 setPaymentUrl(null);
+                setDepositInitError("");
                 setDepositAmount("");
               }}
               className="absolute top-6 right-6 p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"
@@ -1339,6 +1353,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
                 <button
                   onClick={() => {
                     setPaymentUrl(null);
+                    setDepositInitError("");
                     localStorage.removeItem("pending_deposit_ref");
                   }}
                   className="text-xs font-bold text-slate-400 hover:text-slate-600"
@@ -1394,6 +1409,9 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
             >
                 {isStartingDeposit ? <Loader2 className="animate-spin" /> : `Pay ₦${Number(depositAmountNum + currentDepositFee).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
             </button>
+            {!!depositInitError && (
+              <p className="mt-3 text-[11px] font-bold text-rose-600 break-all">{depositInitError}</p>
+            )}
               </>
             )}
           </div>
