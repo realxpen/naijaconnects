@@ -263,6 +263,20 @@ const App: React.FC = () => {
     setActiveTab(tab);
   };
 
+  useEffect(() => {
+    const handleNavigate = (event: Event) => {
+      const custom = event as CustomEvent<{ tab?: 'buy' | 'history' | 'assistant' | 'profile' }>;
+      const tab = custom?.detail?.tab;
+      if (!tab) return;
+      handleTabChange(tab);
+    };
+
+    window.addEventListener("swifna:navigate", handleNavigate as EventListener);
+    return () => {
+      window.removeEventListener("swifna:navigate", handleNavigate as EventListener);
+    };
+  }, [activeTab]);
+
   // --- 4. AUTH ACTIONS ---
   const { showToast } = useToast();
 

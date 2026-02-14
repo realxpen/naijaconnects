@@ -13,7 +13,7 @@ import { useToast } from "../components/ui/ToastProvider";
 import { beneficiaryService } from "../services/beneficiaryService";
 import PinPrompt from "../components/PinPrompt";
 import ConfirmTransactionModal from "../components/ConfirmTransactionModal";
-import { hashPin } from "../utils/pin";
+import { verifyPinHash } from "../utils/pin";
 import { useSuccessScreen } from "../components/ui/SuccessScreenProvider";
 import { usePushNotifications } from "../hooks/usePushNotifications";
 import InstallPwaModal from "../components/InstallPwaModal";
@@ -1006,8 +1006,8 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
 
   const handlePinConfirm = async (pin: string) => {
     if (!user?.pinHash || !user?.id) return;
-    const h = await hashPin(pin, user.id);
-    if (h !== user.pinHash) {
+    const ok = await verifyPinHash(pin, user.pinHash, { userId: user.id, email: user.email });
+    if (!ok) {
       setPinError("Incorrect PIN");
       return;
     }

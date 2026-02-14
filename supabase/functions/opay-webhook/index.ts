@@ -8,7 +8,13 @@ serve(async (req) => {
 
     const body = JSON.parse(bodyText);
     const payload = body.payload ?? body.data ?? body;
-    const reference = payload.reference || payload.outTradeNo;
+    const reference =
+      payload.reference ||
+      payload.outTradeNo ||
+      payload.merchantTradeNo ||
+      payload.merchantOrderNo ||
+      payload.orderReference ||
+      payload.txnRef;
 
     if (!reference) {
       return new Response("Invalid payload", { status: 200 });
@@ -29,9 +35,26 @@ serve(async (req) => {
       return new Response("Transaction not found", { status: 200 });
     }
 
-    const rawStatus = String(payload.status || payload.code || "").toUpperCase();
-    const isSuccess = rawStatus === "SUCCESS" || rawStatus === "SUCCESSFUL" || rawStatus === "00000";
-    const isFailed = rawStatus === "FAIL" || rawStatus === "FAILED";
+    const rawStatus = String(
+      payload.status ||
+      payload.transactionStatus ||
+      payload.resultCode ||
+      payload.code ||
+      ""
+    ).toUpperCase();
+
+    const isSuccess =
+      rawStatus === "SUCCESS" ||
+      rawStatus === "SUCCESSFUL" ||
+      rawStatus === "COMPLETED" ||
+      rawStatus === "PAID" ||
+      rawStatus === "00000";
+
+    const isFailed =
+      rawStatus === "FAIL" ||
+      rawStatus === "FAILED" ||
+      rawStatus === "CANCELLED" ||
+      rawStatus === "REVERSED";
 
     const txnMeta = txn?.meta && typeof txn.meta === "object" ? txn.meta : {};
     const alreadyCredited = Boolean(txnMeta?.balance_credited);

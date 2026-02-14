@@ -39,6 +39,13 @@ const PinPrompt: React.FC<PinPromptProps> = ({ open, requiredLength, onConfirm, 
 
   const handleClear = () => setPin('');
 
+  const handleForgotPin = () => {
+    onClose();
+    window.dispatchEvent(
+      new CustomEvent("swifna:navigate", { detail: { tab: "profile" } })
+    );
+  };
+
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4">
       <div className="w-full max-w-sm rounded-3xl bg-[#2B2B2B] border border-black/40 p-5 shadow-2xl">
@@ -72,7 +79,11 @@ const PinPrompt: React.FC<PinPromptProps> = ({ open, requiredLength, onConfirm, 
 
         {error && <p className="text-[10px] text-rose-400 font-bold uppercase text-center mb-2">{error}</p>}
 
-        <button className="w-full text-[11px] font-bold text-emerald-400 uppercase mb-3">
+        <button
+          type="button"
+          onClick={handleForgotPin}
+          className="w-full text-[11px] font-bold text-emerald-400 uppercase mb-3"
+        >
           Forgot Payment PIN?
         </button>
 

@@ -7,7 +7,7 @@ import { useI18n } from "../../i18n";
 import { useToast } from "../ui/ToastProvider";
 import PinPrompt from "../PinPrompt";
 import ConfirmTransactionModal from "../ConfirmTransactionModal";
-import { hashPin } from "../../utils/pin";
+import { verifyPinHash } from "../../utils/pin";
 import { beneficiaryService, Beneficiary } from "../../services/beneficiaryService";
 import { useSuccessScreen } from "../ui/SuccessScreenProvider";
 
@@ -197,8 +197,8 @@ const Airtime = ({ user, onUpdateBalance, onBack }: AirtimeProps) => {
 
   const handlePinConfirm = async (pin: string) => {
     if (!user?.pinHash || !user?.id) return;
-    const h = await hashPin(pin, user.id);
-    if (h !== user.pinHash) {
+    const ok = await verifyPinHash(pin, user.pinHash, { userId: user.id, email: user.email });
+    if (!ok) {
       setPinError("Incorrect PIN");
       return;
     }

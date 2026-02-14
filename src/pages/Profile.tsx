@@ -6,7 +6,7 @@ import {
 import { dbService } from '../services/dbService';
 import { supabase } from "../supabaseClient"; 
 import { useI18n } from '../i18n';
-import { hashPin, isValidPin } from '../utils/pin';
+import { hashPin, isValidPin, verifyPinHash } from '../utils/pin';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import AdminDashboard from './AdminDashboard';
 import FounderDashboard from './FounderDashboard';
@@ -279,8 +279,8 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
           setIsLoading(false);
           return;
         }
-        const currentHash = await hashPin(pinForm.current, user.id);
-        if (currentHash !== user.pinHash) {
+        const ok = await verifyPinHash(pinForm.current, user.pinHash, { userId: user.id, email: user.email });
+        if (!ok) {
           setMsg({ text: "Current PIN is incorrect", type: 'error' });
           setIsLoading(false);
           return;
