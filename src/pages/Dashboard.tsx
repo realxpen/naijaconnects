@@ -805,6 +805,25 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
     }
   };
 
+  const handleRetryPendingDeposit = async () => {
+    const pendingRef = localStorage.getItem("pending_deposit_ref");
+    if (!pendingRef) {
+      setIsCheckingPendingDeposit(false);
+      showToast("No pending payment found.", "info");
+      return;
+    }
+
+    setIsCheckingPendingDeposit(true);
+    const result = await verifyDeposit(pendingRef);
+    if (result === "success" || result === "failed" || result === "missing") {
+      setIsCheckingPendingDeposit(false);
+      if (pendingDepositPollRef.current) {
+        window.clearInterval(pendingDepositPollRef.current);
+        pendingDepositPollRef.current = null;
+      }
+    }
+  };
+
   useEffect(() => {
     const pendingRef = localStorage.getItem("pending_deposit_ref");
     if (!pendingRef) {
@@ -1093,9 +1112,16 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
       {/* --- END HEADER --- */}
 
       {isCheckingPendingDeposit && (
-        <div className="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-xl flex items-center gap-2">
-          <Loader2 size={14} className="animate-spin" />
-          <p className="text-xs font-bold">Checking your payment status and updating wallet balance...</p>
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-xl flex items-center gap-3">
+          <Loader2 size={14} className="animate-spin shrink-0" />
+          <p className="text-xs font-bold flex-1">Checking your payment status and updating wallet balance...</p>
+          <button
+            onClick={handleRetryPendingDeposit}
+            disabled={isVerifyingDeposit}
+            className="px-3 py-1.5 rounded-lg bg-amber-100 border border-amber-300 text-[10px] font-black uppercase tracking-wide hover:bg-amber-200 disabled:opacity-60"
+          >
+            {isVerifyingDeposit ? "Checking..." : "Retry now"}
+          </button>
         </div>
       )}
 
