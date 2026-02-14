@@ -758,6 +758,18 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
     }
   };
 
+  const openCheckout = () => {
+    if (!paymentUrl) return;
+    try {
+      const w = window.open(paymentUrl, "_blank", "noopener,noreferrer");
+      if (!w) {
+        window.location.href = paymentUrl;
+      }
+    } catch {
+      window.location.href = paymentUrl;
+    }
+  };
+
   // --- REALTIME BALANCE UPDATE ---
   useEffect(() => {
     if (!user.id) return;
@@ -1313,11 +1325,19 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
                   <p className="text-xs text-slate-500 font-bold mt-1">Ready to complete payment.</p>
                 </div>
                 <button
-                  onClick={() => window.location.assign(paymentUrl)}
+                  onClick={openCheckout}
                   className="block w-full bg-emerald-600 text-white py-4 rounded-2xl font-black uppercase shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-transform active:scale-95"
                 >
                   Proceed to Checkout
                 </button>
+                <a
+                  href={paymentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block text-xs font-bold text-emerald-600 underline"
+                >
+                  Open in browser instead
+                </a>
                 <button
                   onClick={() => {
                     setPaymentUrl(null);
