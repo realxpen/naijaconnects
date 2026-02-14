@@ -27,7 +27,7 @@ serve(async (req) => {
 
     const { data: txn, error: txnError } = await supabase
       .from("transactions")
-      .select("id, status, user_id, amount, meta")
+      .select("id, status, user_id, user_email, amount, meta")
       .eq("reference", reference)
       .single();
 
@@ -69,21 +69,59 @@ serve(async (req) => {
       }
 
       if (!alreadyCredited) {
-        const { data: profile, error: profileError } = await supabase
-          .from("profiles")
-          .select("wallet_balance")
-          .eq("id", txn.user_id)
-          .single();
-        if (profileError || !profile) throw profileError || new Error("Profile not found");
+        let targetProfileId: string | null = txn.user_id || null;
+        let profileBalance = 0;
 
-        const currentBalance = Number(profile.wallet_balance) || 0;
+        const byId = targetProfileId
+          ? await supabase
+              .from("profiles")
+              .select("id, wallet_balance")
+              .eq("id", targetProfileId)
+              .maybeSingle()
+          : { data: null, error: null as any };
+
+        if (byId.error) throw byId.error;
+
+        if (byId.data?.id) {
+          targetProfileId = byId.data.id;
+          profileBalance = Number(byId.data.wallet_balance) || 0;
+        } else if (txn.user_email) {
+          const byEmail = await supabase
+            .from("profiles")
+            .select("id, wallet_balance")
+            .eq("email", txn.user_email)
+            .maybeSingle();
+          if (byEmail.error) throw byEmail.error;
+          if (byEmail.data?.id) {
+            targetProfileId = byEmail.data.id;
+            profileBalance = Number(byEmail.data.wallet_balance) || 0;
+          } else if (txn.user_id && txn.user_email) {
+            // Recover from missing profile rows so successful payments are not stranded.
+            const created = await supabase
+              .from("profiles")
+              .insert({
+                id: txn.user_id,
+                email: txn.user_email,
+                wallet_balance: 0,
+              })
+              .select("id, wallet_balance")
+              .single();
+            if (created.error || !created.data?.id) throw created.error || new Error("Failed to create profile");
+            targetProfileId = created.data.id;
+            profileBalance = Number(created.data.wallet_balance) || 0;
+          }
+        }
+
+        if (!targetProfileId) throw new Error("Profile not found for credit operation");
+
+        const currentBalance = profileBalance;
         const depositAmount = Number(txn.amount) || 0;
         const newBalance = currentBalance + depositAmount;
 
         const { error: balanceError } = await supabase
           .from("profiles")
           .update({ wallet_balance: newBalance })
-          .eq("id", txn.user_id);
+          .eq("id", targetProfileId);
         if (balanceError) throw balanceError;
 
         const { error: metaError } = await supabase

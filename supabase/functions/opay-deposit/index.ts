@@ -56,6 +56,7 @@ serve(async (req) => {
     // Record as PENDING
     await supabaseAdmin.from("transactions").insert({
       user_id: user.id,
+      user_email: user.email,
       reference: reference,
       amount: depositAmount, // Record full amount for now
       type: "deposit",
