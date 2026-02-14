@@ -742,17 +742,31 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
             throw new Error(status ? `${fullMessage} (status ${status})` : fullMessage);
         }
         
-        if (data?.url) {
-            const checkoutUrl = String(data.url).trim();
-            if (!/^https?:\/\//i.test(checkoutUrl)) {
-                throw new Error("Invalid checkout URL returned. Please try again.");
-            }
-            setCurrentTxRef(data.reference);
-            localStorage.setItem("pending_deposit_ref", data.reference);
-            setPaymentUrl(checkoutUrl);
-            showToast("Payment link generated. Tap Proceed to Checkout.", "success");
+        const rawCheckoutUrl =
+          data?.url ??
+          data?.cashierUrl ??
+          data?.checkout_url ??
+          data?.data?.url ??
+          data?.data?.cashierUrl;
+
+        const rawReference =
+          data?.reference ??
+          data?.txnRef ??
+          data?.data?.reference;
+
+        if (rawCheckoutUrl) {
+          const checkoutUrl = String(rawCheckoutUrl).trim();
+          if (!/^https?:\/\//i.test(checkoutUrl)) {
+            throw new Error("Invalid checkout URL returned. Please try again.");
+          }
+          if (rawReference) {
+            setCurrentTxRef(rawReference);
+            localStorage.setItem("pending_deposit_ref", rawReference);
+          }
+          setPaymentUrl(checkoutUrl);
+          showToast("Payment link generated. Tap Proceed to Checkout.", "success");
         } else {
-            throw new Error("Failed to get payment URL");
+          throw new Error(`Failed to get payment URL. Response: ${JSON.stringify(data || {})}`);
         }
 
     } catch (e: any) {
