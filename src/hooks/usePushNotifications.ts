@@ -92,8 +92,8 @@ export const usePushNotifications = (userId?: string) => {
       }
 
       console.log("Registering SW...");
-      const registration = await navigator.serviceWorker.register("/sw.js");
-      await navigator.serviceWorker.ready;
+      await navigator.serviceWorker.register("/sw.js");
+      const registration = await navigator.serviceWorker.ready;
 
       const result = await Notification.requestPermission();
       setPermission(result);
@@ -105,7 +105,8 @@ export const usePushNotifications = (userId?: string) => {
       }
 
       console.log("Subscribing...");
-      const subscription = await registration.pushManager.subscribe({
+      const existing = await registration.pushManager.getSubscription();
+      const subscription = existing ?? await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
       });

@@ -762,22 +762,6 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
     }
   };
 
-  const handleProceedCheckout = () => {
-    if (!paymentUrl) return;
-    const checkoutUrl = String(paymentUrl).trim();
-    if (!/^https?:\/\//i.test(checkoutUrl)) {
-      showToast("Invalid checkout URL. Start deposit again.", "error");
-      return;
-    }
-    const a = document.createElement("a");
-    a.href = checkoutUrl;
-    a.rel = "noopener noreferrer";
-    a.target = "_top";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  };
-
   // --- REALTIME BALANCE UPDATE ---
   useEffect(() => {
     if (!user.id) return;
@@ -1332,12 +1316,12 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
                   <h4 className="font-black text-slate-800 text-lg">Order Created!</h4>
                   <p className="text-xs text-slate-500 font-bold mt-1">Ready to complete payment.</p>
                 </div>
-                <button
-                  onClick={handleProceedCheckout}
+                <a
+                  href={paymentUrl}
                   className="block w-full bg-emerald-600 text-white py-4 rounded-2xl font-black uppercase shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-transform active:scale-95"
                 >
                   Proceed to Checkout
-                </button>
+                </a>
                 <a
                   href={paymentUrl}
                   target="_blank"
