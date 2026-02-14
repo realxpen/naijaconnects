@@ -480,6 +480,8 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
   const [depositAmount, setDepositAmount] = useState("");
   const [depositMethod, setDepositMethod] = useState("BankCard");
   const [currentTxRef, setCurrentTxRef] = useState<string>(""); 
+  const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
+  const [isStartingDeposit, setIsStartingDeposit] = useState(false);
   const [isVerifyingDeposit, setIsVerifyingDeposit] = useState(false);
   const [isCheckingPendingDeposit, setIsCheckingPendingDeposit] = useState(false);
   const pendingDepositPollRef = useRef<number | null>(null);
@@ -676,6 +678,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
     const totalToPay = amountNum + fee;
 
     showToast("Initializing Payment...", "info");
+    setIsStartingDeposit(true);
     
     try {
         const { data: sessionData } = await supabase.auth.getSession();
@@ -716,23 +719,16 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
         if (data?.url) {
             setCurrentTxRef(data.reference);
             localStorage.setItem("pending_deposit_ref", data.reference);
-
-            const isStandalone =
-              window.matchMedia("(display-mode: standalone)").matches ||
-              (window.navigator as any).standalone === true;
-
-            if (isStandalone) {
-              const opened = window.open(data.url, "_blank", "noopener,noreferrer");
-              if (!opened) window.location.assign(data.url);
-            } else {
-              window.location.assign(data.url);
-            }
+            setPaymentUrl(data.url);
+            showToast("Payment link generated. Tap Proceed to Checkout.", "success");
         } else {
             throw new Error("Failed to get payment URL");
         }
 
     } catch (e: any) {
         showToast(e.message || "Failed to start payment", "error");
+    } finally {
+        setIsStartingDeposit(false);
     }
   };
 
@@ -787,6 +783,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
           await fetchHistory();
           setIsDepositModalOpen(false);
           setDepositAmount("");
+          setPaymentUrl(null);
           localStorage.removeItem("pending_deposit_ref");
           return "success";
       } else if (status === 'failed') {
@@ -1157,7 +1154,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
             </div>
             <h2 className="text-4xl font-black mb-6">₦{user.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h2>
             <div className="flex gap-3">
-            <button onClick={() => { setIsDepositModalOpen(true); }} className="flex-1 bg-white text-emerald-700 py-4 rounded-2xl font-black text-xs uppercase shadow-lg flex items-center justify-center gap-2 hover:bg-emerald-50 transition-colors">
+            <button onClick={() => { setPaymentUrl(null); setIsDepositModalOpen(true); }} className="flex-1 bg-white text-emerald-700 py-4 rounded-2xl font-black text-xs uppercase shadow-lg flex items-center justify-center gap-2 hover:bg-emerald-50 transition-colors">
                 <CreditCard size={16} /> {t("dashboard.fund")}
             </button>
             <button onClick={() => { setIsWithdrawModalOpen(true); }} className="flex-1 bg-emerald-700/70 border border-emerald-300/40 text-white py-4 rounded-2xl font-black text-xs uppercase hover:bg-emerald-800/80 transition-colors">
@@ -1268,9 +1265,45 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
       {isDepositModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-in fade-in">
           <div className="bg-white w-full max-w-sm rounded-[35px] p-8 shadow-2xl relative">
-            <button onClick={() => setIsDepositModalOpen(false)} className="absolute top-6 right-6 p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"><X size={16} /></button>
+            <button
+              onClick={() => {
+                setIsDepositModalOpen(false);
+                setPaymentUrl(null);
+                setDepositAmount("");
+              }}
+              className="absolute top-6 right-6 p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"
+            >
+              <X size={16} />
+            </button>
             <h3 className="text-xl font-black text-center mb-6 text-slate-800">{t("dashboard.fund_wallet")}</h3>
-            
+
+            {paymentUrl ? (
+              <div className="text-center space-y-6 animate-in slide-in-from-bottom-4">
+                <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto text-emerald-600 mb-2">
+                  <CheckCircle2 size={32} />
+                </div>
+                <div>
+                  <h4 className="font-black text-slate-800 text-lg">Order Created!</h4>
+                  <p className="text-xs text-slate-500 font-bold mt-1">Ready to complete payment.</p>
+                </div>
+                <button
+                  onClick={() => window.location.assign(paymentUrl)}
+                  className="block w-full bg-emerald-600 text-white py-4 rounded-2xl font-black uppercase shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-transform active:scale-95"
+                >
+                  Proceed to Checkout
+                </button>
+                <button
+                  onClick={() => {
+                    setPaymentUrl(null);
+                    localStorage.removeItem("pending_deposit_ref");
+                  }}
+                  className="text-xs font-bold text-slate-400 hover:text-slate-600"
+                >
+                  Cancel Transaction
+                </button>
+              </div>
+            ) : (
+              <>
             <div className="grid grid-cols-2 gap-3 mb-4">
                 {[
                     { id: "BankCard", label: "Card (1.5%)", icon: <CreditCard size={18}/> },
@@ -1312,11 +1345,13 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
 
             <button
                 onClick={handleStartDeposit}
-                disabled={isVerifyingDeposit}
+                disabled={isStartingDeposit}
                 className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-emerald-600/20 hover:bg-emerald-700 transition flex justify-center items-center gap-2 disabled:opacity-70"
             >
-                {isVerifyingDeposit ? <Loader2 className="animate-spin" /> : `Pay ₦${Number(depositAmountNum + currentDepositFee).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                {isStartingDeposit ? <Loader2 className="animate-spin" /> : `Pay ₦${Number(depositAmountNum + currentDepositFee).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
             </button>
+              </>
+            )}
           </div>
         </div>
       )}
