@@ -11,6 +11,7 @@ import { usePushNotifications } from '../hooks/usePushNotifications';
 import AdminDashboard from './AdminDashboard';
 import FounderDashboard from './FounderDashboard';
 import InvestorDashboard from './InvestorDashboard';
+import AgreementsPage from './AgreementsPage';
 
 interface ProfileProps {
   user: { 
@@ -44,7 +45,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
   // Accordion States
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [showEditProfile, setShowEditProfile] = useState(false);
-  const [activeView, setActiveView] = useState<'profile' | 'admin' | 'founder' | 'investor'>('profile');
+  const [activeView, setActiveView] = useState<'profile' | 'admin' | 'founder' | 'investor' | 'agreements'>('profile');
 
   // Profile Data State
   const nameParts = (user.name || '').trim().split(' ').filter(Boolean);
@@ -69,7 +70,6 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
   const { isSubscribed, subscribeToPush, unsubscribeFromPush, loading: pushLoading } = usePushNotifications(user?.id);
 
   const [agreements, setAgreements] = useState<any[]>([]);
-  const [agreementSign, setAgreementSign] = useState<Record<string, { name: string; checked: boolean; method?: string }>>({});
   const [agreementsLoading, setAgreementsLoading] = useState(false);
 
   // --- THEME LOGIC ---
@@ -149,38 +149,6 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
   useEffect(() => {
     loadAgreements();
   }, [user?.id]);
-
-  const handleSignAgreement = async (inviteId: string) => {
-    const entry = agreements.find((a) => a.invite.id === inviteId);
-    if (!entry || !user?.id) return;
-    const sig = agreementSign[inviteId];
-    if (!sig?.checked || !sig?.name?.trim()) {
-      setMsg({ text: "Please check acknowledgement and type your name", type: "error" });
-      return;
-    }
-    try {
-      const method =
-        entry.doc?.signature_method === "external" ? "external" : sig.method || "native";
-      const { error } = await supabase.from("document_signatures").insert({
-        document_version_id: entry.version?.id,
-        user_id: user.id,
-        signature_method: method,
-        typed_name: sig.name.trim(),
-        external_provider: entry.doc?.external_provider || null,
-        external_reference: entry.doc?.external_url || null,
-      });
-      if (error) throw error;
-      await supabase
-        .from("document_invites")
-        .update({ status: "signed" })
-        .eq("id", inviteId);
-      setAgreementSign((prev) => ({ ...prev, [inviteId]: { name: "", checked: false } }));
-      loadAgreements();
-      setMsg({ text: "Agreement signed", type: "success" });
-    } catch (e: any) {
-      setMsg({ text: e.message || "Failed to sign agreement", type: "error" });
-    }
-  };
 
   // --- PROFILE UPDATE LOGIC ---
   const handleUpdateProfile = async () => {
@@ -361,6 +329,10 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
     return <InvestorDashboard onBack={() => setActiveView('profile')} userId={user.id} email={user.email} />;
   }
 
+  if (activeView === 'agreements' && user.id) {
+    return <AgreementsPage onBack={() => setActiveView('profile')} userId={user.id} />;
+  }
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-24">
       
@@ -472,68 +444,19 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
       {/* Agreements */}
       <div className="bg-white dark:bg-slate-800 rounded-[25px] shadow-sm border border-slate-100 dark:border-slate-700 p-5 space-y-3">
         <h4 className="text-xs font-black uppercase tracking-widest text-slate-400">Agreements</h4>
-        {agreementsLoading ? (
-          <p className="text-xs text-slate-400">Loading agreements...</p>
-        ) : agreements.length === 0 ? (
-          <p className="text-xs text-slate-400">No pending agreements.</p>
-        ) : (
-          agreements.map((row) => (
-            <div key={row.invite.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4 space-y-3">
-              <div className="text-xs font-black text-slate-800">{row.doc?.title || "Agreement"}</div>
-              <div className="text-[10px] text-slate-400 uppercase">
-                Role: {row.doc?.target_role || "role"} · Status: {row.invite.status}
-              </div>
-              <div className="max-h-40 overflow-y-auto whitespace-pre-wrap text-xs text-slate-600 bg-white border border-slate-200 rounded-xl p-3">
-                {row.version?.body_text || "Document text not found."}
-              </div>
-
-              {row.doc?.signature_method !== "native" && row.doc?.external_url && (
-                <button
-                  onClick={() => window.open(row.doc.external_url, "_blank")}
-                  className="w-full py-2 rounded-xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest"
-                >
-                  Open External Signature
-                </button>
-              )}
-
-              {row.invite.status === "pending" && (
-                <>
-                  <label className="flex items-center gap-2 text-xs text-slate-600 font-bold">
-                    <input
-                      type="checkbox"
-                      checked={agreementSign[row.invite.id]?.checked || false}
-                      onChange={(e) =>
-                        setAgreementSign((prev) => ({
-                          ...prev,
-                          [row.invite.id]: { ...(prev[row.invite.id] || {}), checked: e.target.checked },
-                        }))
-                      }
-                    />
-                    I acknowledge and agree to the terms above.
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Type your full name"
-                    value={agreementSign[row.invite.id]?.name || ""}
-                    onChange={(e) =>
-                      setAgreementSign((prev) => ({
-                        ...prev,
-                        [row.invite.id]: { ...(prev[row.invite.id] || {}), name: e.target.value },
-                      }))
-                    }
-                    className="w-full p-3 rounded-xl text-xs font-bold bg-white border border-slate-200 outline-none focus:border-emerald-500"
-                  />
-                  <button
-                    onClick={() => handleSignAgreement(row.invite.id)}
-                    className="w-full py-3 rounded-xl bg-emerald-600 text-white text-xs font-black uppercase tracking-widest"
-                  >
-                    Sign Agreement
-                  </button>
-                </>
-              )}
-            </div>
-          ))
-        )}
+        <p className="text-xs text-slate-500">
+          {agreementsLoading
+            ? "Loading..."
+            : agreements.length === 0
+              ? "No pending agreements."
+              : `${agreements.filter((a) => a?.invite?.status === "pending").length} pending agreement(s).`}
+        </p>
+        <button
+          onClick={() => setActiveView('agreements')}
+          className="w-full py-3 rounded-xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-slate-800"
+        >
+          Open Agreements Page
+        </button>
       </div>
 
       {/* 3. SETTINGS & SECURITY */}

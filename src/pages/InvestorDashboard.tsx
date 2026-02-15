@@ -10,6 +10,7 @@ type ProfitRow = {
   expenses: number;
   net_profit: number;
   investor_pool_percent?: number | null;
+  is_distributed?: boolean | null;
 };
 
 type Investor = {
@@ -31,6 +32,25 @@ type Payout = {
 };
 
 const DEFAULT_POOL_PERCENT = 0.2;
+const BANKS = [
+  { code: "", name: "Select Bank" },
+  { code: "044", name: "Access Bank" },
+  { code: "063", name: "Access Bank (Diamond)" },
+  { code: "050", name: "Ecobank Nigeria" },
+  { code: "070", name: "Fidelity Bank" },
+  { code: "011", name: "First Bank of Nigeria" },
+  { code: "214", name: "First City Monument Bank" },
+  { code: "058", name: "Guaranty Trust Bank" },
+  { code: "082", name: "Keystone Bank" },
+  { code: "076", name: "Polaris Bank" },
+  { code: "221", name: "Stanbic IBTC Bank" },
+  { code: "232", name: "Sterling Bank" },
+  { code: "032", name: "Union Bank of Nigeria" },
+  { code: "033", name: "United Bank For Africa" },
+  { code: "215", name: "Unity Bank" },
+  { code: "035", name: "Wema Bank" },
+  { code: "057", name: "Zenith Bank" },
+];
 
 const formatCurrency = (value: number) =>
   `₦${Number(value || 0).toLocaleString(undefined, {
@@ -57,9 +77,17 @@ const InvestorDashboard = ({
   const [walletBalance, setWalletBalance] = useState(0);
   const [investAmount, setInvestAmount] = useState("");
   const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [bankCode, setBankCode] = useState("");
   const [bankName, setBankName] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [accountName, setAccountName] = useState("");
+  const [isResolving, setIsResolving] = useState(false);
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
+
+  const getWithdrawalFee = (amount: number) => {
+    if (amount <= 0) return 0;
+    return 50;
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -131,15 +159,18 @@ const InvestorDashboard = ({
       showToast("Enter a valid reinvest amount", "error");
       return;
     }
+    if (amount > walletBalance) {
+      showToast("Insufficient wallet balance", "error");
+      return;
+    }
     try {
-      const { error } = await supabase.from("investor_reinvest_requests").insert({
-        investor_id: investor.id,
-        amount,
-        status: "pending",
+      const { error } = await supabase.rpc("request_reinvest_from_wallet", {
+        p_amount: amount,
       });
       if (error) throw error;
-      showToast("Reinvestment request sent", "success");
+      showToast("Reinvestment request sent (amount locked from wallet)", "success");
       setReinvestAmount("");
+      fetchData();
     } catch (e: any) {
       showToast(e.message || "Failed to submit reinvestment request", "error");
     }
@@ -163,55 +194,78 @@ const InvestorDashboard = ({
   };
 
   const handleWithdrawRequest = async () => {
-    const amount = Number(withdrawAmount || 0);
-    if (!amount || amount <= 0) {
+    const requestedAmount = Number(withdrawAmount || 0);
+    const fee = getWithdrawalFee(requestedAmount);
+    if (!requestedAmount || requestedAmount <= 0) {
       showToast("Enter a valid amount", "error");
       return;
     }
-    if (amount > walletBalance) {
+    if (requestedAmount <= fee) {
+      showToast("Amount must be greater than withdrawal fee", "error");
+      return;
+    }
+    if (requestedAmount > walletBalance) {
       showToast("Insufficient wallet balance", "error");
       return;
     }
-    if (!bankName || !accountNumber || !accountName) {
+    const netPayoutAmount = requestedAmount - fee;
+    if (!bankCode || !bankName || !accountNumber || !accountName) {
       showToast("Fill all bank details", "error");
       return;
     }
+    if (accountName === "INVALID ACCOUNT" || accountName === "SYSTEM ERROR") {
+      showToast("Please verify account details", "error");
+      return;
+    }
     try {
-      const { error: txError } = await supabase.from("transactions").insert([
-        {
-          user_id: userId,
-          user_email: email,
-          type: "withdrawal",
-          amount,
-          status: "pending",
-          reference: `INV-WD-${Date.now()}`,
-          metadata: {
-            category: "investor_withdrawal",
-            bank_name: bankName,
-            account_number: accountNumber,
-            account_name: accountName,
-            fee: 0,
-            total_deducted: amount,
-          },
-        },
-      ]);
-      if (txError) throw txError;
+      setIsWithdrawing(true);
+      const { error } = await supabase.rpc("request_withdrawal_secure", {
+        p_amount: netPayoutAmount,
+        p_bank_code: bankCode,
+        p_bank_name: bankName,
+        p_account_number: accountNumber,
+        p_account_name: accountName,
+        p_fee: fee,
+        p_reference: `INV-WD-${Date.now()}`,
+        p_category: "investor_withdrawal",
+        p_deduct_immediately: true,
+      });
+      if (error) throw error;
 
-      const newBal = walletBalance - amount;
-      const { error: balErr } = await supabase
-        .from("profiles")
-        .update({ wallet_balance: newBal })
-        .eq("id", userId);
-      if (balErr) throw balErr;
-
-      showToast("Withdrawal request submitted", "success");
+      showToast(`Withdrawal request submitted. You will receive ${formatCurrency(netPayoutAmount)}.`, "success");
       setWithdrawAmount("");
+      setBankCode("");
       setBankName("");
       setAccountNumber("");
       setAccountName("");
       fetchData();
     } catch (e: any) {
       showToast(e.message || "Failed to request withdrawal", "error");
+    } finally {
+      setIsWithdrawing(false);
+    }
+  };
+
+  const resolveAccount = async (acct: string, bank: string) => {
+    if (acct.length !== 10 || !bank) return;
+    setIsResolving(true);
+    setAccountName("");
+    try {
+      const { data, error } = await supabase.functions.invoke("verify-account", {
+        body: { account_number: acct, bank_code: bank },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.valid) {
+        setAccountName(data.account_name);
+      } else {
+        setAccountName("INVALID ACCOUNT");
+        showToast(data?.message || "Account not found", "error");
+      }
+    } catch (e: any) {
+      setAccountName("SYSTEM ERROR");
+      showToast(e.message || "Account verification failed", "error");
+    } finally {
+      setIsResolving(false);
     }
   };
 
@@ -326,33 +380,49 @@ const InvestorDashboard = ({
             onChange={(e) => setWithdrawAmount(e.target.value)}
             className="w-full p-3 rounded-xl text-xs font-bold bg-slate-50 border border-slate-200 outline-none focus:border-emerald-500"
           />
-          <input
-            type="text"
-            placeholder="Bank name"
-            value={bankName}
-            onChange={(e) => setBankName(e.target.value)}
+          <select
+            value={bankCode}
+            onChange={(e) => {
+              const code = e.target.value;
+              setBankCode(code);
+              setBankName(BANKS.find((b) => b.code === code)?.name || "");
+              if (accountNumber.length === 10) resolveAccount(accountNumber, code);
+            }}
             className="w-full p-3 rounded-xl text-xs font-bold bg-slate-50 border border-slate-200 outline-none focus:border-emerald-500"
-          />
+          >
+            {BANKS.map((b) => (
+              <option key={b.code} value={b.code}>{b.name}</option>
+            ))}
+          </select>
           <input
             type="text"
             placeholder="Account number"
             value={accountNumber}
-            onChange={(e) => setAccountNumber(e.target.value)}
+            onChange={(e) => {
+              const acct = e.target.value.replace(/\D/g, "").slice(0, 10);
+              setAccountNumber(acct);
+              if (acct.length === 10 && bankCode) resolveAccount(acct, bankCode);
+            }}
             className="w-full p-3 rounded-xl text-xs font-bold bg-slate-50 border border-slate-200 outline-none focus:border-emerald-500"
           />
           <input
             type="text"
             placeholder="Account name"
             value={accountName}
-            onChange={(e) => setAccountName(e.target.value)}
+            readOnly
             className="w-full p-3 rounded-xl text-xs font-bold bg-slate-50 border border-slate-200 outline-none focus:border-emerald-500"
           />
         </div>
+        <div className="mt-2 text-[10px] font-bold text-slate-500 flex justify-between">
+          <span>{isResolving ? "Verifying account..." : "Withdrawal fee: ₦50.00"}</span>
+          <span>You will receive: {formatCurrency(Math.max(0, (Number(withdrawAmount || 0) || 0) - getWithdrawalFee(Number(withdrawAmount || 0) || 0)))}</span>
+        </div>
         <button
           onClick={handleWithdrawRequest}
-          className="mt-3 w-full py-3 rounded-xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest"
+          disabled={isWithdrawing}
+          className="mt-3 w-full py-3 rounded-xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest disabled:opacity-70"
         >
-          Submit Withdrawal
+          {isWithdrawing ? "Submitting..." : "Submit Withdrawal"}
         </button>
       </div>
 

@@ -79,6 +79,83 @@ const AdminDashboard = ({ onBack }: { onBack: () => void }) => {
     showToast("Copied!", "info");
   };
 
+  const handleApproveV2 = async (tx: any) => {
+    const meta = tx.meta || tx.metadata || {};
+    if (!window.confirm(`Confirm transfer of ₦${tx.amount} to ${meta?.account_name}?`)) return;
+    setProcessingId(tx.id);
+    try {
+      const wasDeducted = meta?.wallet_deducted !== false;
+      if (!wasDeducted) {
+        const { data: userProfile, error: profileErr } = await supabase
+          .from("profiles")
+          .select("wallet_balance")
+          .eq("id", tx.user_id)
+          .single();
+        if (profileErr) throw profileErr;
+
+        const totalDeducted = Number(meta?.total_deducted || tx.amount || 0);
+        const currentBal = Number(userProfile?.wallet_balance || 0);
+        if (currentBal < totalDeducted) {
+          throw new Error("User has insufficient wallet balance at approval time.");
+        }
+
+        const { error: debitErr } = await supabase
+          .from("profiles")
+          .update({ wallet_balance: currentBal - totalDeducted })
+          .eq("id", tx.user_id);
+        if (debitErr) throw debitErr;
+      }
+
+      const { error } = await supabase.from("transactions").update({ status: "success" }).eq("id", tx.id);
+      if (error) throw error;
+      showToast("Transaction Approved!", "success");
+      fetchRequests();
+    } catch (e: any) {
+      showToast(e.message, "error");
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleRejectV2 = async (tx: any) => {
+    const reason = prompt("Reason for rejection?");
+    if (!reason) return;
+    setProcessingId(tx.id);
+    try {
+      const meta = tx.meta || tx.metadata || {};
+      const wasDeducted = meta?.wallet_deducted !== false;
+
+      if (wasDeducted) {
+        const { data: userProfile, error: profileErr } = await supabase
+          .from("profiles")
+          .select("wallet_balance")
+          .eq("id", tx.user_id)
+          .single();
+        if (profileErr) throw profileErr;
+
+        const refundAmount = Number(meta?.total_deducted || tx.amount || 0);
+        const newBalance = Number(userProfile?.wallet_balance || 0) + refundAmount;
+        const { error: refundErr } = await supabase
+          .from("profiles")
+          .update({ wallet_balance: newBalance })
+          .eq("id", tx.user_id);
+        if (refundErr) throw refundErr;
+      }
+
+      await supabase.from("transactions").update({
+        status: "failed",
+        description: `Failed: ${reason}`,
+      }).eq("id", tx.id);
+
+      showToast(wasDeducted ? "Request Rejected & User Refunded" : "Request Rejected", "info");
+      fetchRequests();
+    } catch (e: any) {
+      showToast(e.message, "error");
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
   const handleReconcileDeposit = async () => {
     const reference = reconcileRef.trim();
     if (!reference) {
@@ -228,7 +305,7 @@ const AdminDashboard = ({ onBack }: { onBack: () => void }) => {
 
                           <div className="grid grid-cols-2 gap-3">
                              <button 
-                                onClick={() => handleReject(tx)}
+                                onClick={() => handleRejectV2(tx)}
                                 disabled={!!processingId}
                                 className="py-3 rounded-xl font-bold bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-100 flex items-center justify-center gap-2 transition"
                              >
@@ -236,7 +313,7 @@ const AdminDashboard = ({ onBack }: { onBack: () => void }) => {
                              </button>
                              
                              <button 
-                                onClick={() => handleApprove(tx)}
+                                onClick={() => handleApproveV2(tx)}
                                 disabled={!!processingId}
                                 className="py-3 rounded-xl font-bold bg-emerald-600 text-white shadow-lg shadow-emerald-200 hover:bg-emerald-700 flex items-center justify-center gap-2 transition"
                              >

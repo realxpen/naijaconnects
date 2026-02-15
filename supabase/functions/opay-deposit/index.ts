@@ -40,22 +40,23 @@ serve(async (req) => {
     const { amount, email, name, method } = await req.json();
     if (!amount) throw new Error("Amount is required");
 
-    const depositAmount = parseFloat(amount);
-    
-    // --- CALCULATE ESTIMATED FEE (For Record Keeping) ---
-    // 1.5% Capped at N2000
-    let estimatedFee = depositAmount * 0.015; 
-    if (estimatedFee > 2000) estimatedFee = 2000;
-    
-    // Round to 2 decimals
-    estimatedFee = Math.round(estimatedFee * 100) / 100;
+    const walletCreditAmount = parseFloat(amount);
+    if (!Number.isFinite(walletCreditAmount) || walletCreditAmount <= 0) {
+      throw new Error("Invalid amount");
+    }
 
-    // We do NOT deduct it yet. The user pays the full amount.
-    // We just record what the fee WILL be.
-    // ----------------------------------------------------
-
-    const amountInKobo = (depositAmount * 100).toFixed(0); 
     const payMethod = method || "BankCard";
+    let estimatedFee = 0;
+    if (payMethod === "BankTransfer" || payMethod === "BankUssd" || payMethod === "OpayWalletNgQR") {
+      estimatedFee = 50;
+    } else {
+      estimatedFee = walletCreditAmount * 0.015;
+      if (estimatedFee > 2000) estimatedFee = 2000;
+    }
+    estimatedFee = Math.round(estimatedFee * 100) / 100;
+    const totalToPay = walletCreditAmount + estimatedFee;
+
+    const amountInKobo = (totalToPay * 100).toFixed(0);
     const reference = `DEP-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
     const supabaseAdmin = createClient(
@@ -68,13 +69,14 @@ serve(async (req) => {
       user_id: user.id,
       user_email: user.email,
       reference: reference,
-      amount: depositAmount, // Record full amount for now
+      amount: walletCreditAmount, // Credit only the intended wallet amount (fee is separate)
       type: "deposit",
       status: "pending",
       description: `Deposit via ${payMethod}`,
       meta: { 
         gateway: "opay",
-        estimated_fee: estimatedFee // <--- Save the expected fee here
+        estimated_fee: estimatedFee,
+        total_paid: totalToPay
       }
     });
 
@@ -95,7 +97,7 @@ serve(async (req) => {
       payMethod: payMethod,
       product: {
         name: "Wallet Topup",
-        description: `Fund wallet with NGN ${depositAmount}`
+        description: `Fund wallet with NGN ${walletCreditAmount}`
       }
     };
 

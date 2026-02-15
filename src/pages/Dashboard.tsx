@@ -163,6 +163,9 @@ const ReceiptView = ({ tx, onClose }: { tx: Transaction; onClose: () => void }) 
     const { showToast } = useToast();
     const displayRef = tx.reference || `TRX-${tx.id.substring(0,8)}`;
     const meta = (tx as any)?.meta || (tx as any)?.metadata || {};
+    const isDeposit = String(tx.type).toLowerCase() === "deposit";
+    const depositFee = Number(meta?.estimated_fee || 0);
+    const totalPaid = Number(meta?.total_paid || ((Number(tx.amount) || 0) + depositFee));
     const receiptRef = useRef<HTMLDivElement | null>(null);
     const [shareOpen, setShareOpen] = useState(false);
     const [sharing, setSharing] = useState(false);
@@ -348,6 +351,22 @@ const ReceiptView = ({ tx, onClose }: { tx: Transaction; onClose: () => void }) 
                                 <span className="text-xs font-bold text-slate-400">{t("common.desc")}</span>
                                 <span className="text-xs font-bold text-slate-700 text-right max-w-[150px]">{tx.description || tx.type}</span>
                             </div>
+                            {isDeposit && (
+                              <>
+                                <div className="flex justify-between items-center py-2 border-b border-dashed border-slate-200">
+                                  <span className="text-xs font-bold text-slate-400">Wallet Credit</span>
+                                  <span className="text-xs font-bold text-slate-700">₦{Number(tx.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                </div>
+                                <div className="flex justify-between items-center py-2 border-b border-dashed border-slate-200">
+                                  <span className="text-xs font-bold text-slate-400">Processing Fee</span>
+                                  <span className="text-xs font-bold text-slate-700">₦{depositFee.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                </div>
+                                <div className="flex justify-between items-center py-2 border-b border-dashed border-slate-200">
+                                  <span className="text-xs font-bold text-slate-400">Total Paid</span>
+                                  <span className="text-xs font-bold text-slate-700">₦{totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                </div>
+                              </>
+                            )}
 
                             {String(tx.type).toLowerCase() === "electricity" && (
                               <div className="pt-2 space-y-3">
@@ -729,7 +748,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
 
         const invokePayload = {
             body: {
-                amount: totalToPay.toString(),
+                amount: amountNum.toString(),
                 email: user.email,
                 name: user.name,
                 method: depositMethod

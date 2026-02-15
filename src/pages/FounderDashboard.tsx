@@ -20,6 +20,8 @@ type ProfitRow = {
   expenses: number;
   net_profit: number;
   investor_pool_percent?: number | null;
+  is_distributed?: boolean | null;
+  distributed_at?: string | null;
   created_at?: string;
 };
 
@@ -32,6 +34,14 @@ type Investor = {
   total_received?: number | null;
   max_return?: number | null;
   status?: "pending" | "approved" | "rejected";
+  created_at?: string;
+};
+
+type ReinvestRequest = {
+  id: string;
+  investor_id: string;
+  amount: number;
+  status: "pending" | "approved" | "rejected";
   created_at?: string;
 };
 
@@ -91,6 +101,13 @@ const DEFAULT_CLIFF = 12;
 const DEFAULT_VESTING = 48;
 
 const monthKey = (d = new Date()) => d.toISOString().slice(0, 7);
+const nextMonthKey = (month: string) => {
+  const [y, m] = month.split("-").map(Number);
+  if (!y || !m) return monthKey();
+  const dt = new Date(Date.UTC(y, m - 1, 1));
+  dt.setUTCMonth(dt.getUTCMonth() + 1);
+  return dt.toISOString().slice(0, 7);
+};
 
 const formatCurrency = (value: number) =>
   `₦${Number(value || 0).toLocaleString(undefined, {
@@ -122,6 +139,7 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
   const [loading, setLoading] = useState(false);
   const [profitRows, setProfitRows] = useState<ProfitRow[]>([]);
   const [investors, setInvestors] = useState<Investor[]>([]);
+  const [reinvestRequests, setReinvestRequests] = useState<ReinvestRequest[]>([]);
   const [equityAllocations, setEquityAllocations] = useState<EquityAllocation[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [documentVersions, setDocumentVersions] = useState<DocumentVersion[]>([]);
@@ -151,11 +169,30 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
     cliffMonths: DEFAULT_CLIFF.toString(),
     vestingMonths: DEFAULT_VESTING.toString(),
   });
+  const [equityFlowForm, setEquityFlowForm] = useState({
+    sourceAllocationId: "",
+    transferType: "gift",
+    amount: "",
+    recipientName: "",
+    recipientEmail: "",
+    recipientUserId: "",
+    recipientRole: "investor",
+    agreementReference: "",
+    considerationAmount: "",
+  });
+  const [investorPoolSaleForm, setInvestorPoolSaleForm] = useState({
+    fromInvestorId: "",
+    amount: "",
+    toName: "",
+    toEmail: "",
+    agreementReference: "",
+  });
 
   const [reinvestInputs, setReinvestInputs] = useState<Record<string, string>>({});
   const [roleForm, setRoleForm] = useState({ email: "", role: "investor" });
   const [roleLookup, setRoleLookup] = useState<{ email: string; userId: string; roles: string[] } | null>(null);
   const [roleLoading, setRoleLoading] = useState(false);
+  const [closingMonth, setClosingMonth] = useState(false);
 
   const [docForm, setDocForm] = useState({
     title: "",
@@ -185,7 +222,7 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [profitsRes, investorsRes, equityRes, docsRes, versionsRes] =
+      const [profitsRes, investorsRes, reinvestRes, equityRes, docsRes, versionsRes] =
         await Promise.all([
         supabase
           .from("monthly_profit_tracker")
@@ -193,6 +230,10 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
           .order("month", { ascending: false }),
         supabase
           .from("investors")
+          .select("*")
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("investor_reinvest_requests")
           .select("*")
           .order("created_at", { ascending: false }),
         supabase
@@ -211,12 +252,23 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
 
       if (profitsRes.error) throw profitsRes.error;
       if (investorsRes.error) throw investorsRes.error;
+      if (reinvestRes.error) throw reinvestRes.error;
       if (equityRes.error) throw equityRes.error;
       if (docsRes.error) throw docsRes.error;
       if (versionsRes.error) throw versionsRes.error;
 
+      const investorRows = (investorsRes.data || []) as Investor[];
+      const seen = new Set<string>();
+      const dedupedInvestors = investorRows.filter((inv) => {
+        const key = inv.user_id || (inv.email ? inv.email.toLowerCase() : inv.id);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
       setProfitRows((profitsRes.data || []) as ProfitRow[]);
-      setInvestors((investorsRes.data || []) as Investor[]);
+      setInvestors(dedupedInvestors);
+      setReinvestRequests((reinvestRes.data || []) as ReinvestRequest[]);
       setEquityAllocations((equityRes.data || []) as EquityAllocation[]);
       setDocuments((docsRes.data || []) as Document[]);
       setDocumentVersions((versionsRes.data || []) as DocumentVersion[]);
@@ -232,6 +284,11 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
   }, []);
 
   const currentProfit = profitRows[0];
+  const selectedProfit = useMemo(
+    () => profitRows.find((row) => row.month === profitForm.month),
+    [profitRows, profitForm.month]
+  );
+  const selectedMonthDistributed = Boolean(selectedProfit?.is_distributed);
   const poolPercent = (currentProfit?.investor_pool_percent ?? DEFAULT_POOL_PERCENT) || DEFAULT_POOL_PERCENT;
   const netProfit = currentProfit?.net_profit || 0;
   const investorPool = netProfit * poolPercent;
@@ -257,6 +314,10 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
   const remainingPool = Math.max(0, investorPool - Object.values(payoutPreview).reduce((a, b) => a + b, 0));
 
   const handleSaveProfit = async () => {
+    if (selectedMonthDistributed) {
+      showToast(`Cannot edit ${profitForm.month}. It is already closed/distributed.`, "error");
+      return;
+    }
     const totalRevenue = Number(profitForm.totalRevenue || 0);
     const expenses = Number(profitForm.expenses || 0);
     const poolPercentInput = Number(profitForm.poolPercent || 0) / 100;
@@ -271,6 +332,8 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
             expenses,
             net_profit: net,
             investor_pool_percent: poolPercentInput || DEFAULT_POOL_PERCENT,
+            is_distributed: selectedProfit?.is_distributed ?? false,
+            distributed_at: selectedProfit?.distributed_at ?? null,
           },
           { onConflict: "month" }
         );
@@ -279,6 +342,38 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
       fetchData();
     } catch (e: any) {
       showToast(e.message || "Failed to save profit row", "error");
+    }
+  };
+
+  const handleCloseMonthAndDistribute = async () => {
+    if (!profitForm.month) {
+      showToast("Select month first", "error");
+      return;
+    }
+    if (selectedMonthDistributed) {
+      showToast(`${profitForm.month} is already closed/distributed`, "info");
+      return;
+    }
+    setClosingMonth(true);
+    try {
+      const { data, error } = await supabase.rpc("distribute_investor_payouts", {
+        p_month: profitForm.month,
+        p_apply: true,
+      });
+      if (error) throw error;
+      const rows = Array.isArray(data) ? data.length : 0;
+      showToast(
+        rows > 0
+          ? `Month closed. ${rows} investor payout(s) applied.`
+          : "Month closed. No new payouts applied (already distributed or no eligible payouts).",
+        "success"
+      );
+      setProfitForm((prev) => ({ ...prev, month: nextMonthKey(prev.month) }));
+      fetchData();
+    } catch (e: any) {
+      showToast(e.message || "Failed to close month", "error");
+    } finally {
+      setClosingMonth(false);
     }
   };
 
@@ -315,10 +410,37 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
     }
   };
 
+  const handleProcessReinvestRequest = async (
+    requestId: string,
+    action: "approve" | "reject"
+  ) => {
+    try {
+      const { data, error } = await supabase.rpc("process_investor_reinvest_request", {
+        p_request_id: requestId,
+        p_action: action,
+      });
+      if (error) throw error;
+      const status = (data as any)?.status || action;
+      const effectiveMonth = (data as any)?.effective_month;
+      if (status === "approved" && effectiveMonth) {
+        showToast(`Request approved. Effective from ${effectiveMonth}.`, "success");
+      } else {
+        showToast(`Request ${status}`, "success");
+      }
+      fetchData();
+    } catch (e: any) {
+      showToast(e.message || "Failed to process request", "error");
+    }
+  };
+
   const handleAddAllocation = async () => {
     const totalEquity = Number(allocationForm.totalEquity || 0);
     if (!allocationForm.recipientName.trim() || !totalEquity) {
       showToast("Add recipient and equity amount", "error");
+      return;
+    }
+    if (totalAllocatedEquity + totalEquity > 100) {
+      showToast("Total equity cannot exceed 100%", "error");
       return;
     }
     try {
@@ -365,6 +487,82 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
   };
 
   const totalAllocatedEquity = equityAllocations.reduce((sum, a) => sum + (a.total_equity || 0), 0);
+
+  const handleProcessEquityFlow = async () => {
+    const amount = Number(equityFlowForm.amount || 0);
+    if (!equityFlowForm.sourceAllocationId || amount <= 0) {
+      showToast("Select source allocation and valid amount", "error");
+      return;
+    }
+    if (
+      (equityFlowForm.transferType === "gift" || equityFlowForm.transferType === "sale") &&
+      !equityFlowForm.recipientName.trim() &&
+      !equityFlowForm.recipientEmail.trim() &&
+      !equityFlowForm.recipientUserId.trim()
+    ) {
+      showToast("Add recipient name/email/user id for gift/sale", "error");
+      return;
+    }
+
+    try {
+      const { error } = await supabase.rpc("process_equity_transfer", {
+        p_source_allocation_id: equityFlowForm.sourceAllocationId,
+        p_transfer_type: equityFlowForm.transferType,
+        p_amount: amount,
+        p_recipient_name: equityFlowForm.recipientName.trim() || null,
+        p_recipient_role: equityFlowForm.recipientRole,
+        p_recipient_user_id: equityFlowForm.recipientUserId.trim() || null,
+        p_recipient_email: equityFlowForm.recipientEmail.trim() || null,
+        p_agreement_reference: equityFlowForm.agreementReference.trim() || null,
+        p_consideration_amount: Number(equityFlowForm.considerationAmount || 0) || null,
+      });
+      if (error) throw error;
+      showToast(`Equity ${equityFlowForm.transferType} processed`, "success");
+      setEquityFlowForm({
+        sourceAllocationId: "",
+        transferType: "gift",
+        amount: "",
+        recipientName: "",
+        recipientEmail: "",
+        recipientUserId: "",
+        recipientRole: "investor",
+        agreementReference: "",
+        considerationAmount: "",
+      });
+      fetchData();
+    } catch (e: any) {
+      showToast(e.message || "Failed to process equity transfer", "error");
+    }
+  };
+
+  const handleInvestorPoolSale = async () => {
+    const amount = Number(investorPoolSaleForm.amount || 0);
+    if (!investorPoolSaleForm.fromInvestorId || amount <= 0 || !investorPoolSaleForm.toEmail.trim()) {
+      showToast("Select investor, amount, and acquirer email", "error");
+      return;
+    }
+    try {
+      const { error } = await supabase.rpc("transfer_investor_position", {
+        p_from_investor_id: investorPoolSaleForm.fromInvestorId,
+        p_amount: amount,
+        p_to_email: investorPoolSaleForm.toEmail.trim(),
+        p_to_name: investorPoolSaleForm.toName.trim() || null,
+        p_agreement_reference: investorPoolSaleForm.agreementReference.trim() || null,
+      });
+      if (error) throw error;
+      showToast("Investor position transferred", "success");
+      setInvestorPoolSaleForm({
+        fromInvestorId: "",
+        amount: "",
+        toName: "",
+        toEmail: "",
+        agreementReference: "",
+      });
+      fetchData();
+    } catch (e: any) {
+      showToast(e.message || "Failed investor position transfer", "error");
+    }
+  };
 
   const handleAssignRole = async () => {
     const email = roleForm.email.trim();
@@ -453,23 +651,19 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
       return;
     }
     try {
-      const { data: profile, error: lookupError } = await supabase
+      const { data: profile } = await supabase
         .from("profiles")
         .select("id")
         .eq("email", email)
-        .single();
-      if (lookupError || !profile?.id) {
-        showToast("User not found", "error");
-        return;
-      }
+        .maybeSingle();
       const { error } = await supabase.from("document_invites").insert({
         document_id: inviteForm.docId,
-        invited_user_id: profile.id,
+        invited_user_id: profile?.id || null,
         invited_email: email,
         status: "pending",
       });
       if (error) throw error;
-      showToast("Invitation sent", "success");
+      showToast(profile?.id ? "Invitation sent" : "Invitation saved for email (user can sign after account is linked)", "success");
       setInviteForm({ docId: "", email: "" });
       fetchData();
     } catch (e: any) {
@@ -501,13 +695,32 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
 
   const handleInviteStatus = async (inviteId: string, status: "pending" | "revoked") => {
     try {
-      const { error } = await supabase
-        .from("document_invites")
-        .update({ status, created_at: status === "pending" ? new Date().toISOString() : undefined })
-        .eq("id", inviteId);
-      if (error) throw error;
-      showToast(status === "pending" ? "Invite resent" : "Invite revoked", "success");
+      if (status === "pending") {
+        const { data: invite, error: getErr } = await supabase
+          .from("document_invites")
+          .select("document_id, invited_user_id, invited_email")
+          .eq("id", inviteId)
+          .single();
+        if (getErr) throw getErr;
+
+        const { error: insErr } = await supabase.from("document_invites").insert({
+          document_id: invite.document_id,
+          invited_user_id: invite.invited_user_id,
+          invited_email: invite.invited_email,
+          status: "pending",
+        });
+        if (insErr) throw insErr;
+        showToast("Invite resent", "success");
+      } else {
+        const { error } = await supabase
+          .from("document_invites")
+          .update({ status: "revoked" })
+          .eq("id", inviteId);
+        if (error) throw error;
+        showToast("Invite revoked", "success");
+      }
       fetchInvitesPage();
+      fetchData();
     } catch (e: any) {
       showToast(e.message || "Failed to update invite", "error");
     }
@@ -747,10 +960,25 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
         </div>
         <button
           onClick={handleSaveProfit}
-          className="mt-4 w-full py-3 rounded-xl bg-emerald-600 text-white text-xs font-black uppercase tracking-widest hover:bg-emerald-700"
+          disabled={selectedMonthDistributed}
+          className="mt-4 w-full py-3 rounded-xl bg-emerald-600 text-white text-xs font-black uppercase tracking-widest hover:bg-emerald-700 disabled:opacity-60"
         >
-          Save Monthly Profit
+          {selectedMonthDistributed ? "Month Locked (Already Closed)" : "Save Monthly Profit"}
         </button>
+        <button
+          onClick={handleCloseMonthAndDistribute}
+          disabled={closingMonth || selectedMonthDistributed}
+          className="mt-2 w-full py-3 rounded-xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest disabled:opacity-60"
+        >
+          {closingMonth
+            ? "Closing Month..."
+            : selectedMonthDistributed
+              ? "Already Closed/Distributed"
+              : "Close Month & Distribute"}
+        </button>
+        <p className="mt-2 text-[10px] font-bold text-slate-500">
+          Distribution status ({profitForm.month}): {selectedMonthDistributed ? "Closed/Distributed" : "Open (requests locked)"}
+        </p>
         {profitRows.length > 0 && (
           <div className="mt-4 space-y-2">
             {profitRows.slice(0, 4).map((row) => (
@@ -765,6 +993,44 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
 
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-6">
         <h3 className="text-sm font-black text-slate-800 mb-4">Investors Management</h3>
+        <div className="mb-4 rounded-2xl border border-slate-100 bg-slate-50 p-3">
+          <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+            Pending Reinvestment Requests
+          </div>
+          {reinvestRequests.filter((r) => r.status === "pending").length === 0 ? (
+            <p className="text-xs text-slate-400">No pending requests.</p>
+          ) : (
+            <div className="space-y-2">
+              {reinvestRequests
+                .filter((r) => r.status === "pending")
+                .map((req) => {
+                  const inv = investors.find((i) => i.id === req.investor_id);
+                  return (
+                    <div key={req.id} className="flex items-center justify-between gap-2 bg-white border border-slate-100 rounded-xl p-2">
+                      <div className="text-xs">
+                        <div className="font-black text-slate-700">{inv?.name || inv?.email || "Investor"}</div>
+                        <div className="text-slate-500">Request: {formatCurrency(req.amount || 0)}</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleProcessReinvestRequest(req.id, "reject")}
+                          className="px-2 py-1 rounded-lg border border-rose-200 text-rose-600 text-[10px] font-black uppercase"
+                        >
+                          Reject
+                        </button>
+                        <button
+                          onClick={() => handleProcessReinvestRequest(req.id, "approve")}
+                          className="px-2 py-1 rounded-lg bg-emerald-600 text-white text-[10px] font-black uppercase"
+                        >
+                          Approve
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          )}
+        </div>
         {loading ? (
           <div className="text-center text-xs text-slate-400 py-6">Loading investors…</div>
         ) : investors.length === 0 ? (
@@ -829,7 +1095,7 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
                       onClick={() => handleReinvest(inv)}
                       className="px-3 rounded-xl bg-slate-900 text-white text-xs font-black"
                     >
-                      Apply
+                      Manual Adjust
                     </button>
                   </div>
                 </div>
@@ -929,6 +1195,158 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
               );
             })
           )}
+        </div>
+        <div className="mt-3 text-[10px] font-black uppercase tracking-widest text-slate-500">
+          Total allocated equity: {totalAllocatedEquity.toFixed(3)}%
+        </div>
+
+        <div className="mt-5 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+          <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">
+            Equity Gift / Sale / Forfeit
+          </h4>
+          <div className="grid grid-cols-2 gap-3">
+            <select
+              value={equityFlowForm.sourceAllocationId}
+              onChange={(e) => setEquityFlowForm((prev) => ({ ...prev, sourceAllocationId: e.target.value }))}
+              className="w-full p-3 rounded-xl text-xs font-bold bg-white border border-slate-200 outline-none focus:border-emerald-500"
+            >
+              <option value="">Source allocation</option>
+              {equityAllocations.map((alloc) => (
+                <option key={alloc.id} value={alloc.id}>
+                  {alloc.recipient_name} ({alloc.total_equity}%)
+                </option>
+              ))}
+            </select>
+            <select
+              value={equityFlowForm.transferType}
+              onChange={(e) => setEquityFlowForm((prev) => ({ ...prev, transferType: e.target.value }))}
+              className="w-full p-3 rounded-xl text-xs font-bold bg-white border border-slate-200 outline-none focus:border-emerald-500"
+            >
+              <option value="gift">Gift</option>
+              <option value="sale">Sale</option>
+              <option value="forfeit">Forfeit</option>
+            </select>
+            <input
+              type="number"
+              placeholder="Amount %"
+              value={equityFlowForm.amount}
+              onChange={(e) => setEquityFlowForm((prev) => ({ ...prev, amount: e.target.value }))}
+              className="w-full p-3 rounded-xl text-xs font-bold bg-white border border-slate-200 outline-none focus:border-emerald-500"
+            />
+            <input
+              type="text"
+              placeholder="Agreement reference"
+              value={equityFlowForm.agreementReference}
+              onChange={(e) => setEquityFlowForm((prev) => ({ ...prev, agreementReference: e.target.value }))}
+              className="w-full p-3 rounded-xl text-xs font-bold bg-white border border-slate-200 outline-none focus:border-emerald-500"
+            />
+            <input
+              type="text"
+              placeholder="Recipient name"
+              value={equityFlowForm.recipientName}
+              onChange={(e) => setEquityFlowForm((prev) => ({ ...prev, recipientName: e.target.value }))}
+              className="w-full p-3 rounded-xl text-xs font-bold bg-white border border-slate-200 outline-none focus:border-emerald-500"
+            />
+            <input
+              type="email"
+              placeholder="Recipient email"
+              value={equityFlowForm.recipientEmail}
+              onChange={(e) => setEquityFlowForm((prev) => ({ ...prev, recipientEmail: e.target.value }))}
+              className="w-full p-3 rounded-xl text-xs font-bold bg-white border border-slate-200 outline-none focus:border-emerald-500"
+            />
+            <input
+              type="text"
+              placeholder="Recipient user id (optional)"
+              value={equityFlowForm.recipientUserId}
+              onChange={(e) => setEquityFlowForm((prev) => ({ ...prev, recipientUserId: e.target.value }))}
+              className="w-full p-3 rounded-xl text-xs font-bold bg-white border border-slate-200 outline-none focus:border-emerald-500"
+            />
+            <select
+              value={equityFlowForm.recipientRole}
+              onChange={(e) => setEquityFlowForm((prev) => ({ ...prev, recipientRole: e.target.value }))}
+              className="w-full p-3 rounded-xl text-xs font-bold bg-white border border-slate-200 outline-none focus:border-emerald-500"
+            >
+              <option value="founder">Founder</option>
+              <option value="ceo">CEO</option>
+              <option value="employee">Employee</option>
+              <option value="advisor">Advisor</option>
+              <option value="investor">Investor</option>
+              <option value="treasury">Treasury</option>
+            </select>
+            <input
+              type="number"
+              placeholder="Sale value (optional)"
+              value={equityFlowForm.considerationAmount}
+              onChange={(e) => setEquityFlowForm((prev) => ({ ...prev, considerationAmount: e.target.value }))}
+              className="w-full p-3 rounded-xl text-xs font-bold bg-white border border-slate-200 outline-none focus:border-emerald-500 col-span-2"
+            />
+          </div>
+          <button
+            onClick={handleProcessEquityFlow}
+            className="mt-3 w-full py-3 rounded-xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest"
+          >
+            Apply Equity Flow
+          </button>
+          <p className="mt-2 text-[10px] text-slate-500 font-bold">
+            Gift/Sale can only move vested amount. Forfeit moves equity to treasury reserve.
+          </p>
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+          <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">
+            Investor Pool Sale / Transfer
+          </h4>
+          <div className="grid grid-cols-2 gap-3">
+            <select
+              value={investorPoolSaleForm.fromInvestorId}
+              onChange={(e) => setInvestorPoolSaleForm((prev) => ({ ...prev, fromInvestorId: e.target.value }))}
+              className="w-full p-3 rounded-xl text-xs font-bold bg-white border border-slate-200 outline-none focus:border-emerald-500"
+            >
+              <option value="">From investor</option>
+              {approvedInvestors.map((inv) => (
+                <option key={inv.id} value={inv.id}>
+                  {inv.name || inv.email || inv.id} ({formatCurrency(inv.contribution || 0)})
+                </option>
+              ))}
+            </select>
+            <input
+              type="number"
+              placeholder="Amount to transfer"
+              value={investorPoolSaleForm.amount}
+              onChange={(e) => setInvestorPoolSaleForm((prev) => ({ ...prev, amount: e.target.value }))}
+              className="w-full p-3 rounded-xl text-xs font-bold bg-white border border-slate-200 outline-none focus:border-emerald-500"
+            />
+            <input
+              type="text"
+              placeholder="Acquirer name (optional)"
+              value={investorPoolSaleForm.toName}
+              onChange={(e) => setInvestorPoolSaleForm((prev) => ({ ...prev, toName: e.target.value }))}
+              className="w-full p-3 rounded-xl text-xs font-bold bg-white border border-slate-200 outline-none focus:border-emerald-500"
+            />
+            <input
+              type="email"
+              placeholder="Acquirer email"
+              value={investorPoolSaleForm.toEmail}
+              onChange={(e) => setInvestorPoolSaleForm((prev) => ({ ...prev, toEmail: e.target.value }))}
+              className="w-full p-3 rounded-xl text-xs font-bold bg-white border border-slate-200 outline-none focus:border-emerald-500"
+            />
+            <input
+              type="text"
+              placeholder="Agreement reference"
+              value={investorPoolSaleForm.agreementReference}
+              onChange={(e) => setInvestorPoolSaleForm((prev) => ({ ...prev, agreementReference: e.target.value }))}
+              className="w-full p-3 rounded-xl text-xs font-bold bg-white border border-slate-200 outline-none focus:border-emerald-500 col-span-2"
+            />
+          </div>
+          <button
+            onClick={handleInvestorPoolSale}
+            className="mt-3 w-full py-3 rounded-xl bg-emerald-600 text-white text-xs font-black uppercase tracking-widest"
+          >
+            Transfer Investor Position
+          </button>
+          <p className="mt-2 text-[10px] text-slate-500 font-bold">
+            This moves contribution and paid-profit history proportionally to the new owner.
+          </p>
         </div>
       </div>
 
@@ -1079,7 +1497,7 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
               <option value="">Select agreement</option>
               {documents.map((doc) => (
                 <option key={doc.id} value={doc.id}>
-                  {doc.title} ({doc.target_role})
+                  {doc.title} (v{latestVersionByDoc[doc.id]?.version || 1}, {doc.target_role})
                 </option>
               ))}
             </select>
@@ -1270,7 +1688,7 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
                   <div className="text-right">
                     <div className="capitalize">{sig.signature_method}</div>
                     <div className="text-[10px] text-slate-400">
-                      {sig.signed_at ? new Date(sig.signed_at).toLocaleDateString() : "—"}
+                      {sig.signed_at ? new Date(sig.signed_at).toLocaleString() : "—"}
                     </div>
                   </div>
                 </div>
