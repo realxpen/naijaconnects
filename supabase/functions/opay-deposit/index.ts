@@ -17,7 +17,12 @@ serve(async (req) => {
     if (!merchantId || !publicKey || !baseUrl) throw new Error("Missing Secrets");
 
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("No Auth Header");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Missing authorization header" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
@@ -25,7 +30,12 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    if (userError || !user) throw new Error("User Validation Failed");
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: "Invalid or expired session" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const { amount, email, name, method } = await req.json();
     if (!amount) throw new Error("Amount is required");

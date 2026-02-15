@@ -498,6 +498,28 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
   const [recentWithdraws, setRecentWithdraws] = useState<any[]>([]);
   const [pinOpen, setPinOpen] = useState(false);
   const [pinError, setPinError] = useState("");
+
+  const getProjectRefFromUrl = (url?: string | null) => {
+    if (!url) return "";
+    try {
+      const host = new URL(url).host;
+      return host.split(".")[0] || "";
+    } catch {
+      return "";
+    }
+  };
+
+  const getProjectRefFromJwt = (jwt?: string | null) => {
+    if (!jwt) return "";
+    try {
+      const parts = jwt.split(".");
+      if (parts.length < 2) return "";
+      const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
+      return getProjectRefFromUrl(payload?.iss || "");
+    } catch {
+      return "";
+    }
+  };
   const [pendingAction, setPendingAction] = useState<null | (() => void)>(null);
   
   // --- STATE VARIABLES ---
@@ -697,15 +719,12 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
           12000,
           "Session check"
         );
-        if (!currentSession?.session) throw new Error("Session expired. Please log in again.");
-
-        const { data: refreshedSession, error: refreshError } = await withTimeout(
-          supabase.auth.refreshSession(),
-          12000,
-          "Session refresh"
-        );
-        if (refreshError || !refreshedSession?.session?.access_token) {
-            throw new Error("Session refresh failed. Please log in again.");
+        const accessToken = currentSession?.session?.access_token;
+        if (!accessToken) throw new Error("No session token. Please log out and log in again.");
+        const clientRef = getProjectRefFromUrl(import.meta.env.VITE_SUPABASE_URL);
+        const tokenRef = getProjectRefFromJwt(accessToken);
+        if (clientRef && tokenRef && clientRef !== tokenRef) {
+          throw new Error(`Auth project mismatch: app=${clientRef}, token=${tokenRef}. Check VITE_SUPABASE_URL/ANON_KEY.`);
         }
 
         const invokePayload = {
@@ -720,37 +739,14 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
         let { data, error } = await withTimeout(
           supabase.functions.invoke("opay-deposit", {
             ...invokePayload,
-            headers: { Authorization: `Bearer ${refreshedSession.session.access_token}` }
+            headers: { Authorization: `Bearer ${accessToken}` }
           }),
           20000,
           "Deposit initialization"
         );
 
         const firstStatus = (error as any)?.context?.status;
-        if (firstStatus === 401) {
-            const { data: retrySession, error: retryRefreshError } = await supabase.auth.refreshSession();
-            if (!retryRefreshError && retrySession?.session?.access_token) {
-                const retry = await withTimeout(
-                  supabase.functions.invoke("opay-deposit", {
-                    ...invokePayload,
-                    headers: { Authorization: `Bearer ${retrySession.session.access_token}` }
-                  }),
-                  20000,
-                  "Deposit retry"
-                );
-                data = retry.data;
-                error = retry.error;
-            }
-            if ((error as any)?.context?.status === 401) {
-                const fallback = await withTimeout(
-                  supabase.functions.invoke("opay-deposit", invokePayload),
-                  20000,
-                  "Deposit fallback"
-                );
-                data = fallback.data;
-                error = fallback.error;
-            }
-        }
+        if (firstStatus === 401) throw new Error("Unauthorized (401). Please log out and log in again.");
 
         if (error) {
             let detailMessage = "";

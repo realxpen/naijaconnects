@@ -44,7 +44,7 @@ entrypoint = "./functions/send-push/index.ts"
 
 [functions.opay-deposit]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 entrypoint = "./functions/opay-deposit/index.ts"
 
 [functions.opay-webhook]
