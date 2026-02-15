@@ -314,10 +314,6 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
   const remainingPool = Math.max(0, investorPool - Object.values(payoutPreview).reduce((a, b) => a + b, 0));
 
   const handleSaveProfit = async () => {
-    if (selectedMonthDistributed) {
-      showToast(`Cannot edit ${profitForm.month}. It is already closed/distributed.`, "error");
-      return;
-    }
     const totalRevenue = Number(profitForm.totalRevenue || 0);
     const expenses = Number(profitForm.expenses || 0);
     const poolPercentInput = Number(profitForm.poolPercent || 0) / 100;
@@ -571,23 +567,14 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
       return;
     }
     try {
-      const { data: profile, error: lookupError } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("email", email)
-        .single();
-      if (lookupError || !profile?.id) {
-        showToast("User not found", "error");
-        return;
-      }
-
-      const { error } = await supabase.from("user_roles").insert({
-        user_id: profile.id,
-        role: roleForm.role,
+      const { data, error } = await supabase.rpc("assign_user_role_by_email", {
+        p_email: email,
+        p_role: roleForm.role,
       });
       if (error) throw error;
       showToast("Role assigned", "success");
-      if (roleLookup && roleLookup.userId === profile.id) {
+      const assignedUserId = (data as any)?.user_id as string | undefined;
+      if (roleLookup && assignedUserId && roleLookup.userId === assignedUserId) {
         setRoleLookup((prev) =>
           prev && !prev.roles.includes(roleForm.role)
             ? { ...prev, roles: [...prev.roles, roleForm.role].sort() }
@@ -695,32 +682,13 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
 
   const handleInviteStatus = async (inviteId: string, status: "pending" | "revoked") => {
     try {
-      if (status === "pending") {
-        const { data: invite, error: getErr } = await supabase
-          .from("document_invites")
-          .select("document_id, invited_user_id, invited_email")
-          .eq("id", inviteId)
-          .single();
-        if (getErr) throw getErr;
-
-        const { error: insErr } = await supabase.from("document_invites").insert({
-          document_id: invite.document_id,
-          invited_user_id: invite.invited_user_id,
-          invited_email: invite.invited_email,
-          status: "pending",
-        });
-        if (insErr) throw insErr;
-        showToast("Invite resent", "success");
-      } else {
-        const { error } = await supabase
-          .from("document_invites")
-          .update({ status: "revoked" })
-          .eq("id", inviteId);
-        if (error) throw error;
-        showToast("Invite revoked", "success");
-      }
+      const { error } = await supabase
+        .from("document_invites")
+        .update({ status, created_at: status === "pending" ? new Date().toISOString() : undefined })
+        .eq("id", inviteId);
+      if (error) throw error;
+      showToast(status === "pending" ? "Invite resent" : "Invite revoked", "success");
       fetchInvitesPage();
-      fetchData();
     } catch (e: any) {
       showToast(e.message || "Failed to update invite", "error");
     }
@@ -829,28 +797,25 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
     }
     setRoleLoading(true);
     try {
-      const { data: profile, error: lookupError } = await supabase
-        .from("profiles")
-        .select("id, email")
-        .eq("email", email)
-        .single();
-      if (lookupError || !profile?.id) {
+      const { data, error } = await supabase.rpc("list_user_roles_by_email", {
+        p_email: email,
+      });
+      if (error) throw error;
+      const rows = (data || []) as Array<{ user_id: string; email: string; role: string | null }>;
+      if (rows.length === 0 || !rows[0]?.user_id) {
         showToast("User not found", "error");
         setRoleLookup(null);
         return;
       }
-
-      const { data: roleRows, error: roleError } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", profile.id)
-        .order("role", { ascending: true });
-      if (roleError) throw roleError;
+      const roles = rows
+        .map((r) => r.role)
+        .filter((r): r is string => Boolean(r))
+        .sort();
 
       setRoleLookup({
-        email: profile.email,
-        userId: profile.id,
-        roles: (roleRows || []).map((r: any) => r.role),
+        email: rows[0].email || email,
+        userId: rows[0].user_id,
+        roles,
       });
     } catch (e: any) {
       showToast(e.message || "Failed to load roles", "error");
@@ -862,11 +827,10 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
   const handleRemoveRole = async (role: string) => {
     if (!roleLookup) return;
     try {
-      const { error } = await supabase
-        .from("user_roles")
-        .delete()
-        .eq("user_id", roleLookup.userId)
-        .eq("role", role);
+      const { error } = await supabase.rpc("remove_user_role_by_email", {
+        p_email: roleLookup.email,
+        p_role: role,
+      });
       if (error) throw error;
       setRoleLookup((prev) =>
         prev ? { ...prev, roles: prev.roles.filter((r) => r !== role) } : prev
@@ -960,10 +924,9 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
         </div>
         <button
           onClick={handleSaveProfit}
-          disabled={selectedMonthDistributed}
-          className="mt-4 w-full py-3 rounded-xl bg-emerald-600 text-white text-xs font-black uppercase tracking-widest hover:bg-emerald-700 disabled:opacity-60"
+          className="mt-4 w-full py-3 rounded-xl bg-emerald-600 text-white text-xs font-black uppercase tracking-widest hover:bg-emerald-700"
         >
-          {selectedMonthDistributed ? "Month Locked (Already Closed)" : "Save Monthly Profit"}
+          Save Monthly Profit
         </button>
         <button
           onClick={handleCloseMonthAndDistribute}
@@ -1497,7 +1460,7 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
               <option value="">Select agreement</option>
               {documents.map((doc) => (
                 <option key={doc.id} value={doc.id}>
-                  {doc.title} (v{latestVersionByDoc[doc.id]?.version || 1}, {doc.target_role})
+                  {doc.title} ({doc.target_role})
                 </option>
               ))}
             </select>
