@@ -78,6 +78,17 @@ const sha256Fallback = (input: string): string => {
   return result;
 };
 
+const legacySimpleHash = (input: string): string => {
+  // Backward compatibility with the previous non-cryptographic fallback
+  // that was used when SubtleCrypto was unavailable.
+  const data = new TextEncoder().encode(input);
+  let hash = 0;
+  for (let i = 0; i < data.length; i += 1) {
+    hash = (hash * 31 + data[i]) >>> 0;
+  }
+  return String(hash);
+};
+
 const sha256Hex = async (input: string): Promise<string> => {
   const data = new TextEncoder().encode(input);
   if (crypto?.subtle) {
@@ -106,7 +117,14 @@ export const verifyPinHash = async (
 ): Promise<boolean> => {
   if (!storedHash) return false;
   const normalizedPin = normalizePin(pin);
-  const target = String(storedHash);
+  const target = String(storedHash).trim();
+  const hashEquals = (candidate: string) => {
+    if (candidate === target) return true;
+    return candidate.toLowerCase() === target.toLowerCase();
+  };
+
+  // Legacy fallback: some old rows may have been stored as plain numeric PIN.
+  if (/^\d{4,6}$/.test(target) && target === normalizedPin) return true;
   const salts = Array.from(
     new Set([
       opts?.userId || "",
@@ -117,10 +135,17 @@ export const verifyPinHash = async (
 
   for (const salt of salts) {
     const h = await hashPin(normalizedPin, salt);
-    if (h === target) return true;
+    if (hashEquals(h)) return true;
+    // Legacy salted fallback hash compatibility.
+    const legacySalted = legacySimpleHash(`${normalizedPin}:${salt}`);
+    if (hashEquals(legacySalted)) return true;
   }
 
   // Legacy fallback: unsalted hash
   const legacy = await sha256Hex(normalizedPin);
-  return legacy === target;
+  if (hashEquals(legacy)) return true;
+
+  // Legacy unsalted simple fallback compatibility.
+  const legacySimple = legacySimpleHash(normalizedPin);
+  return hashEquals(legacySimple);
 };

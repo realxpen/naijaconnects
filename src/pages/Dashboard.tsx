@@ -14,6 +14,7 @@ import { beneficiaryService } from "../services/beneficiaryService";
 import PinPrompt from "../components/PinPrompt";
 import ConfirmTransactionModal from "../components/ConfirmTransactionModal";
 import { verifyPinHash } from "../utils/pin";
+import { calculateDepositFee, calculateTransferServiceFee } from "../utils/paymentFees";
 import { useSuccessScreen } from "../components/ui/SuccessScreenProvider";
 import { usePushNotifications } from "../hooks/usePushNotifications";
 import InstallPwaModal from "../components/InstallPwaModal";
@@ -173,6 +174,17 @@ const ReceiptView = ({
     const txReference = String(tx.reference || "").trim();
     const meta = (tx as any)?.meta || (tx as any)?.metadata || {};
     const isDeposit = String(tx.type).toLowerCase() === "deposit";
+    const isExam = String(tx.type).toLowerCase() === "exam";
+    const examCards = Array.isArray(meta?.cards)
+      ? meta.cards
+          .map((c: any) => ({
+            pin: String(c?.pin || "").trim(),
+            serialNo: String(c?.serial_no || c?.serialNo || "").trim(),
+          }))
+          .filter((c: any) => c.pin || c.serialNo)
+      : [];
+    const examPin = String(meta?.pin || "").trim();
+    const examProviderRef = String(meta?.provider_reference || meta?.reference || "").trim();
     const canRequeryDeposit =
       isDeposit &&
       !!txReference &&
@@ -457,6 +469,58 @@ const ReceiptView = ({
                                 )}
                               </div>
                             )}
+                            {isExam && (
+                              <div className="pt-2 space-y-3">
+                                {examPin && (
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-xs font-bold text-slate-400">PIN</span>
+                                    <button
+                                      onClick={async () => {
+                                        await navigator.clipboard.writeText(examPin);
+                                        showToast("PIN copied", "success");
+                                      }}
+                                      className="text-xs font-bold text-emerald-700 flex items-center gap-1"
+                                    >
+                                      {examPin} <Copy size={12} />
+                                    </button>
+                                  </div>
+                                )}
+                                {examProviderRef && (
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-xs font-bold text-slate-400">Provider Ref</span>
+                                    <span className="text-xs font-bold text-slate-700 text-right">{examProviderRef}</span>
+                                  </div>
+                                )}
+                                {examCards.length > 0 && (
+                                  <div className="space-y-2">
+                                    {examCards.map((card: any, idx: number) => (
+                                      <div key={`exam-card-${idx}`} className="rounded-lg border border-slate-200 bg-slate-50 p-2">
+                                        {card.pin && (
+                                          <div className="flex justify-between items-center">
+                                            <span className="text-[10px] font-bold text-slate-400">PIN {idx + 1}</span>
+                                            <button
+                                              onClick={async () => {
+                                                await navigator.clipboard.writeText(card.pin);
+                                                showToast("PIN copied", "success");
+                                              }}
+                                              className="text-[10px] font-bold text-emerald-700 flex items-center gap-1"
+                                            >
+                                              {card.pin} <Copy size={11} />
+                                            </button>
+                                          </div>
+                                        )}
+                                        {card.serialNo && (
+                                          <div className="flex justify-between items-center mt-1">
+                                            <span className="text-[10px] font-bold text-slate-400">Serial No</span>
+                                            <span className="text-[10px] font-bold text-slate-700">{card.serialNo}</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
                         </div>
 
                         <div className="mt-6">
@@ -707,17 +771,15 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
 
 
   // --- DYNAMIC FEE CALCULATORS ---
-  const getWithdrawalFee = (amount: number) => {
-    if (!amount) return 0;
-    if (amount <= 5000) return 10;
-    if (amount <= 50000) return 25;
-    return 50;
-  };
+  const getWithdrawalFee = (amount: number) => calculateTransferServiceFee(amount);
 
   const getDepositFee = (amount: number, method: string) => {
     if (!amount) return 0;
-    if (method === "BankCard") return Math.ceil(amount * 0.015); 
-    return 50; 
+    const mappedMethod =
+      method === "BankTransfer" || method === "BankUssd" || method === "BankCard"
+        ? method
+        : "BankCard";
+    return calculateDepositFee(amount, mappedMethod);
   };
 
   // --- DATA FETCHING ---
@@ -1583,9 +1645,9 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
               <>
             <div className="grid grid-cols-2 gap-3 mb-4">
                 {[
-                    { id: "BankCard", label: "Card (1.5%)", icon: <CreditCard size={18}/> },
-                    { id: "BankTransfer", label: "Transfer (₦50)", icon: <Building2 size={18}/> },
-                    { id: "BankUssd", label: "USSD (₦50)", icon: <Smartphone size={18}/> },
+                    { id: "BankCard", label: "Card/USSD (1.2%, cap NGN 1,500)", icon: <CreditCard size={18}/> },
+                    { id: "BankTransfer", label: "Virtual Account (0.25%, cap NGN 1,000)", icon: <Building2 size={18}/> },
+                    { id: "BankUssd", label: "USSD (1.2%, cap NGN 1,500)", icon: <Smartphone size={18}/> },
                 ].map((m) => (
                     <button
                         key={m.id}
@@ -1746,20 +1808,20 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
             <div className="mb-3 bg-slate-50 p-2 rounded-lg border border-slate-100">
                 <div className="flex items-center gap-2 mb-1 text-slate-500">
                     <AlertCircle size={12} />
-                    <span className="text-[10px] font-bold uppercase">Fee Structure</span>
+                    <span className="text-[10px] font-bold uppercase">Transfer Service Fee</span>
                 </div>
                 <div className="text-[10px] text-slate-600 grid grid-cols-3 gap-1">
                     <div className="bg-white px-2 py-1 rounded border border-slate-100 text-center">
                         <span className="block text-slate-400">≤ 5k</span>
-                        <span className="font-bold">₦10</span>
+                        <span className="font-bold">₦8</span>
                     </div>
                     <div className="bg-white px-2 py-1 rounded border border-slate-100 text-center">
                         <span className="block text-slate-400">≤ 50k</span>
-                        <span className="font-bold">₦25</span>
+                        <span className="font-bold">₦20</span>
                     </div>
                     <div className="bg-white px-2 py-1 rounded border border-slate-100 text-center">
                         <span className="block text-slate-400">&gt; 50k</span>
-                        <span className="font-bold">₦50</span>
+                        <span className="font-bold">₦40</span>
                     </div>
                 </div>
             </div>

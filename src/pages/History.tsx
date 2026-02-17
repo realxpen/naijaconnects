@@ -233,6 +233,17 @@ const History = () => {
     const displayRef = tx.reference || `TRX-${tx.id.substring(0,8)}`;
     const meta = (tx as any)?.meta || (tx as any)?.metadata || {};
     const isDeposit = String(tx.type).toLowerCase() === "deposit";
+    const isExam = String(tx.type).toLowerCase() === "exam";
+    const examCards = Array.isArray(meta?.cards)
+      ? meta.cards
+          .map((c: any) => ({
+            pin: String(c?.pin || "").trim(),
+            serialNo: String(c?.serial_no || c?.serialNo || "").trim(),
+          }))
+          .filter((c: any) => c.pin || c.serialNo)
+      : [];
+    const examPin = String(meta?.pin || "").trim();
+    const examProviderRef = String(meta?.provider_reference || meta?.reference || "").trim();
     const depositFee = Number(meta?.estimated_fee || 0);
     const totalPaid = Number(meta?.total_paid || ((Number(tx.amount) || 0) + depositFee));
     const receiptRef = useRef<HTMLDivElement | null>(null);
@@ -498,6 +509,58 @@ const History = () => {
                                   <div className="flex justify-between items-center">
                                     <span className="text-xs font-bold text-slate-400">Transaction No.</span>
                                     <span className="text-xs font-bold text-slate-700 text-right">{meta.transactionid}</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            {isExam && (
+                              <div className="pt-2 space-y-3">
+                                {examPin && (
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-xs font-bold text-slate-400">PIN</span>
+                                    <button
+                                      onClick={async () => {
+                                        await navigator.clipboard.writeText(examPin);
+                                        showToast("PIN copied", "success");
+                                      }}
+                                      className="text-xs font-bold text-emerald-700 flex items-center gap-1"
+                                    >
+                                      {examPin} <Copy size={12} />
+                                    </button>
+                                  </div>
+                                )}
+                                {examProviderRef && (
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-xs font-bold text-slate-400">Provider Ref</span>
+                                    <span className="text-xs font-bold text-slate-700 text-right">{examProviderRef}</span>
+                                  </div>
+                                )}
+                                {examCards.length > 0 && (
+                                  <div className="space-y-2">
+                                    {examCards.map((card: any, idx: number) => (
+                                      <div key={`exam-card-${idx}`} className="rounded-lg border border-slate-200 bg-slate-50 p-2">
+                                        {card.pin && (
+                                          <div className="flex justify-between items-center">
+                                            <span className="text-[10px] font-bold text-slate-400">PIN {idx + 1}</span>
+                                            <button
+                                              onClick={async () => {
+                                                await navigator.clipboard.writeText(card.pin);
+                                                showToast("PIN copied", "success");
+                                              }}
+                                              className="text-[10px] font-bold text-emerald-700 flex items-center gap-1"
+                                            >
+                                              {card.pin} <Copy size={11} />
+                                            </button>
+                                          </div>
+                                        )}
+                                        {card.serialNo && (
+                                          <div className="flex justify-between items-center mt-1">
+                                            <span className="text-[10px] font-bold text-slate-400">Serial No</span>
+                                            <span className="text-[10px] font-bold text-slate-700">{card.serialNo}</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
                                   </div>
                                 )}
                               </div>

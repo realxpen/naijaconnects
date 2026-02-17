@@ -18,6 +18,18 @@ const toChannel = (method?: string) => {
   }
 };
 
+const calculateEstimatedDepositFee = (amount: number, method: string) => {
+  if (!Number.isFinite(amount) || amount <= 0) return 0;
+
+  // Virtual account (direct transfer): 0.25%, capped at NGN 1,000.
+  if (method === "BankTransfer") {
+    return Math.min(amount * 0.0025, 1000);
+  }
+
+  // Local payment link (card/USSD/bank): 1.2%, capped at NGN 1,500.
+  return Math.min(amount * 0.012, 1500);
+};
+
 const extractTransferDetails = (data: any) => {
   const root = data?.data ?? data ?? {};
   const accountNumber =
@@ -100,13 +112,7 @@ serve(async (req) => {
     }
 
     const payMethod = method || "BankCard";
-    let estimatedFee = 0;
-    if (payMethod === "BankTransfer" || payMethod === "BankUssd") {
-      estimatedFee = 50;
-    } else {
-      estimatedFee = walletCreditAmount * 0.015;
-      if (estimatedFee > 2000) estimatedFee = 2000;
-    }
+    let estimatedFee = calculateEstimatedDepositFee(walletCreditAmount, payMethod);
     estimatedFee = Math.round(estimatedFee * 100) / 100;
     const totalToPay = walletCreditAmount + estimatedFee;
     const amountInKobo = Math.round(totalToPay * 100);

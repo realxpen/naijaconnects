@@ -71,3 +71,8 @@ entrypoint = "./functions/squad-webhook/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/squad-withdraw/index.ts"
+
+[functions.naijaresultpins-proxy]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/naijaresultpins-proxy/index.ts"

@@ -96,8 +96,11 @@ export const JAMB_VARIANTS = [
 
 export const EXAM_TYPES = [
   { id: 'JAMB', name: 'JAMB e-PIN', price: 0, logo: jambLogo }, // Price calculated from variant
-  { id: 'WAEC', name: 'WAEC Result Checker', price: 3500, logo: waecLogo },
-  { id: 'NECO', name: 'NECO Result Checker', price: 1300, logo: necoLogo },
+  { id: 'WAEC', name: 'WAEC', price: 3340, logo: waecLogo },
+  { id: 'NECO', name: 'NECO TOKEN', price: 1135, logo: necoLogo },
+  { id: 'NABTEB', name: 'NABTEB Scratch Card', price: 820, logo: null },
+  { id: 'NBAIS', name: 'NBAIS Scratch Card', price: 1250, logo: null },
+  { id: 'EXAMINIFY_BIOMETRIC', name: 'EXAMINIFY BIOMETRIC TOKEN', price: 200, logo: null },
 ];
 
 export const PREFILLED_AMOUNTS = [1000, 2000, 5000, 10000];

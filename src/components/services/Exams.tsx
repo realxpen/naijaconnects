@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Loader2, BookOpen, User, Phone, Check } from "lucide-react";
 import { supabase } from "../../supabaseClient";
 import { dbService } from "../../services/dbService";
@@ -33,6 +33,53 @@ const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
   const [pinError, setPinError] = useState("");
   const [pendingAction, setPendingAction] = useState<null | (() => void)>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [waecOption, setWaecOption] = useState<"scratch" | "verification">("scratch");
+  const [examCatalog, setExamCatalog] = useState<Record<string, { cardTypeId: string; unitAmount: number; cardName: string }>>({});
+  const WAEC_OPTIONS = [
+    { id: "scratch" as const, label: "Scratch Card", key: "WAEC" as const },
+    { id: "verification" as const, label: "Verification Pin", key: "WAEC_VERIFICATION" as const },
+  ];
+
+  const mapCatalogByExamType = (rows: any[]) => {
+    const mapped: Record<string, { cardTypeId: string; unitAmount: number; cardName: string }> = {};
+    for (const row of rows || []) {
+      const name = String(row?.card_name || "").toUpperCase();
+      const cardTypeId = String(row?.card_type_id || "");
+      const unitAmount = Number(row?.unit_amount || 0);
+      if (!cardTypeId || !unitAmount) continue;
+      if (name.includes("WAEC VERIFICATION")) {
+        mapped.WAEC_VERIFICATION = { cardTypeId, unitAmount, cardName: String(row?.card_name || "WAEC Verification Pin") };
+        continue;
+      }
+      if (name.includes("WAEC")) mapped.WAEC = { cardTypeId, unitAmount, cardName: String(row?.card_name || "WAEC Scratch Card") };
+      if (name.includes("NECO")) mapped.NECO = { cardTypeId, unitAmount, cardName: String(row?.card_name || "NECO TOKEN") };
+      if (name.includes("NABTEB")) mapped.NABTEB = { cardTypeId, unitAmount, cardName: String(row?.card_name || "NABTEB Scratch Card") };
+      if (name.includes("NBAIS")) mapped.NBAIS = { cardTypeId, unitAmount, cardName: String(row?.card_name || "NBAIS Scratch Card") };
+      if (name.includes("EXAMINIFY BIOMETRIC")) mapped.EXAMINIFY_BIOMETRIC = { cardTypeId, unitAmount, cardName: String(row?.card_name || "EXAMINIFY BIOMETRIC TOKEN") };
+    }
+    return mapped;
+  };
+
+  const loadExamCatalog = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke("naijaresultpins-proxy", {
+        body: { action: "list_products" },
+      });
+      if (error) throw error;
+      const rows = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+      const mapped = mapCatalogByExamType(rows);
+      setExamCatalog(mapped);
+    } catch (e) {
+      // Keep UI working with local fallback pricing when provider catalog fails.
+      setExamCatalog({});
+    }
+  };
+
+  useEffect(() => {
+    loadExamCatalog();
+  }, []);
+
+  const selectedCatalog = useMemo(() => examCatalog[selectedExam?.id], [examCatalog, selectedExam?.id]);
 
   // --- 1. VERIFY JAMB ---
   const verifyJamb = async (profileId: string) => {
@@ -58,7 +105,13 @@ const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
     if (selectedExam.id === "JAMB") {
         return JAMB_VARIANTS.find(v => v.id === jambType)?.amount || 4700;
     }
-    return (selectedExam.price || 3500) * quantity;
+    if (selectedExam.id === "WAEC") {
+      const waecKey = waecOption === "verification" ? "WAEC_VERIFICATION" : "WAEC";
+      const waecUnit = examCatalog[waecKey]?.unitAmount || (waecOption === "verification" ? 3700 : 3340);
+      return waecUnit * quantity;
+    }
+    const unit = selectedCatalog?.unitAmount || selectedExam.price || 3500;
+    return unit * quantity;
   };
 
   // --- 3. PURCHASE LOGIC ---
@@ -77,6 +130,7 @@ const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
 
       if (selectedExam.id === "JAMB") {
         proxyFunc = "clubkonnect-proxy";
+        action = "buy_education";
         payload = {
            exam_group: "JAMB",
            exam_type: jambType,
@@ -85,11 +139,18 @@ const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
            amount: cost
         };
       } else {
-        // WAEC / NECO
+        proxyFunc = "naijaresultpins-proxy";
+        action = "buy_card";
+        const productKey = selectedExam.id === "WAEC"
+          ? (waecOption === "verification" ? "WAEC_VERIFICATION" : "WAEC")
+          : selectedExam.id;
+        const cardTypeId = examCatalog[productKey]?.cardTypeId || selectedCatalog?.cardTypeId;
+        if (!cardTypeId) {
+          throw new Error("Exam product currently unavailable. Please try again later.");
+        }
         payload = {
-           exam_group: selectedExam.id,
-           quantity: quantity,
-           amount: cost
+          card_type_id: cardTypeId,
+          quantity,
         };
       }
 
@@ -99,7 +160,11 @@ const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
 
       if (error) throw new Error(error.message);
 
-      const isSuccess = data.status === "success" || data.success === true;
+      const isSuccess =
+        data?.status === "success" ||
+        data?.success === true ||
+        data?.status === true ||
+        data?.code === "000";
 
       if (isSuccess) {
         const newBal = user.balance - cost;
@@ -114,7 +179,10 @@ const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
           ref: `EXM-${Date.now()}`,
           meta: { 
              pin: data.pin || data.token || (data.data && data.data.pin),
-             details: `Exam: ${selectedExam.id}`
+             cards: data.cards || data.data?.cards || [],
+             details: `Exam: ${selectedExam.id}${selectedExam.id === "WAEC" ? ` (${waecOption})` : ""}`,
+             provider: selectedExam.id === "JAMB" ? "clubkonnect" : "naijaresultpins",
+             provider_reference: data.reference || data.data?.reference || null,
           }
         });
         showSuccess({
@@ -271,6 +339,32 @@ const Exams = ({ user, onUpdateBalance, onBack }: ExamsProps) => {
                 </div>
             ) : (
                 <div>
+                    {selectedExam?.id === "WAEC" && (
+                      <div className="mb-4">
+                        <h3 className="font-bold text-slate-700 mb-3 text-sm">WAEC Product</h3>
+                        <div className="grid grid-cols-2 gap-2">
+                          {WAEC_OPTIONS.map((opt) => {
+                            const unit = examCatalog[opt.key]?.unitAmount || (opt.id === "verification" ? 3700 : 3340);
+                            return (
+                              <button
+                                key={opt.id}
+                                onClick={() => setWaecOption(opt.id)}
+                                className={`p-3 rounded-xl border-2 text-left transition-all ${
+                                  waecOption === opt.id ? "border-emerald-600 bg-emerald-50" : "border-slate-100 bg-white"
+                                }`}
+                              >
+                                <div className={`text-[10px] font-black uppercase ${waecOption === opt.id ? "text-emerald-700" : "text-slate-500"}`}>
+                                  {opt.label}
+                                </div>
+                                <div className="text-sm font-black text-slate-800">
+                                  ₦{Number(unit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                     <h3 className="font-bold text-slate-700 mb-3 text-sm">{t("exam.quantity")}</h3>
                     <div className="bg-slate-50 p-4 rounded-2xl flex items-center justify-between border border-slate-100">
                         <button 

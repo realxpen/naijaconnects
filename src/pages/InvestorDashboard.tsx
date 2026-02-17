@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { useToast } from "../components/ui/ToastProvider";
 import { ArrowLeft, RefreshCcw } from "lucide-react";
+import { calculateTransferServiceFee } from "../utils/paymentFees";
 
 type ProfitRow = {
   id: string;
@@ -84,10 +85,7 @@ const InvestorDashboard = ({
   const [isResolving, setIsResolving] = useState(false);
   const [isWithdrawing, setIsWithdrawing] = useState(false);
 
-  const getWithdrawalFee = (amount: number) => {
-    if (amount <= 0) return 0;
-    return 50;
-  };
+  const getWithdrawalFee = (amount: number) => calculateTransferServiceFee(amount);
 
   const fetchData = async () => {
     setLoading(true);
@@ -414,7 +412,7 @@ const InvestorDashboard = ({
           />
         </div>
         <div className="mt-2 text-[10px] font-bold text-slate-500 flex justify-between">
-          <span>{isResolving ? "Verifying account..." : "Withdrawal fee: ₦50.00"}</span>
+          <span>{isResolving ? "Verifying account..." : `Withdrawal fee: ${formatCurrency(getWithdrawalFee(Number(withdrawAmount || 0) || 0))}`}</span>
           <span>You will receive: {formatCurrency(Math.max(0, (Number(withdrawAmount || 0) || 0) - getWithdrawalFee(Number(withdrawAmount || 0) || 0)))}</span>
         </div>
         <button

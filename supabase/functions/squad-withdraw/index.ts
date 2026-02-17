@@ -57,6 +57,13 @@ const resolveSquadBankCode = (bankCode?: string, bankName?: string) => {
   return "";
 };
 
+const calculateTransferServiceFee = (amount: number) => {
+  if (!Number.isFinite(amount) || amount <= 0) return 0;
+  if (amount <= 5000) return 8;
+  if (amount <= 50000) return 20;
+  return 40;
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -104,7 +111,7 @@ serve(async (req) => {
 
     const body = await req.json();
     const amount = Number(body?.amount || 0);
-    const fee = Number(body?.fee || 0);
+    const clientFee = Number(body?.fee || 0);
     const accountNumber = String(body?.account_number || "").trim();
     const accountName = String(body?.account_name || "").trim();
     const bankCode = String(body?.bank_code || "").trim();
@@ -113,7 +120,8 @@ serve(async (req) => {
 
     if (!amount || amount <= 0) throw new Error("Invalid amount");
     if (!accountNumber || !accountName || !bankCode) throw new Error("Missing bank details");
-    if (fee < 0) throw new Error("Invalid fee");
+    if (clientFee < 0) throw new Error("Invalid fee");
+    const fee = calculateTransferServiceFee(amount);
 
     const squadBankCode = resolveSquadBankCode(bankCode, bankName);
     if (!squadBankCode) throw new Error("Unsupported bank for Squad payout");
@@ -259,4 +267,3 @@ serve(async (req) => {
     });
   }
 });
-
