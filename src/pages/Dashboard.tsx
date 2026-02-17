@@ -158,17 +158,31 @@ const getColorClass = (type: string) => {
 };
 
 // --- COMPONENT: RECEIPT VIEW ---
-const ReceiptView = ({ tx, onClose }: { tx: Transaction; onClose: () => void }) => {
+const ReceiptView = ({
+  tx,
+  onClose,
+  onRequeryDeposit,
+}: {
+  tx: Transaction;
+  onClose: () => void;
+  onRequeryDeposit?: (reference: string) => Promise<any>;
+}) => {
     const { t } = useI18n();
     const { showToast } = useToast();
     const displayRef = tx.reference || `TRX-${tx.id.substring(0,8)}`;
+    const txReference = String(tx.reference || "").trim();
     const meta = (tx as any)?.meta || (tx as any)?.metadata || {};
     const isDeposit = String(tx.type).toLowerCase() === "deposit";
+    const canRequeryDeposit =
+      isDeposit &&
+      !!txReference &&
+      ["pending", "failed"].includes(String(tx.status || "").toLowerCase());
     const depositFee = Number(meta?.estimated_fee || 0);
     const totalPaid = Number(meta?.total_paid || ((Number(tx.amount) || 0) + depositFee));
     const receiptRef = useRef<HTMLDivElement | null>(null);
     const [shareOpen, setShareOpen] = useState(false);
     const [sharing, setSharing] = useState(false);
+    const [isRequerying, setIsRequerying] = useState(false);
     const WHATSAPP_NUMBER = "2349151618451";
 
     const getWhatsAppUrl = (message: string) =>
@@ -283,6 +297,16 @@ const ReceiptView = ({ tx, onClose }: { tx: Transaction; onClose: () => void }) 
         }
       } finally {
         setSharing(false);
+      }
+    };
+
+    const handleRequeryDeposit = async () => {
+      if (!onRequeryDeposit || !txReference || isRequerying) return;
+      setIsRequerying(true);
+      try {
+        await onRequeryDeposit(txReference);
+      } finally {
+        setIsRequerying(false);
       }
     };
 
@@ -467,6 +491,16 @@ const ReceiptView = ({ tx, onClose }: { tx: Transaction; onClose: () => void }) 
                               </button>
                             </div>
                           )}
+                          {canRequeryDeposit && onRequeryDeposit && (
+                            <button
+                              onClick={handleRequeryDeposit}
+                              disabled={isRequerying}
+                              className="mt-3 w-full h-10 rounded-lg border border-emerald-300 text-emerald-700 text-xs font-bold hover:bg-emerald-50 disabled:opacity-60"
+                              data-no-capture="true"
+                            >
+                              {isRequerying ? "Requerying..." : "Requery Payment Status"}
+                            </button>
+                          )}
                         </div>
 
                         <div className="mt-6 text-center opacity-30">
@@ -500,6 +534,14 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
   const [depositMethod, setDepositMethod] = useState("BankCard");
   const [currentTxRef, setCurrentTxRef] = useState<string>(""); 
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
+  const [directDeposit, setDirectDeposit] = useState<{
+    accountNumber: string;
+    bankName?: string;
+    accountName?: string;
+    expiresAt?: string;
+    amount: number;
+    reference: string;
+  } | null>(null);
   const [depositInitError, setDepositInitError] = useState<string>("");
   const [isStartingDeposit, setIsStartingDeposit] = useState(false);
   const [isVerifyingDeposit, setIsVerifyingDeposit] = useState(false);
@@ -537,6 +579,46 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
       return getProjectRefFromUrl(payload?.iss || "");
     } catch {
       return "";
+    }
+  };
+  const getFunctionErrorMessage = async (err: any, fallback: string) => {
+    try {
+      if (!err) return fallback;
+
+      // Supabase FunctionsHttpError often wraps the real payload in context.
+      const ctx = (err as any)?.context;
+      if (ctx) {
+        if (typeof ctx?.json === "function") {
+          const body = await ctx.json();
+          const msg = body?.error || body?.message;
+          if (msg) return String(msg);
+        }
+        if (typeof ctx?.text === "function") {
+          const text = await ctx.text();
+          if (text) {
+            try {
+              const parsed = JSON.parse(text);
+              const msg = parsed?.error || parsed?.message;
+              if (msg) return String(msg);
+            } catch {
+              return String(text);
+            }
+          }
+        }
+        if (typeof ctx?.body === "string") {
+          try {
+            const parsed = JSON.parse(ctx.body);
+            const msg = parsed?.error || parsed?.message;
+            if (msg) return String(msg);
+          } catch {
+            return String(ctx.body);
+          }
+        }
+      }
+
+      return String((err as any)?.message || fallback);
+    } catch {
+      return fallback;
     }
   };
   const [pendingAction, setPendingAction] = useState<null | (() => void)>(null);
@@ -711,7 +793,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
     loadWithdrawBeneficiaries();
   }, []);
 
-  // --- OPay DEPOSIT LOGIC ---
+  // --- DEPOSIT INITIALIZATION LOGIC ---
   const handleStartDeposit = async () => {
     const amountNum = Number(depositAmount);
     if (!depositAmount || amountNum < 100) return showToast(t("dashboard.min_deposit"), "error");
@@ -722,6 +804,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
     showToast("Initializing Payment...", "info");
     setIsStartingDeposit(true);
     setDepositInitError("");
+    setDirectDeposit(null);
     
     try {
         const withTimeout = async <T,>(promise: Promise<T>, ms: number, label: string): Promise<T> => {
@@ -733,18 +816,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
           ]);
         };
 
-        const { data: currentSession } = await withTimeout(
-          supabase.auth.getSession(),
-          12000,
-          "Session check"
-        );
-        const accessToken = currentSession?.session?.access_token;
-        if (!accessToken) throw new Error("No session token. Please log out and log in again.");
         const clientRef = getProjectRefFromUrl(import.meta.env.VITE_SUPABASE_URL);
-        const tokenRef = getProjectRefFromJwt(accessToken);
-        if (clientRef && tokenRef && clientRef !== tokenRef) {
-          throw new Error(`Auth project mismatch: app=${clientRef}, token=${tokenRef}. Check VITE_SUPABASE_URL/ANON_KEY.`);
-        }
 
         const invokePayload = {
             body: {
@@ -756,16 +828,37 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
         };
 
         let { data, error } = await withTimeout(
-          supabase.functions.invoke("opay-deposit", {
-            ...invokePayload,
-            headers: { Authorization: `Bearer ${accessToken}` }
-          }),
+          supabase.functions.invoke("squad-deposit", invokePayload),
           20000,
           "Deposit initialization"
         );
 
         const firstStatus = (error as any)?.context?.status;
-        if (firstStatus === 401) throw new Error("Unauthorized (401). Please log out and log in again.");
+        if (firstStatus === 401) {
+          const { data: refreshed, error: refreshError } = await withTimeout(
+            supabase.auth.refreshSession(),
+            12000,
+            "Session refresh"
+          );
+          if (refreshError || !refreshed?.session?.access_token) {
+            throw new Error("Unauthorized (401). Please log out and log in again.");
+          }
+
+          const refreshedToken = refreshed.session.access_token;
+          const refreshedTokenRef = getProjectRefFromJwt(refreshedToken);
+          if (clientRef && refreshedTokenRef && clientRef !== refreshedTokenRef) {
+            throw new Error(`Auth project mismatch: app=${clientRef}, token=${refreshedTokenRef}. Check VITE_SUPABASE_URL/ANON_KEY.`);
+          }
+
+          ({ data, error } = await withTimeout(
+            supabase.functions.invoke("squad-deposit", {
+              ...invokePayload,
+              headers: { Authorization: `Bearer ${refreshedToken}` }
+            }),
+            20000,
+            "Deposit initialization retry"
+          ));
+        }
 
         if (error) {
             let detailMessage = "";
@@ -809,6 +902,43 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
           payload?.txnRef ??
           payload?.data?.reference;
 
+        const transferPayload = payload?.transfer ?? payload?.data?.transfer ?? payload?.data;
+        const rawAccountNumber =
+          transferPayload?.account_number ??
+          transferPayload?.virtual_account_number ??
+          transferPayload?.accountNumber;
+        const rawBankName =
+          transferPayload?.bank_name ??
+          transferPayload?.bank ??
+          transferPayload?.bankName;
+        const rawAccountName =
+          transferPayload?.account_name ??
+          transferPayload?.accountName ??
+          transferPayload?.beneficiary_name;
+        const rawExpiresAt =
+          transferPayload?.expires_at ??
+          transferPayload?.expiry_date ??
+          transferPayload?.valid_till;
+
+        if (rawAccountNumber) {
+          const resolvedRef = String(rawReference || "").trim();
+          if (resolvedRef) {
+            setCurrentTxRef(resolvedRef);
+            localStorage.setItem("pending_deposit_ref", resolvedRef);
+          }
+          setPaymentUrl(null);
+          setDirectDeposit({
+            accountNumber: String(rawAccountNumber),
+            bankName: rawBankName ? String(rawBankName) : "",
+            accountName: rawAccountName ? String(rawAccountName) : "",
+            expiresAt: rawExpiresAt ? String(rawExpiresAt) : "",
+            amount: Number(totalToPay),
+            reference: resolvedRef || "",
+          });
+          showToast("Transfer account generated. Send exactly the amount shown.", "success");
+          return;
+        }
+
         if (rawCheckoutUrl) {
           const checkoutUrl = String(rawCheckoutUrl).trim();
           if (!/^https?:\/\//i.test(checkoutUrl)) {
@@ -818,6 +948,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
             setCurrentTxRef(rawReference);
             localStorage.setItem("pending_deposit_ref", rawReference);
           }
+          setDirectDeposit(null);
           setPaymentUrl(checkoutUrl);
           showToast("Payment link generated. Tap Proceed to Checkout.", "success");
         } else {
@@ -868,6 +999,14 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
     
     setIsVerifyingDeposit(true);
     try {
+      // Actively requery Squad in case webhook delivery is delayed.
+      const { error: requeryError } = await supabase.functions.invoke("squad-verify", {
+        body: { reference }
+      });
+      if (requeryError) {
+        console.warn("squad-verify error:", requeryError.message);
+      }
+
       const { data, error } = await supabase
         .from("transactions")
         .select("status, amount")
@@ -884,6 +1023,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
           setIsDepositModalOpen(false);
           setDepositAmount("");
           setPaymentUrl(null);
+          setDirectDeposit(null);
           setDepositInitError("");
           localStorage.removeItem("pending_deposit_ref");
           return "success";
@@ -976,7 +1116,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
 
         console.log("Verification Response:", data, error);
 
-        if (error) throw new Error(error.message);
+        if (error) throw error;
 
         if (data?.valid) {
             setAccountName(data.account_name);
@@ -990,7 +1130,8 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
     } catch (e: any) {
         console.error("System Error:", e);
         setAccountName("SYSTEM ERROR");
-        showToast("Verification failed. Check console.", "error");
+        const errorMessage = await getFunctionErrorMessage(e, "Account verification failed");
+        showToast(errorMessage, "error");
     } finally {
         setIsResolving(false);
     }
@@ -1013,46 +1154,30 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
     setIsWithdrawing(true);
     
     try {
-      const totalDeducted = amount + fee;
-
-      const { data: auth } = await supabase.auth.getUser();
-      const userId = auth?.user?.id || user.id;
-
-      const { error: txError } = await supabase.from("transactions").insert([
-        {
-          user_id: userId,
-          user_email: user.email,
-          type: "withdrawal",
-          amount: amount,
-          status: "pending",
-          reference: `WD-${Date.now()}`,
-          metadata: {
-            bank_code: bankCode,
-            bank_name: bankName,
-            account_number: accountNumber,
-            account_name: accountName,
-            fee: fee,
-            total_deducted: totalDeducted,
-          },
+      const { data, error } = await supabase.functions.invoke("squad-withdraw", {
+        body: {
+          amount,
+          fee,
+          bank_code: bankCode,
+          bank_name: bankName,
+          account_number: accountNumber,
+          account_name: accountName,
+          narration: `Withdrawal for ${user.email}`,
         },
-      ]);
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.message || "Withdrawal failed");
 
-      if (txError) throw new Error(txError.message || "Failed to create withdrawal request");
-
-      const newBal = user.balance - totalDeducted;
-      await supabase.from("profiles").update({ wallet_balance: newBal }).eq("email", user.email);
-      onUpdateBalance(newBal);
+      await fetchUser();
+      await fetchHistory();
 
       showSuccess({
-        title: "Withdrawal request created",
-        amount: Number(totalDeducted),
-        message: "withdrawal request Successfuly submitted.",
+        title: data?.local_status === "success" ? "Withdrawal completed" : "Withdrawal submitted",
+        amount: Number(amount + fee),
+        message: data?.message || "Withdrawal request submitted.",
         subtitle: accountNumber ? `FOR ${accountNumber}` : undefined,
       });
-      
-      fetchHistory();
-      
-      fetchHistory();
+
       setIsWithdrawModalOpen(false);
       setWithdrawAmount("");
       setAccountNumber("");
@@ -1081,14 +1206,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
       
     } catch (error: any) {
       console.error("Withdrawal Error Full:", error);
-      
-      let errorMessage = error.message || "Withdrawal failed";
-      
-      if (error.context && error.context.json) {
-        const body = await error.context.json();
-        if (body?.error || body?.message) errorMessage = body.error || body.message;
-      }
-
+      const errorMessage = await getFunctionErrorMessage(error, "Withdrawal failed");
       showToast(errorMessage, "error");
     } finally {
       setIsWithdrawing(false);
@@ -1255,7 +1373,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
             </div>
             <h2 className="text-4xl font-black mb-6">₦{user.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h2>
             <div className="flex gap-3">
-            <button onClick={() => { setPaymentUrl(null); setDepositInitError(""); setIsDepositModalOpen(true); }} className="flex-1 bg-white text-emerald-700 py-4 rounded-2xl font-black text-xs uppercase shadow-lg flex items-center justify-center gap-2 hover:bg-emerald-50 transition-colors">
+            <button onClick={() => { setPaymentUrl(null); setDirectDeposit(null); setDepositInitError(""); setIsDepositModalOpen(true); }} className="flex-1 bg-white text-emerald-700 py-4 rounded-2xl font-black text-xs uppercase shadow-lg flex items-center justify-center gap-2 hover:bg-emerald-50 transition-colors">
                 <CreditCard size={16} /> {t("dashboard.fund")}
             </button>
             <button onClick={() => { setIsWithdrawModalOpen(true); }} className="flex-1 bg-emerald-700/70 border border-emerald-300/40 text-white py-4 rounded-2xl font-black text-xs uppercase hover:bg-emerald-800/80 transition-colors">
@@ -1359,7 +1477,11 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
 
       {/* RENDER RECEIPT MODAL */}
       {selectedTx && (
-        <ReceiptView tx={selectedTx} onClose={() => setSelectedTx(null)} />
+        <ReceiptView
+          tx={selectedTx}
+          onClose={() => setSelectedTx(null)}
+          onRequeryDeposit={(ref) => verifyDeposit(ref)}
+        />
       )}
 
       {/* DEPOSIT MODAL */}
@@ -1370,6 +1492,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
               onClick={() => {
                 setIsDepositModalOpen(false);
                 setPaymentUrl(null);
+                setDirectDeposit(null);
                 setDepositInitError("");
                 setDepositAmount("");
               }}
@@ -1379,24 +1502,75 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
             </button>
             <h3 className="text-xl font-black text-center mb-6 text-slate-800">{t("dashboard.fund_wallet")}</h3>
 
-            {paymentUrl ? (
+            {paymentUrl || directDeposit ? (
               <div className="text-center space-y-6 animate-in slide-in-from-bottom-4">
                 <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto text-emerald-600 mb-2">
                   <CheckCircle2 size={32} />
                 </div>
                 <div>
-                  <h4 className="font-black text-slate-800 text-lg">Order Created!</h4>
-                  <p className="text-xs text-slate-500 font-bold mt-1">Ready to complete payment.</p>
+                  <h4 className="font-black text-slate-800 text-lg">{directDeposit ? "Transfer Account Ready!" : "Order Created!"}</h4>
+                  <p className="text-xs text-slate-500 font-bold mt-1">
+                    {directDeposit ? "Transfer exactly this amount to complete funding." : "Ready to complete payment."}
+                  </p>
                 </div>
-                <a
-                  href={paymentUrl}
-                  className="block w-full bg-emerald-600 text-white py-4 rounded-2xl font-black uppercase shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-transform active:scale-95"
-                >
-                  Proceed to Checkout
-                </a>
+                {directDeposit ? (
+                  <div className="space-y-3 text-left bg-slate-50 rounded-2xl p-4 border border-slate-200">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-slate-500">Bank</span>
+                      <span className="text-xs font-black text-slate-800">{directDeposit.bankName || "Squad Transfer"}</span>
+                    </div>
+                    <div className="flex justify-between items-center gap-3">
+                      <span className="text-xs font-bold text-slate-500">Account Number</span>
+                      <button
+                        onClick={async () => {
+                          await navigator.clipboard.writeText(directDeposit.accountNumber);
+                          showToast("Account number copied", "success");
+                        }}
+                        className="text-xs font-black text-emerald-700 flex items-center gap-1"
+                      >
+                        {directDeposit.accountNumber} <Copy size={12} />
+                      </button>
+                    </div>
+                    {!!directDeposit.accountName && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-bold text-slate-500">Account Name</span>
+                        <span className="text-xs font-black text-slate-800">{directDeposit.accountName}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-slate-500">Amount to Transfer</span>
+                      <span className="text-xs font-black text-slate-800">
+                        ₦{Number(directDeposit.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    {!!directDeposit.expiresAt && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-bold text-slate-500">Expires</span>
+                        <span className="text-xs font-black text-slate-700">{new Date(directDeposit.expiresAt).toLocaleString()}</span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <a
+                    href={paymentUrl || "#"}
+                    className="block w-full bg-emerald-600 text-white py-4 rounded-2xl font-black uppercase shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-transform active:scale-95"
+                  >
+                    Proceed to Checkout
+                  </a>
+                )}
+                {directDeposit && (
+                  <button
+                    onClick={() => verifyDeposit(directDeposit.reference || currentTxRef)}
+                    disabled={isVerifyingDeposit}
+                    className="w-full border border-emerald-300 text-emerald-700 py-3 rounded-xl font-bold hover:bg-emerald-50 disabled:opacity-60"
+                  >
+                    {isVerifyingDeposit ? "Checking Payment..." : "I Have Paid, Check Now"}
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setPaymentUrl(null);
+                    setDirectDeposit(null);
                     setDepositInitError("");
                     localStorage.removeItem("pending_deposit_ref");
                   }}
@@ -1412,7 +1586,6 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
                     { id: "BankCard", label: "Card (1.5%)", icon: <CreditCard size={18}/> },
                     { id: "BankTransfer", label: "Transfer (₦50)", icon: <Building2 size={18}/> },
                     { id: "BankUssd", label: "USSD (₦50)", icon: <Smartphone size={18}/> },
-                    { id: "OpayWalletNgQR", label: "QR Code (₦50)", icon: <RotateCcw size={18}/> }
                 ].map((m) => (
                     <button
                         key={m.id}

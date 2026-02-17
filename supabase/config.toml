@@ -23,7 +23,7 @@ entrypoint = "./functions/clubkonnect-proxy/index.ts"
 
 [functions.verify-account]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/verify-account/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
@@ -51,3 +51,23 @@ entrypoint = "./functions/opay-deposit/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/opay-webhook/index.ts"
+
+[functions.squad-deposit]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/squad-deposit/index.ts"
+
+[functions.squad-verify]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/squad-verify/index.ts"
+
+[functions.squad-webhook]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/squad-webhook/index.ts"
+
+[functions.squad-withdraw]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/squad-withdraw/index.ts"
