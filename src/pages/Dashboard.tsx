@@ -123,11 +123,13 @@ const BANKS = [
 ];
 
   // --- INTERFACES ---
-  interface DashboardProps {
-    user: { name: string; email: string; balance: number; phone?: string; id: string; role?: string; roles?: string[]; pinHash?: string | null; pinLength?: number | null };
-    onUpdateBalance: (newBalance: number) => void;
-    activeTab?: string; 
-  }
+interface DashboardProps {
+  user: { name: string; email: string; balance: number; phone?: string; id: string; role?: string; roles?: string[]; pinHash?: string | null; pinLength?: number | null };
+  onUpdateBalance: (newBalance: number) => void;
+  activeTab?: string;
+  isGuest?: boolean;
+  onRequireAuth?: () => void;
+}
 
 interface Transaction {
   id: string; 
@@ -580,7 +582,7 @@ const ReceiptView = ({
 
 
 // --- MAIN DASHBOARD COMPONENT ---
-const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
+const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequireAuth }: DashboardProps) => {
   const { t } = useI18n();
   const { showToast } = useToast();
   const { showSuccess } = useSuccessScreen();
@@ -623,6 +625,11 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
   const [recentWithdraws, setRecentWithdraws] = useState<any[]>([]);
   const [pinOpen, setPinOpen] = useState(false);
   const [pinError, setPinError] = useState("");
+  const requireAuth = () => {
+    showToast("Please login or sign up before doing this.", "info");
+    onRequireAuth?.();
+    return true;
+  };
 
   const getProjectRefFromUrl = (url?: string | null) => {
     if (!url) return "";
@@ -784,6 +791,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
 
   // --- DATA FETCHING ---
   const fetchUser = async () => {
+    if (isGuest) return;
     try {
       const { data } = await supabase.from("profiles").select("wallet_balance").eq("email", user.email).single();
       if (data) onUpdateBalance(data.wallet_balance);
@@ -791,6 +799,10 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
   };
 
  const fetchHistory = async () => {
+    if (isGuest) {
+        setHistory([]);
+        return;
+    }
     if (!user || !user.id) {
         return; 
     }
@@ -809,9 +821,17 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
     }
   };
 
-  useEffect(() => { fetchHistory(); fetchUser(); }, [user.email]);
+  useEffect(() => {
+    if (isGuest) {
+      setHistory([]);
+      return;
+    }
+    fetchHistory();
+    fetchUser();
+  }, [user.email, isGuest]);
 
   const triggerRefresh = async () => {
+    if (isGuest) return;
     if (isRefreshing) return;
     setIsRefreshing(true);
     await Promise.all([fetchUser(), fetchHistory()]);
@@ -842,6 +862,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
   };
 
   useEffect(() => {
+    if (isGuest) return;
     const loadWithdrawBeneficiaries = async () => {
       try {
         const { data: auth } = await supabase.auth.getUser();
@@ -857,6 +878,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
 
   // --- DEPOSIT INITIALIZATION LOGIC ---
   const handleStartDeposit = async () => {
+    if (isGuest) return requireAuth();
     const amountNum = Number(depositAmount);
     if (!depositAmount || amountNum < 100) return showToast(t("dashboard.min_deposit"), "error");
     
@@ -1054,6 +1076,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
 
   // --- VERIFY DEPOSIT (Direct DB Check) ---
   const verifyDeposit = async (reference: string, opts?: { silent?: boolean }) => {
+    if (isGuest) return "missing";
     if(!reference) {
       if (!opts?.silent) showToast("No transaction reference found", "error");
       return "missing";
@@ -1125,6 +1148,10 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
   };
 
   useEffect(() => {
+    if (isGuest) {
+      setIsCheckingPendingDeposit(false);
+      return;
+    }
     const pendingRef = localStorage.getItem("pending_deposit_ref");
     if (!pendingRef) {
       setIsCheckingPendingDeposit(false);
@@ -1160,10 +1187,11 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
       if (pendingDepositPollRef.current) window.clearInterval(pendingDepositPollRef.current);
       pendingDepositPollRef.current = null;
     };
-  }, [user.id]);
+  }, [user.id, isGuest]);
 
   // --- VERIFY ACCOUNT (PAYSTACK) ---
   const resolveAccount = async (acct: string, bank: string) => {
+    if (isGuest) return;
     if (acct.length !== 10 || !bank) return;
 
     setIsResolving(true);
@@ -1201,6 +1229,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
 
   // --- HANDLER: WITHDRAW ---
   const doWithdraw = async () => {
+    if (isGuest) return requireAuth();
     const amount = Number(withdrawAmount);
     
     if (amount <= 0) return showToast("Invalid amount", "error");
@@ -1276,6 +1305,10 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
   };
 
   const requirePin = (action: () => void) => {
+    if (isGuest) {
+      requireAuth();
+      return;
+    }
     if (!user?.pinHash || !user?.id) {
       showToast("Please set your PIN in Profile", "error");
       return;
@@ -1299,10 +1332,12 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
   };
 
   const handleWithdraw = () => {
+    if (isGuest) return requireAuth();
     setConfirmWithdrawOpen(true);
   };
 
   const handleSaveWithdrawBeneficiary = async () => {
+    if (isGuest) return requireAuth();
     if (!bankCode || !accountNumber) return showToast("Enter bank and account number", "error");
     if (!accountName || accountName === "INVALID ACCOUNT" || accountName === "SYSTEM ERROR") {
       return showToast("Please verify account name", "error");
@@ -1332,19 +1367,19 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
     switch (view) {
       case "Admin": return <AdminDashboard onBack={() => setView("Dashboard")} />;
       case "Airtime":
-        return <Airtime user={user} onUpdateBalance={onUpdateBalance} onBack={() => setView("Dashboard")} />;
+        return <Airtime user={user} onUpdateBalance={onUpdateBalance} onBack={() => setView("Dashboard")} isGuest={isGuest} onRequireAuth={onRequireAuth} />;
       case "Data":
-        return <DataBundle user={user} onUpdateBalance={onUpdateBalance} onBack={() => setView("Dashboard")} />;
+        return <DataBundle user={user} onUpdateBalance={onUpdateBalance} onBack={() => setView("Dashboard")} isGuest={isGuest} onRequireAuth={onRequireAuth} />;
       case "Cable":
-        return <CableTv user={user} onUpdateBalance={onUpdateBalance} onBack={() => setView("Dashboard")} />;
+        return <CableTv user={user} onUpdateBalance={onUpdateBalance} onBack={() => setView("Dashboard")} isGuest={isGuest} onRequireAuth={onRequireAuth} />;
       case "Electricity":
-        return <Electricity user={user} onUpdateBalance={onUpdateBalance} onBack={() => setView("Dashboard")} />;
+        return <Electricity user={user} onUpdateBalance={onUpdateBalance} onBack={() => setView("Dashboard")} isGuest={isGuest} onRequireAuth={onRequireAuth} />;
       case "Exam":
-        return <Exams user={user} onUpdateBalance={onUpdateBalance} onBack={() => setView("Dashboard")} />;
+        return <Exams user={user} onUpdateBalance={onUpdateBalance} onBack={() => setView("Dashboard")} isGuest={isGuest} onRequireAuth={onRequireAuth} />;
       case "RechargePin":
-        return <RechargePin user={user} onUpdateBalance={onUpdateBalance} onBack={() => setView("Dashboard")} />;
+        return <RechargePin user={user} onUpdateBalance={onUpdateBalance} onBack={() => setView("Dashboard")} isGuest={isGuest} onRequireAuth={onRequireAuth} />;
       case "AirtimeToCash":
-        return <AirtimeToCash user={user} onBack={() => setView("Dashboard")} />;
+        return <AirtimeToCash user={user} onBack={() => setView("Dashboard")} isGuest={isGuest} onRequireAuth={onRequireAuth} />;
       default:
         return renderDashboardHome();
     }
@@ -1402,6 +1437,13 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
           </button>
         </div>
       )}
+      {isGuest && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-900 p-3 rounded-xl">
+          <p className="text-xs font-bold">
+            You are browsing as a guest. Login or sign up to buy services, fund wallet, or withdraw.
+          </p>
+        </div>
+      )}
 
       {/* PUSH NOTIFICATIONS PROMPT */}
       {permission === 'default' && (
@@ -1429,7 +1471,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab }: DashboardProps) => {
         <div className="relative z-10">
             <div className="flex justify-between items-start mb-1">
             <p className="text-[10px] font-black uppercase tracking-widest opacity-80">{t("dashboard.available_balance")}</p>
-            <button onClick={() => { setIsRefreshingBalance(true); fetchUser(); setTimeout(() => setIsRefreshingBalance(false), 1000); }} className="p-2 bg-emerald-700/70 rounded-full hover:bg-emerald-800 transition-colors">
+            <button onClick={() => { if (isGuest) { requireAuth(); return; } setIsRefreshingBalance(true); fetchUser(); setTimeout(() => setIsRefreshingBalance(false), 1000); }} className="p-2 bg-emerald-700/70 rounded-full hover:bg-emerald-800 transition-colors">
                 <RotateCcw size={14} className={isRefreshingBalance ? "animate-spin" : ""} />
             </button>
             </div>

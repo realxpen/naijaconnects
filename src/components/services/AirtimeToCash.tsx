@@ -12,9 +12,11 @@ import { useSuccessScreen } from "../ui/SuccessScreenProvider";
 interface AirtimeToCashProps {
   user: any; // Added user prop
   onBack: () => void;
+  isGuest?: boolean;
+  onRequireAuth?: () => void;
 }
 
-const AirtimeToCash = ({ user, onBack }: AirtimeToCashProps) => {
+const AirtimeToCash = ({ user, onBack, isGuest = false, onRequireAuth }: AirtimeToCashProps) => {
   const { t } = useI18n();
   const { showToast } = useToast();
   const { showSuccess } = useSuccessScreen();
@@ -110,7 +112,12 @@ const AirtimeToCash = ({ user, onBack }: AirtimeToCashProps) => {
   };
 
   const requirePin = (action: () => void) => {
-    if (!user?.pinHash || !user?.id) {
+    if (isGuest || !user?.id) {
+      showToast("Please login or sign up before doing this.", "info");
+      onRequireAuth?.();
+      return;
+    }
+    if (!user?.pinHash) {
       showToast("Please set your PIN in Profile", "error");
       return;
     }

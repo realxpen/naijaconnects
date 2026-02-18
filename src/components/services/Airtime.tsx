@@ -15,9 +15,11 @@ interface AirtimeProps {
   user: any;
   onUpdateBalance: (newBalance: number) => void;
   onBack: () => void;
+  isGuest?: boolean;
+  onRequireAuth?: () => void;
 }
 
-const Airtime = ({ user, onUpdateBalance, onBack }: AirtimeProps) => {
+const Airtime = ({ user, onUpdateBalance, onBack, isGuest = false, onRequireAuth }: AirtimeProps) => {
   const { t } = useI18n();
   const { showToast } = useToast();
   const { showSuccess } = useSuccessScreen();
@@ -186,7 +188,12 @@ const Airtime = ({ user, onUpdateBalance, onBack }: AirtimeProps) => {
   };
 
   const requirePin = (action: () => void) => {
-    if (!user?.pinHash || !user?.id) {
+    if (isGuest || !user?.id) {
+      showToast("Please login or sign up before doing this.", "info");
+      onRequireAuth?.();
+      return;
+    }
+    if (!user?.pinHash) {
       showToast("Please set your PIN in Profile", "error");
       return;
     }

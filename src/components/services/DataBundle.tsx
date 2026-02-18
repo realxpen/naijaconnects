@@ -15,9 +15,11 @@ interface DataBundleProps {
   user: any;
   onUpdateBalance: (newBalance: number) => void;
   onBack: () => void;
+  isGuest?: boolean;
+  onRequireAuth?: () => void;
 }
 
-const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
+const DataBundle = ({ user, onUpdateBalance, onBack, isGuest = false, onRequireAuth }: DataBundleProps) => {
   const { t } = useI18n();
   const { showToast } = useToast();
   const { showSuccess } = useSuccessScreen();
@@ -260,7 +262,12 @@ const DataBundle = ({ user, onUpdateBalance, onBack }: DataBundleProps) => {
   };
 
   const requirePin = (action: () => void) => {
-    if (!user?.pinHash || !user?.id) {
+    if (isGuest || !user?.id) {
+      showToast("Please login or sign up before doing this.", "info");
+      onRequireAuth?.();
+      return;
+    }
+    if (!user?.pinHash) {
       showToast("Please set your PIN in Profile", "error");
       return;
     }

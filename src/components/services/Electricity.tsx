@@ -14,9 +14,11 @@ interface ElectricityProps {
   user: any;
   onUpdateBalance: (newBalance: number) => void;
   onBack: () => void;
+  isGuest?: boolean;
+  onRequireAuth?: () => void;
 }
 
-const Electricity = ({ user, onUpdateBalance, onBack }: ElectricityProps) => {
+const Electricity = ({ user, onUpdateBalance, onBack, isGuest = false, onRequireAuth }: ElectricityProps) => {
   const { showToast } = useToast();
   const { showSuccess } = useSuccessScreen();
   const [loading, setLoading] = useState(false);
@@ -192,7 +194,12 @@ const Electricity = ({ user, onUpdateBalance, onBack }: ElectricityProps) => {
   };
 
   const requirePin = (action: () => void) => {
-    if (!user?.pinHash || !user?.id) {
+    if (isGuest || !user?.id) {
+      showToast("Please login or sign up before doing this.", "info");
+      onRequireAuth?.();
+      return;
+    }
+    if (!user?.pinHash) {
       showToast("Please set your PIN in Profile", "error");
       return;
     }

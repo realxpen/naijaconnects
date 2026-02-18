@@ -42,6 +42,7 @@ const App: React.FC = () => {
   const [splashDelayDone, setSplashDelayDone] = useState(false);
   const [showPinSetup, setShowPinSetup] = useState(false);
   const [pushReady, setPushReady] = useState(false);
+  const [showAuthScreen, setShowAuthScreen] = useState(false);
 
   const isNightWindow = (d: Date) => {
     const h = d.getHours();
@@ -239,6 +240,7 @@ const App: React.FC = () => {
     // Listen for Auth Changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user.email) {
+        setShowAuthScreen(false);
         await fetchUser(session.user.email);
       } else {
         setUser(null);
@@ -279,6 +281,24 @@ const App: React.FC = () => {
 
   // --- 4. AUTH ACTIONS ---
   const { showToast } = useToast();
+  const guestUser = useMemo(
+    () => ({
+      id: '',
+      name: 'Guest User',
+      email: 'guest@swifna.local',
+      balance: 0,
+      phone: '',
+      role: 'guest',
+      roles: [] as string[],
+      pinHash: null,
+      pinLength: null,
+    }),
+    []
+  );
+  const currentUser = user || guestUser;
+  const promptAuth = () => {
+    setShowAuthScreen(true);
+  };
 
   const handleLogin = async (email: string, pass: string) => {
     setIsProcessing(true);
@@ -485,21 +505,29 @@ const App: React.FC = () => {
             )}
           </div>
         </div>
-      ) : !isAuthenticated ? (
-        <Auth 
-          onLogin={handleLogin} 
-          onSignup={handleSignup} 
-          onForgotPassword={handleForgotPassword} 
-          isProcessing={isProcessing} 
-        />
+      ) : showAuthScreen && !isAuthenticated ? (
+        <div className="relative min-h-screen bg-slate-50 dark:bg-slate-900">
+          <button
+            onClick={() => setShowAuthScreen(false)}
+            className="absolute top-4 left-4 z-10 px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] font-black uppercase tracking-wide text-slate-700 dark:text-slate-200"
+          >
+            Continue as guest
+          </button>
+          <Auth 
+            onLogin={handleLogin} 
+            onSignup={handleSignup} 
+            onForgotPassword={handleForgotPassword} 
+            isProcessing={isProcessing} 
+          />
+        </div>
       ) : (
         <DashboardLayout 
           activeTab={activeTab} 
           setActiveTab={handleTabChange} // Use the smart handler here
-          userName={user?.name || ''} 
+          userName={currentUser.name} 
           userAvatar={(user as any)?.avatar_url || null}
         >
-          {showPinSetup && user && !user.pinHash && (
+          {showPinSetup && isAuthenticated && user && !user.pinHash && (
             <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4">
               <div className="w-full max-w-sm rounded-2xl bg-[#151A21] border border-[rgba(255,255,255,0.06)] p-5">
                 <h3 className="text-sm font-bold text-white mb-2">Set Your PIN</h3>
@@ -526,26 +554,44 @@ const App: React.FC = () => {
               </div>
             </div>
           )}
-          {activeTab === 'buy' && user && (
+          {activeTab === 'buy' && (
             <Dashboard 
                 key={dashboardResetKey} // This forces the reset
-                user={user} 
+                user={currentUser} 
                 onUpdateBalance={onUpdateBalance} 
+                isGuest={!isAuthenticated}
+                onRequireAuth={promptAuth}
             />
           )}
           
           {activeTab === 'history' && <History />}
           
-          {activeTab === 'assistant' && user && (
-            <Assistant user={user} />
+          {activeTab === 'assistant' && (
+            <Assistant user={currentUser} />
           )}
           
-          {activeTab === 'profile' && user && (
+          {activeTab === 'profile' && isAuthenticated && user && (
             <Profile 
               user={user} 
               onLogout={handleLogout} 
               onUpdateUser={handleUpdateUser} 
             />
+          )}
+          {activeTab === 'profile' && !isAuthenticated && (
+            <div className="min-h-[60vh] flex items-center justify-center">
+              <div className="w-full max-w-sm bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-6 text-center">
+                <h3 className="text-lg font-black text-slate-800 dark:text-white">Guest Mode</h3>
+                <p className="text-xs text-slate-500 mt-2">
+                  Sign in or create an account to use profile settings and complete transactions.
+                </p>
+                <button
+                  onClick={() => setShowAuthScreen(true)}
+                  className="mt-4 w-full h-11 rounded-xl bg-emerald-600 text-white text-sm font-black uppercase tracking-wide hover:bg-emerald-700"
+                >
+                  Login / Sign Up
+                </button>
+              </div>
+            </div>
           )}
         </DashboardLayout>
       )}
