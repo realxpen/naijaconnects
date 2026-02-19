@@ -3,6 +3,10 @@
     {
       "source": "/api/proxy/:path*",
       "destination": "https://www.affatech.com.ng/api/:path*"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
     }
   ]
 }

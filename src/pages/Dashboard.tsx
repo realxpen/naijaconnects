@@ -129,6 +129,7 @@ interface DashboardProps {
   activeTab?: string;
   isGuest?: boolean;
   onRequireAuth?: () => void;
+  onViewChange?: (view: string) => void;
 }
 
 interface Transaction {
@@ -582,7 +583,7 @@ const ReceiptView = ({
 
 
 // --- MAIN DASHBOARD COMPONENT ---
-const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequireAuth }: DashboardProps) => {
+const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequireAuth, onViewChange }: DashboardProps) => {
   const { t } = useI18n();
   const { showToast } = useToast();
   const { showSuccess } = useSuccessScreen();
@@ -709,6 +710,10 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
   // --- DYNAMIC GREETING STATE (FIXED LOGIC) ---
   const [greeting, setGreeting] = useState("");
   const [fade, setFade] = useState(true);
+
+  useEffect(() => {
+    onViewChange?.(view);
+  }, [view, onViewChange]);
 
   useEffect(() => {
     const hour = new Date().getHours();

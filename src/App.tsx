@@ -7,6 +7,7 @@ import { SuccessScreenProvider } from './components/ui/SuccessScreenProvider';
 // 1. Import the BroadcastManager
 import BroadcastManager from './components/BroadcastManager';
 import { CONSTELLATIONS } from './data/constellations';
+import { applySeo } from './utils/seo';
 
 // Layouts & Pages
 import DashboardLayout from "./layouts/DashboardLayout"; 
@@ -43,6 +44,7 @@ const App: React.FC = () => {
   const [showPinSetup, setShowPinSetup] = useState(false);
   const [pushReady, setPushReady] = useState(false);
   const [showAuthScreen, setShowAuthScreen] = useState(false);
+  const [dashboardSeoView, setDashboardSeoView] = useState("Dashboard");
 
   const isNightWindow = (d: Date) => {
     const h = d.getHours();
@@ -401,6 +403,158 @@ const App: React.FC = () => {
     ensurePushSubscription(user.id).finally(() => setPushReady(true));
   }, [user?.id, pushReady]);
 
+  useEffect(() => {
+    const siteUrl = (import.meta.env.VITE_SITE_URL as string | undefined) || window.location.origin;
+    const organization = {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      name: "Swifna",
+      url: siteUrl,
+      logo: `${siteUrl}/logo.png`,
+      description: "Swifna helps Nigerians buy affordable data, airtime, pay bills, and convert airtime to cash quickly."
+    };
+    const website = {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      name: "Swifna",
+      url: siteUrl
+    };
+
+    const serviceMeta: Record<string, { title: string; description: string; path: string; keywords: string }> = {
+      Dashboard: {
+        title: "Swifna | Buy Cheap Data, Airtime, Bills & Airtime to Cash in Nigeria",
+        description: "Buy affordable data bundles, airtime, exam pins, cable TV and electricity bills instantly on Swifna.",
+        path: "/",
+        keywords: "cheap data nigeria, buy airtime nigeria, pay bills nigeria, swifna"
+      },
+      Airtime: {
+        title: "Buy Airtime Online in Nigeria | Swifna",
+        description: "Top up MTN, Airtel, Glo and 9mobile airtime instantly with Swifna.",
+        path: "/airtime",
+        keywords: "buy airtime online nigeria, mtn airtime top up, airtel glo 9mobile airtime"
+      },
+      Data: {
+        title: "Buy Cheap Data Bundles in Nigeria | Swifna",
+        description: "Buy affordable SME and regular data bundles in Nigeria with instant delivery on Swifna.",
+        path: "/data",
+        keywords: "buy cheap data nigeria, mtn data plans, sme data nigeria"
+      },
+      Cable: {
+        title: "Pay Cable TV Subscription Online | Swifna",
+        description: "Renew GOtv, DStv and Startimes subscriptions online in seconds with Swifna.",
+        path: "/cable",
+        keywords: "pay cable tv nigeria, gotv subscription online, dstv renewal nigeria"
+      },
+      Electricity: {
+        title: "Pay Electricity Bills Online in Nigeria | Swifna",
+        description: "Buy prepaid and postpaid electricity units online quickly and securely with Swifna.",
+        path: "/electricity",
+        keywords: "pay electricity bill nigeria, buy prepaid meter token online"
+      },
+      Exam: {
+        title: "Buy WAEC, NECO & JAMB Pins Online | Swifna",
+        description: "Buy WAEC, NECO and JAMB exam pins online with fast delivery on Swifna.",
+        path: "/exam-pins",
+        keywords: "buy waec pin online, buy neco token, jamb epin nigeria"
+      },
+      RechargePin: {
+        title: "Generate Recharge Pins Online | Swifna",
+        description: "Generate recharge PINs for MTN, Airtel, Glo and 9mobile quickly on Swifna.",
+        path: "/recharge-pins",
+        keywords: "generate recharge pin nigeria, mtn airtime pin"
+      },
+      AirtimeToCash: {
+        title: "Convert Airtime to Cash in Nigeria | Swifna",
+        description: "Convert airtime to cash quickly and securely in Nigeria with Swifna.",
+        path: "/airtime-to-cash",
+        keywords: "airtime to cash nigeria, convert airtime to cash instantly"
+      }
+    };
+
+    let page = serviceMeta.Dashboard;
+    let robots = "index,follow,max-image-preview:large";
+
+    if (showAuthScreen && !isAuthenticated) {
+      page = {
+        title: "Login or Sign Up | Swifna",
+        description: "Create an account or login to complete purchases and transactions on Swifna.",
+        path: "/auth",
+        keywords: "swifna login, swifna signup"
+      };
+      robots = "noindex,nofollow";
+    } else if (activeTab === "history" || activeTab === "assistant" || activeTab === "profile") {
+      robots = "noindex,nofollow";
+      if (activeTab === "history") {
+        page = {
+          title: "Transaction History | Swifna",
+          description: "View your recent Swifna transactions.",
+          path: "/history",
+          keywords: "swifna history"
+        };
+      } else if (activeTab === "assistant") {
+        page = {
+          title: "Swifna Assistant",
+          description: "Get help with Swifna services using the in-app assistant.",
+          path: "/assistant",
+          keywords: "swifna assistant"
+        };
+      } else {
+        page = {
+          title: "Profile Settings | Swifna",
+          description: "Manage your Swifna profile and account settings.",
+          path: "/profile",
+          keywords: "swifna profile"
+        };
+      }
+    } else if (activeTab === "buy") {
+      page = serviceMeta[dashboardSeoView] || serviceMeta.Dashboard;
+    }
+
+    const faqJsonLd =
+      page.path === "/"
+        ? {
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            mainEntity: [
+              {
+                "@type": "Question",
+                name: "Is Swifna legit?",
+                acceptedAnswer: {
+                  "@type": "Answer",
+                  text: "Yes. Swifna provides secure airtime, data, bill payment, and airtime-to-cash services."
+                }
+              },
+              {
+                "@type": "Question",
+                name: "How fast is data delivery on Swifna?",
+                acceptedAnswer: {
+                  "@type": "Answer",
+                  text: "Most transactions are processed instantly after payment confirmation."
+                }
+              },
+              {
+                "@type": "Question",
+                name: "Can I convert airtime to cash?",
+                acceptedAnswer: {
+                  "@type": "Answer",
+                  text: "Yes. Swifna supports airtime-to-cash conversion for supported networks."
+                }
+              }
+            ]
+          }
+        : null;
+
+    applySeo({
+      title: page.title,
+      description: page.description,
+      keywords: page.keywords,
+      canonicalUrl: `${siteUrl}${page.path}`,
+      robots,
+      ogType: "website",
+      jsonLd: faqJsonLd ? [organization, website, faqJsonLd] : [organization, website]
+    });
+  }, [activeTab, dashboardSeoView, isAuthenticated, showAuthScreen]);
+
   // --- RENDER ---
 
   return (
@@ -561,6 +715,7 @@ const App: React.FC = () => {
                 onUpdateBalance={onUpdateBalance} 
                 isGuest={!isAuthenticated}
                 onRequireAuth={promptAuth}
+                onViewChange={setDashboardSeoView}
             />
           )}
           
