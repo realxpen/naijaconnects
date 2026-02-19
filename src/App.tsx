@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { Suspense, useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from './supabaseClient';
 import { dbService } from './services/dbService';
 import { I18nProvider, LanguageCode } from './i18n';
@@ -11,14 +11,18 @@ import { applySeo } from './utils/seo';
 
 // Layouts & Pages
 import DashboardLayout from "./layouts/DashboardLayout"; 
-import Auth from './pages/Auth';
-import Dashboard from './pages/Dashboard';
-// Placeholders for now - ensure these files exist or comment them out
-import History from './pages/History'; 
-import Profile from './pages/Profile';
-import Assistant from './pages/Assistant';
+const Auth = React.lazy(() => import('./pages/Auth'));
+const Dashboard = React.lazy(() => import('./pages/Dashboard'));
+const History = React.lazy(() => import('./pages/History'));
+const Profile = React.lazy(() => import('./pages/Profile'));
+const Assistant = React.lazy(() => import('./pages/Assistant'));
 
 const App: React.FC = () => {
+  const pageFallback = (
+    <div className="min-h-[40vh] flex items-center justify-center">
+      <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Loading...</p>
+    </div>
+  );
   const [isSplashScreen, setIsSplashScreen] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeTab, setActiveTab] = useState<'buy' | 'history' | 'assistant' | 'profile'>('buy');
@@ -667,12 +671,14 @@ const App: React.FC = () => {
           >
             Continue as guest
           </button>
-          <Auth 
-            onLogin={handleLogin} 
-            onSignup={handleSignup} 
-            onForgotPassword={handleForgotPassword} 
-            isProcessing={isProcessing} 
-          />
+          <Suspense fallback={pageFallback}>
+            <Auth 
+              onLogin={handleLogin} 
+              onSignup={handleSignup} 
+              onForgotPassword={handleForgotPassword} 
+              isProcessing={isProcessing} 
+            />
+          </Suspense>
         </div>
       ) : (
         <DashboardLayout 
@@ -709,28 +715,38 @@ const App: React.FC = () => {
             </div>
           )}
           {activeTab === 'buy' && (
-            <Dashboard 
-                key={dashboardResetKey} // This forces the reset
-                user={currentUser} 
-                onUpdateBalance={onUpdateBalance} 
-                isGuest={!isAuthenticated}
-                onRequireAuth={promptAuth}
-                onViewChange={setDashboardSeoView}
-            />
+            <Suspense fallback={pageFallback}>
+              <Dashboard 
+                  key={dashboardResetKey} // This forces the reset
+                  user={currentUser} 
+                  onUpdateBalance={onUpdateBalance} 
+                  isGuest={!isAuthenticated}
+                  onRequireAuth={promptAuth}
+                  onViewChange={setDashboardSeoView}
+              />
+            </Suspense>
           )}
           
-          {activeTab === 'history' && <History />}
+          {activeTab === 'history' && (
+            <Suspense fallback={pageFallback}>
+              <History />
+            </Suspense>
+          )}
           
           {activeTab === 'assistant' && (
-            <Assistant user={currentUser} />
+            <Suspense fallback={pageFallback}>
+              <Assistant user={currentUser} />
+            </Suspense>
           )}
           
           {activeTab === 'profile' && isAuthenticated && user && (
-            <Profile 
-              user={user} 
-              onLogout={handleLogout} 
-              onUpdateUser={handleUpdateUser} 
-            />
+            <Suspense fallback={pageFallback}>
+              <Profile 
+                user={user} 
+                onLogout={handleLogout} 
+                onUpdateUser={handleUpdateUser} 
+              />
+            </Suspense>
           )}
           {activeTab === 'profile' && !isAuthenticated && (
             <div className="min-h-[60vh] flex items-center justify-center">

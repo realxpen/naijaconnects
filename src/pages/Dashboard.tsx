@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { Suspense, useState, useEffect, useRef } from "react";
 import {
   Smartphone, Tv, Zap, ArrowRight, ArrowLeftRight, X, Loader2,
   RotateCcw, CreditCard, GraduationCap, 
@@ -20,14 +20,14 @@ import { usePushNotifications } from "../hooks/usePushNotifications";
 import InstallPwaModal from "../components/InstallPwaModal";
 
 // --- SERVICE COMPONENTS ---
-import Airtime from "../components/services/Airtime";
-import DataBundle from "../components/services/DataBundle";
-import CableTv from "../components/services/CableTv";
-import Electricity from "../components/services/Electricity";
-import Exams from "../components/services/Exams";
-import RechargePin from "../components/services/RechargePin";
-import AirtimeToCash from "../components/services/AirtimeToCash";
-import AdminDashboard from "./AdminDashboard";
+const Airtime = React.lazy(() => import("../components/services/Airtime"));
+const DataBundle = React.lazy(() => import("../components/services/DataBundle"));
+const CableTv = React.lazy(() => import("../components/services/CableTv"));
+const Electricity = React.lazy(() => import("../components/services/Electricity"));
+const Exams = React.lazy(() => import("../components/services/Exams"));
+const RechargePin = React.lazy(() => import("../components/services/RechargePin"));
+const AirtimeToCash = React.lazy(() => import("../components/services/AirtimeToCash"));
+const AdminDashboard = React.lazy(() => import("./AdminDashboard"));
 
 // --- CONSTANTS ---
 const BANKS = [
@@ -328,7 +328,7 @@ const ReceiptView = ({
     return (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-200">
             <div className="w-full max-w-sm relative">
-                <button onClick={onClose} className="absolute -top-12 right-0 bg-white/20 p-2 rounded-full text-white hover:bg-white/30 transition-colors">
+                <button aria-label="Close receipt" onClick={onClose} className="absolute -top-12 right-0 bg-white/20 p-2 rounded-full text-white hover:bg-white/30 transition-colors">
                     <X size={20}/>
                 </button>
 
@@ -380,7 +380,7 @@ const ReceiptView = ({
                                 <span className="text-xs font-bold text-slate-400">{t("common.ref_id")}</span>
                                 <div className="flex items-center gap-2">
                                     <span className="text-xs font-bold text-slate-700">{displayRef}</span>
-                                    <button onClick={handleCopyRef} className="text-slate-400 hover:text-emerald-600 transition-colors">
+                                    <button aria-label="Copy reference" onClick={handleCopyRef} className="text-slate-400 hover:text-emerald-600 transition-colors">
                                         <Copy size={12}/>
                                     </button>
                                 </div>
@@ -1368,23 +1368,29 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
   };
 
   // --- RENDER CONTENT ---
+  const lazyFallback = (
+    <div className="min-h-[30vh] flex items-center justify-center">
+      <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Loading...</p>
+    </div>
+  );
+
   const renderContent = () => {
     switch (view) {
-      case "Admin": return <AdminDashboard onBack={() => setView("Dashboard")} />;
+      case "Admin": return <Suspense fallback={lazyFallback}><AdminDashboard onBack={() => setView("Dashboard")} /></Suspense>;
       case "Airtime":
-        return <Airtime user={user} onUpdateBalance={onUpdateBalance} onBack={() => setView("Dashboard")} isGuest={isGuest} onRequireAuth={onRequireAuth} />;
+        return <Suspense fallback={lazyFallback}><Airtime user={user} onUpdateBalance={onUpdateBalance} onBack={() => setView("Dashboard")} isGuest={isGuest} onRequireAuth={onRequireAuth} /></Suspense>;
       case "Data":
-        return <DataBundle user={user} onUpdateBalance={onUpdateBalance} onBack={() => setView("Dashboard")} isGuest={isGuest} onRequireAuth={onRequireAuth} />;
+        return <Suspense fallback={lazyFallback}><DataBundle user={user} onUpdateBalance={onUpdateBalance} onBack={() => setView("Dashboard")} isGuest={isGuest} onRequireAuth={onRequireAuth} /></Suspense>;
       case "Cable":
-        return <CableTv user={user} onUpdateBalance={onUpdateBalance} onBack={() => setView("Dashboard")} isGuest={isGuest} onRequireAuth={onRequireAuth} />;
+        return <Suspense fallback={lazyFallback}><CableTv user={user} onUpdateBalance={onUpdateBalance} onBack={() => setView("Dashboard")} isGuest={isGuest} onRequireAuth={onRequireAuth} /></Suspense>;
       case "Electricity":
-        return <Electricity user={user} onUpdateBalance={onUpdateBalance} onBack={() => setView("Dashboard")} isGuest={isGuest} onRequireAuth={onRequireAuth} />;
+        return <Suspense fallback={lazyFallback}><Electricity user={user} onUpdateBalance={onUpdateBalance} onBack={() => setView("Dashboard")} isGuest={isGuest} onRequireAuth={onRequireAuth} /></Suspense>;
       case "Exam":
-        return <Exams user={user} onUpdateBalance={onUpdateBalance} onBack={() => setView("Dashboard")} isGuest={isGuest} onRequireAuth={onRequireAuth} />;
+        return <Suspense fallback={lazyFallback}><Exams user={user} onUpdateBalance={onUpdateBalance} onBack={() => setView("Dashboard")} isGuest={isGuest} onRequireAuth={onRequireAuth} /></Suspense>;
       case "RechargePin":
-        return <RechargePin user={user} onUpdateBalance={onUpdateBalance} onBack={() => setView("Dashboard")} isGuest={isGuest} onRequireAuth={onRequireAuth} />;
+        return <Suspense fallback={lazyFallback}><RechargePin user={user} onUpdateBalance={onUpdateBalance} onBack={() => setView("Dashboard")} isGuest={isGuest} onRequireAuth={onRequireAuth} /></Suspense>;
       case "AirtimeToCash":
-        return <AirtimeToCash user={user} onBack={() => setView("Dashboard")} isGuest={isGuest} onRequireAuth={onRequireAuth} />;
+        return <Suspense fallback={lazyFallback}><AirtimeToCash user={user} onBack={() => setView("Dashboard")} isGuest={isGuest} onRequireAuth={onRequireAuth} /></Suspense>;
       default:
         return renderDashboardHome();
     }
@@ -1598,6 +1604,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-in fade-in">
           <div className="bg-white w-full max-w-sm rounded-[35px] p-8 shadow-2xl relative">
             <button
+              aria-label="Close fund wallet"
               onClick={() => {
                 setIsDepositModalOpen(false);
                 setPaymentUrl(null);
@@ -1631,6 +1638,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
                     <div className="flex justify-between items-center gap-3">
                       <span className="text-xs font-bold text-slate-500">Account Number</span>
                       <button
+                        aria-label="Copy account number"
                         onClick={async () => {
                           await navigator.clipboard.writeText(directDeposit.accountNumber);
                           showToast("Account number copied", "success");
@@ -1748,7 +1756,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
       {isWithdrawModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-in fade-in">
           <div className="bg-white w-full max-w-sm rounded-[35px] p-8 shadow-2xl relative">
-            <button onClick={() => setIsWithdrawModalOpen(false)} className="absolute top-6 right-6 p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"><X size={16} /></button>
+            <button aria-label="Close withdrawal" onClick={() => setIsWithdrawModalOpen(false)} className="absolute top-6 right-6 p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"><X size={16} /></button>
             <h3 className="text-xl font-black text-center mb-6 text-slate-800">{t("dashboard.withdraw")}</h3>
 
             <label className="block text-xs font-bold text-slate-500 mb-1">Bank</label>

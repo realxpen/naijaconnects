@@ -369,7 +369,7 @@ const History = () => {
     return (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-200">
             <div className="w-full max-w-sm relative">
-                <button onClick={onClose} className="absolute -top-12 right-0 bg-white/20 p-2 rounded-full text-white hover:bg-white/30 transition-colors">
+                <button aria-label="Close receipt" onClick={onClose} className="absolute -top-12 right-0 bg-white/20 p-2 rounded-full text-white hover:bg-white/30 transition-colors">
                     <X size={20}/>
                 </button>
 
@@ -421,7 +421,7 @@ const History = () => {
                                 <span className="text-xs font-bold text-slate-400">{t("common.ref_id")}</span>
                                 <div className="flex items-center gap-2">
                                     <span className="text-xs font-bold text-slate-700">{displayRef}</span>
-                                    <button onClick={handleCopyRef} className="text-slate-400 hover:text-emerald-600 transition-colors">
+                                    <button aria-label="Copy reference" onClick={handleCopyRef} className="text-slate-400 hover:text-emerald-600 transition-colors">
                                         <Copy size={12}/>
                                     </button>
                                 </div>
@@ -669,13 +669,13 @@ const History = () => {
              <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">{t("history.spending_analysis")}</h3>
              {/* CHART SWITCHER */}
              <div className="flex bg-slate-100 dark:bg-slate-700 p-1 rounded-full">
-                 <button onClick={() => setChartType('bar')} className={`p-2 rounded-full transition-all ${chartType === 'bar' ? 'bg-white shadow text-emerald-600' : 'text-slate-400'}`}>
+                 <button aria-label="Bar chart" onClick={() => setChartType('bar')} className={`p-2 rounded-full transition-all ${chartType === 'bar' ? 'bg-white shadow text-emerald-600' : 'text-slate-400'}`}>
                      <BarChart3 size={14}/>
                  </button>
-                 <button onClick={() => setChartType('line')} className={`p-2 rounded-full transition-all ${chartType === 'line' ? 'bg-white shadow text-emerald-600' : 'text-slate-400'}`}>
+                 <button aria-label="Line chart" onClick={() => setChartType('line')} className={`p-2 rounded-full transition-all ${chartType === 'line' ? 'bg-white shadow text-emerald-600' : 'text-slate-400'}`}>
                      <LineChart size={14}/>
                  </button>
-                 <button onClick={() => setChartType('donut')} className={`p-2 rounded-full transition-all ${chartType === 'donut' ? 'bg-white shadow text-emerald-600' : 'text-slate-400'}`}>
+                 <button aria-label="Donut chart" onClick={() => setChartType('donut')} className={`p-2 rounded-full transition-all ${chartType === 'donut' ? 'bg-white shadow text-emerald-600' : 'text-slate-400'}`}>
                      <PieChart size={14}/>
                  </button>
              </div>

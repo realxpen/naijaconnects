@@ -95,23 +95,34 @@
       .dark .custom-scrollbar::-webkit-scrollbar-thumb {
         background: #475569;
       }
+      html:not(.dark) .text-slate-400 {
+        color: #64748b !important;
+      }
+      html:not(.dark) .text-slate-300 {
+        color: #94a3b8 !important;
+      }
     </style>
 
     <script>
-      window.addEventListener("load", () => {
+      (() => {
+        let loaded = false;
         const loadAds = () => {
+          if (loaded) return;
+          loaded = true;
           const s = document.createElement("script");
           s.async = true;
           s.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3897573403802639";
           s.crossOrigin = "anonymous";
           document.head.appendChild(s);
+          window.removeEventListener("pointerdown", loadAds);
+          window.removeEventListener("keydown", loadAds);
+          window.removeEventListener("scroll", loadAds);
         };
-        if ("requestIdleCallback" in window) {
-          window.requestIdleCallback(loadAds, { timeout: 3000 });
-        } else {
-          setTimeout(loadAds, 2000);
-        }
-      });
+        window.addEventListener("pointerdown", loadAds, { once: true, passive: true });
+        window.addEventListener("keydown", loadAds, { once: true });
+        window.addEventListener("scroll", loadAds, { once: true, passive: true });
+        window.setTimeout(loadAds, 15000);
+      })();
     </script>
 
     <script type="application/ld+json">
