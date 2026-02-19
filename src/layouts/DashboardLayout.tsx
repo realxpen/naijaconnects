@@ -71,12 +71,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     };
 
     fetchBroadcasts();
-    const channel = supabase
-      .channel('broadcasts_realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'broadcasts' }, fetchBroadcasts)
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
+    const interval = window.setInterval(fetchBroadcasts, 45000);
+    return () => window.clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -138,7 +134,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       <header className="bg-emerald-600 dark:bg-slate-900 p-4 text-white flex justify-between items-center sticky top-0 z-20 border-b border-emerald-700 dark:border-slate-700">
         <div className="flex items-center gap-2">
           <img
-            src="/logo.png"
+            src="/logo-icon.svg"
             alt="Swifna Logo"
             className="w-5 h-5"
           />
@@ -212,7 +208,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
           {/* Language Menu */}
           <div className="relative">
-            <button onClick={() => setShowLangMenu(!showLangMenu)} className="p-2 bg-emerald-700 dark:bg-slate-800 border border-emerald-700 dark:border-slate-700 rounded-full hover:bg-emerald-800 dark:hover:bg-slate-700 transition-colors">
+            <button aria-label="Language" onClick={() => setShowLangMenu(!showLangMenu)} className="p-2 bg-emerald-700 dark:bg-slate-800 border border-emerald-700 dark:border-slate-700 rounded-full hover:bg-emerald-800 dark:hover:bg-slate-700 transition-colors">
               <LangIcon size={20}/>
             </button>
             

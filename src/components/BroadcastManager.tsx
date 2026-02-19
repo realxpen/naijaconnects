@@ -58,7 +58,7 @@ const BroadcastItem = ({
         <p className="text-xs font-medium text-slate-700 leading-relaxed">{data.message}</p>
       </div>
 
-      <button onClick={() => onDismiss(data.id, data.show_once)} className="text-slate-400 hover:text-slate-600 transition-colors p-1 bg-slate-50 rounded-full">
+      <button aria-label="Dismiss broadcast" onClick={() => onDismiss(data.id, data.show_once)} className="text-slate-400 hover:text-slate-600 transition-colors p-1 bg-slate-50 rounded-full">
         <X size={14} />
       </button>
     </div>
@@ -87,10 +87,8 @@ const BroadcastManager = () => {
     };
 
     fetchBroadcasts();
-    const channel = supabase.channel('broadcasts_realtime')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'broadcasts' }, () => fetchBroadcasts())
-        .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    const interval = window.setInterval(fetchBroadcasts, 45000);
+    return () => window.clearInterval(interval);
   }, []);
 
   const handleDismiss = (id: string, permanent: boolean) => {

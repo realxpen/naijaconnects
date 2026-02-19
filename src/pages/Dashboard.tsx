@@ -347,7 +347,7 @@ const ReceiptView = ({
                         <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle, #fff 2px, transparent 2px)', backgroundSize: '10px 10px' }}></div>
                         <div className="absolute inset-0 flex items-start justify-between px-6 pt-3">
                           <div className="flex items-center gap-2 bg-white/25 px-3 py-1.5 rounded-full">
-                            <img src="/logo.png" alt="Swifna" className="w-10 h-10 rounded-lg" />
+                            <img src="/logo-icon.svg" alt="Swifna" className="w-10 h-10 rounded-lg" />
                             <span className="text-white font-black text-base">Swifna</span>
                           </div>
                           <span className="text-white text-xs font-black uppercase tracking-widest bg-white/25 px-3 py-1.5 rounded-full">
@@ -1476,7 +1476,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
         <div className="relative z-10">
             <div className="flex justify-between items-start mb-1">
             <p className="text-[10px] font-black uppercase tracking-widest opacity-80">{t("dashboard.available_balance")}</p>
-            <button onClick={() => { if (isGuest) { requireAuth(); return; } setIsRefreshingBalance(true); fetchUser(); setTimeout(() => setIsRefreshingBalance(false), 1000); }} className="p-2 bg-emerald-700/70 rounded-full hover:bg-emerald-800 transition-colors">
+            <button aria-label="Refresh balance" onClick={() => { if (isGuest) { requireAuth(); return; } setIsRefreshingBalance(true); fetchUser(); setTimeout(() => setIsRefreshingBalance(false), 1000); }} className="p-2 bg-emerald-700/70 rounded-full hover:bg-emerald-800 transition-colors">
                 <RotateCcw size={14} className={isRefreshingBalance ? "animate-spin" : ""} />
             </button>
             </div>

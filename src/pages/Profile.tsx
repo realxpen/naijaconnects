@@ -350,7 +350,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
               />
             </div>
             <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg border border-emerald-200">
-              <img src="/logo.png" alt="Swifna" className="w-4 h-4" />
+              <img src="/logo-icon.svg" alt="Swifna" className="w-4 h-4" />
             </div>
          </div>
 

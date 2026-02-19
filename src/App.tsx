@@ -226,7 +226,7 @@ const App: React.FC = () => {
       const isNight = !!nightKey;
       const start = Date.now();
       await Promise.all([initSession(), loadNightSky()]);
-      const minDelay = isNight ? 5000 : 0;
+      const minDelay = isNight ? 600 : 0;
       const elapsed = Date.now() - start;
       if (minDelay > elapsed) {
         await new Promise((r) => setTimeout(r, minDelay - elapsed));

@@ -38,16 +38,26 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/logo.png" />
     <link rel="apple-touch-icon" href="/logo.png" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        darkMode: "class"
-      };
-    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://xsidcywceipiyybqeouc.supabase.co" crossorigin />
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+    />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
+      media="print"
+      onload="this.media='all'"
     />
+    <noscript>
+      <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet"
+      />
+    </noscript>
     <style>
       body {
         font-family: "Inter", sans-serif;
@@ -87,9 +97,22 @@
       }
     </style>
 
-    <!-- // ADSENSE CODE -->
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3897573403802639"
-     crossorigin="anonymous"></script>
+    <script>
+      window.addEventListener("load", () => {
+        const loadAds = () => {
+          const s = document.createElement("script");
+          s.async = true;
+          s.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3897573403802639";
+          s.crossOrigin = "anonymous";
+          document.head.appendChild(s);
+        };
+        if ("requestIdleCallback" in window) {
+          window.requestIdleCallback(loadAds, { timeout: 3000 });
+        } else {
+          setTimeout(loadAds, 2000);
+        }
+      });
+    </script>
 
     <script type="application/ld+json">
       {
