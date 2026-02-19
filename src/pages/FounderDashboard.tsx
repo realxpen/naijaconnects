@@ -844,7 +844,12 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
   return (
     <div className="min-h-screen bg-slate-50 p-4 pb-20 animate-in fade-in">
       <div className="flex items-center gap-4 mb-6">
-        <button onClick={onBack} className="p-2 bg-white rounded-full shadow-sm hover:bg-slate-100">
+        <button
+          onClick={onBack}
+          aria-label="Go back"
+          title="Go back"
+          className="p-2 bg-white rounded-full shadow-sm hover:bg-slate-100"
+        >
           <ArrowLeft size={20} className="text-slate-700" />
         </button>
         <div>
@@ -853,6 +858,7 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
         </div>
         <button
           onClick={fetchData}
+          aria-label="Refresh dashboard data"
           className="ml-auto p-2 rounded-full bg-emerald-600 text-white hover:bg-emerald-700"
           title="Refresh"
         >
@@ -896,6 +902,8 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
         <div className="grid grid-cols-2 gap-3">
           <input
             type="month"
+            aria-label="Profit month"
+            title="Profit month"
             value={profitForm.month}
             onChange={(e) => setProfitForm((prev) => ({ ...prev, month: e.target.value }))}
             className="w-full p-3 rounded-xl text-xs font-bold bg-slate-50 border border-slate-200 outline-none focus:border-emerald-500"
@@ -1093,6 +1101,8 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
             className="w-full p-3 rounded-xl text-xs font-bold bg-slate-50 border border-slate-200 outline-none focus:border-emerald-500"
           />
           <select
+            aria-label="Allocation recipient role"
+            title="Allocation recipient role"
             value={allocationForm.recipientRole}
             onChange={(e) => setAllocationForm((prev) => ({ ...prev, recipientRole: e.target.value }))}
             className="w-full p-3 rounded-xl text-xs font-bold bg-slate-50 border border-slate-200 outline-none focus:border-emerald-500"
@@ -1112,6 +1122,8 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
           />
           <input
             type="date"
+            aria-label="Allocation start date"
+            title="Allocation start date"
             value={allocationForm.startDate}
             onChange={(e) => setAllocationForm((prev) => ({ ...prev, startDate: e.target.value }))}
             className="w-full p-3 rounded-xl text-xs font-bold bg-slate-50 border border-slate-200 outline-none focus:border-emerald-500"
@@ -1169,6 +1181,8 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
           </h4>
           <div className="grid grid-cols-2 gap-3">
             <select
+              aria-label="Equity flow source allocation"
+              title="Equity flow source allocation"
               value={equityFlowForm.sourceAllocationId}
               onChange={(e) => setEquityFlowForm((prev) => ({ ...prev, sourceAllocationId: e.target.value }))}
               className="w-full p-3 rounded-xl text-xs font-bold bg-white border border-slate-200 outline-none focus:border-emerald-500"
@@ -1181,6 +1195,8 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
               ))}
             </select>
             <select
+              aria-label="Equity flow transfer type"
+              title="Equity flow transfer type"
               value={equityFlowForm.transferType}
               onChange={(e) => setEquityFlowForm((prev) => ({ ...prev, transferType: e.target.value }))}
               className="w-full p-3 rounded-xl text-xs font-bold bg-white border border-slate-200 outline-none focus:border-emerald-500"
@@ -1225,6 +1241,8 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
               className="w-full p-3 rounded-xl text-xs font-bold bg-white border border-slate-200 outline-none focus:border-emerald-500"
             />
             <select
+              aria-label="Equity flow recipient role"
+              title="Equity flow recipient role"
               value={equityFlowForm.recipientRole}
               onChange={(e) => setEquityFlowForm((prev) => ({ ...prev, recipientRole: e.target.value }))}
               className="w-full p-3 rounded-xl text-xs font-bold bg-white border border-slate-200 outline-none focus:border-emerald-500"
@@ -1261,6 +1279,8 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
           </h4>
           <div className="grid grid-cols-2 gap-3">
             <select
+              aria-label="Investor transfer source"
+              title="Investor transfer source"
               value={investorPoolSaleForm.fromInvestorId}
               onChange={(e) => setInvestorPoolSaleForm((prev) => ({ ...prev, fromInvestorId: e.target.value }))}
               className="w-full p-3 rounded-xl text-xs font-bold bg-white border border-slate-200 outline-none focus:border-emerald-500"
@@ -1324,6 +1344,8 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
             className="w-full p-3 rounded-xl text-xs font-bold bg-slate-50 border border-slate-200 outline-none focus:border-emerald-500"
           />
           <select
+            aria-label="Role to assign"
+            title="Role to assign"
             value={roleForm.role}
             onChange={(e) => setRoleForm((prev) => ({ ...prev, role: e.target.value }))}
             className="w-full p-3 rounded-xl text-xs font-bold bg-slate-50 border border-slate-200 outline-none focus:border-emerald-500"
@@ -1398,6 +1420,8 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
               className="w-full p-3 rounded-xl text-xs font-bold bg-white border border-slate-200 outline-none focus:border-emerald-500"
             />
             <select
+              aria-label="Agreement target role"
+              title="Agreement target role"
               value={docForm.targetRole}
               onChange={(e) => setDocForm((prev) => ({ ...prev, targetRole: e.target.value }))}
               className="w-full p-3 rounded-xl text-xs font-bold bg-white border border-slate-200 outline-none focus:border-emerald-500"
@@ -1412,6 +1436,8 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
               <option value="admin">Admin</option>
             </select>
             <select
+              aria-label="Agreement signature method"
+              title="Agreement signature method"
               value={docForm.signatureMethod}
               onChange={(e) => setDocForm((prev) => ({ ...prev, signatureMethod: e.target.value }))}
               className="w-full p-3 rounded-xl text-xs font-bold bg-white border border-slate-200 outline-none focus:border-emerald-500"
@@ -1453,6 +1479,8 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
           <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Send Invitation</h4>
           <div className="grid grid-cols-2 gap-3">
             <select
+              aria-label="Invitation agreement"
+              title="Invitation agreement"
               value={inviteForm.docId}
               onChange={(e) => setInviteForm((prev) => ({ ...prev, docId: e.target.value }))}
               className="w-full p-3 rounded-xl text-xs font-bold bg-white border border-slate-200 outline-none focus:border-emerald-500"
@@ -1484,6 +1512,8 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
           <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Create New Version</h4>
           <div className="grid grid-cols-2 gap-3">
             <select
+              aria-label="Agreement version document"
+              title="Agreement version document"
               value={versionForm.docId}
               onChange={(e) => setVersionForm((prev) => ({ ...prev, docId: e.target.value }))}
               className="w-full p-3 rounded-xl text-xs font-bold bg-white border border-slate-200 outline-none focus:border-emerald-500"
@@ -1516,6 +1546,8 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-3">
             <select
+              aria-label="Invitation filter document"
+              title="Invitation filter document"
               value={inviteFilter.docId}
               onChange={(e) => {
                 setInviteFilter({ docId: e.target.value });
@@ -1597,6 +1629,8 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
         <h3 className="text-sm font-black text-slate-800 mb-4">Signature Audit</h3>
         <div className="grid grid-cols-2 gap-3 mb-3">
           <select
+            aria-label="Signature filter document"
+            title="Signature filter document"
             value={signatureFilter.docId}
             onChange={(e) => {
               setSignatureFilter((prev) => ({ ...prev, docId: e.target.value }));
@@ -1612,6 +1646,8 @@ const FounderDashboard = ({ onBack }: { onBack: () => void }) => {
             ))}
           </select>
           <select
+            aria-label="Signature filter role"
+            title="Signature filter role"
             value={signatureFilter.role}
             onChange={(e) => {
               setSignatureFilter((prev) => ({ ...prev, role: e.target.value }));
