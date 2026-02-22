@@ -618,6 +618,12 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
   // Withdraw States
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [transferRecipientEmail, setTransferRecipientEmail] = useState("");
+  const [transferAmount, setTransferAmount] = useState("");
+  const [transferNote, setTransferNote] = useState("");
+  const [isSendingTransfer, setIsSendingTransfer] = useState(false);
+  const [confirmTransferOpen, setConfirmTransferOpen] = useState(false);
   const [bankCode, setBankCode] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [isWithdrawing, setIsWithdrawing] = useState(false);
@@ -1341,6 +1347,52 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
     setConfirmWithdrawOpen(true);
   };
 
+  const doSendTransfer = async () => {
+    if (isGuest) return requireAuth();
+    const amount = Number(transferAmount || 0);
+    const recipientEmail = transferRecipientEmail.trim().toLowerCase();
+
+    if (!recipientEmail) return showToast("Enter recipient email", "error");
+    if (recipientEmail === user.email.trim().toLowerCase()) return showToast("You cannot send to yourself", "error");
+    if (!Number.isFinite(amount) || amount <= 0) return showToast("Enter a valid amount", "error");
+    if (amount > user.balance) return showToast("Insufficient balance", "error");
+
+    setIsSendingTransfer(true);
+    try {
+      const { data, error } = await supabase.rpc("transfer_wallet_to_user", {
+        p_recipient_email: recipientEmail,
+        p_amount: amount,
+        p_note: transferNote.trim() || null,
+      });
+      if (error) throw error;
+
+      const senderBalance = Number((data as any)?.sender_balance_after);
+      if (Number.isFinite(senderBalance)) onUpdateBalance(senderBalance);
+      await fetchHistory();
+
+      showSuccess({
+        title: "Transfer successful",
+        amount,
+        message: `You sent ₦${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} to ${recipientEmail}`,
+        subtitle: "SWIFNA USER TRANSFER",
+      });
+
+      setIsTransferModalOpen(false);
+      setTransferRecipientEmail("");
+      setTransferAmount("");
+      setTransferNote("");
+    } catch (e: any) {
+      showToast(e.message || "Transfer failed", "error");
+    } finally {
+      setIsSendingTransfer(false);
+    }
+  };
+
+  const handleSendTransfer = () => {
+    if (isGuest) return requireAuth();
+    setConfirmTransferOpen(true);
+  };
+
   const handleSaveWithdrawBeneficiary = async () => {
     if (isGuest) return requireAuth();
     if (!bankCode || !accountNumber) return showToast("Enter bank and account number", "error");
@@ -1495,6 +1547,12 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
                 {t("dashboard.withdraw")}
             </button>
             </div>
+            <button
+              onClick={() => setIsTransferModalOpen(true)}
+              className="mt-3 w-full bg-emerald-700/70 border border-emerald-300/40 text-white py-3 rounded-2xl font-black text-xs uppercase hover:bg-emerald-800/80 transition-colors"
+            >
+              Send To Swifna User
+            </button>
         </div>
       </section>
 
@@ -1900,6 +1958,59 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
           </div>
         </div>
       )}
+
+      {/* SEND TO SWIFNA USER MODAL */}
+      {isTransferModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-in fade-in">
+          <div className="bg-white w-full max-w-sm rounded-[35px] p-8 shadow-2xl relative">
+            <button
+              aria-label="Close transfer"
+              onClick={() => setIsTransferModalOpen(false)}
+              className="absolute top-6 right-6 p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"
+            >
+              <X size={16} />
+            </button>
+            <h3 className="text-xl font-black text-center mb-6 text-slate-800">Send To Swifna User</h3>
+
+            <label className="block text-xs font-bold text-slate-500 mb-1">Recipient Email</label>
+            <input
+              type="email"
+              value={transferRecipientEmail}
+              onChange={(e) => setTransferRecipientEmail(e.target.value)}
+              className="w-full p-4 bg-slate-50 rounded-2xl font-bold mb-4 outline-none border border-slate-200 focus:border-emerald-500 transition-colors text-slate-800"
+              placeholder="user@email.com"
+            />
+
+            <label className="block text-xs font-bold text-slate-500 mb-1">Amount</label>
+            <input
+              type="number"
+              value={transferAmount}
+              onChange={(e) => setTransferAmount(e.target.value)}
+              className="w-full p-4 bg-slate-50 rounded-2xl font-black mb-4 outline-none border border-slate-200 focus:border-emerald-500 transition-colors text-slate-800"
+              placeholder="Amount"
+            />
+
+            <label className="block text-xs font-bold text-slate-500 mb-1">Note (optional)</label>
+            <input
+              type="text"
+              value={transferNote}
+              onChange={(e) => setTransferNote(e.target.value)}
+              className="w-full p-4 bg-slate-50 rounded-2xl font-bold mb-6 outline-none border border-slate-200 focus:border-emerald-500 transition-colors text-slate-800"
+              placeholder="What's this for?"
+              maxLength={120}
+            />
+
+            <button
+              onClick={handleSendTransfer}
+              disabled={isSendingTransfer}
+              className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black uppercase transition-colors shadow-lg shadow-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSendingTransfer ? "Sending..." : "Send Money"}
+            </button>
+          </div>
+        </div>
+      )}
+
       <ConfirmTransactionModal
         open={confirmWithdrawOpen}
         title="Confirm Transaction"
@@ -1912,6 +2023,19 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
           requirePin(doWithdraw);
         }}
         onClose={() => setConfirmWithdrawOpen(false)}
+      />
+      <ConfirmTransactionModal
+        open={confirmTransferOpen}
+        title="Confirm Transfer"
+        subtitle={transferRecipientEmail ? `TO ${transferRecipientEmail.trim().toLowerCase()}` : undefined}
+        amountLabel="Amount"
+        amount={Number(transferAmount || 0)}
+        confirmLabel="Send Now"
+        onConfirm={() => {
+          setConfirmTransferOpen(false);
+          requirePin(doSendTransfer);
+        }}
+        onClose={() => setConfirmTransferOpen(false)}
       />
       <PinPrompt
         open={pinOpen}
