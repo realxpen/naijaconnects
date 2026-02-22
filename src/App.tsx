@@ -429,7 +429,7 @@ const App: React.FC = () => {
         title: "Swifna | Buy Cheap Data, Airtime, Bills & Airtime to Cash in Nigeria",
         description: "Buy affordable data bundles, airtime, exam pins, cable TV and electricity bills instantly on Swifna.",
         path: "/",
-        keywords: "cheap data nigeria, buy airtime nigeria, pay bills nigeria, swifna"
+        keywords: "cheap data nigeria, buy airtime nigeria, pay bills nigeria, swifna, how to check mtn data balance, how to share data on mtn, code to share data on mtn, code to check mtn data balance, how to transfer data on mtn, mtn data balance, mtn data plan, mtn data balance code, mtn data code, mtn data plan 200 for 1gb, how to share data on airtel, how to check airtel data balance, airtel data plan, airtel data balance, airtel data code, airtel data balance check code, code to share data on airtel, how to buy data on airtel, airtel data balance code, how to transfer data from airtel to airtel"
       },
       Airtime: {
         title: "Buy Airtime Online in Nigeria | Swifna",
@@ -441,7 +441,7 @@ const App: React.FC = () => {
         title: "Buy Cheap Data Bundles in Nigeria | Swifna",
         description: "Buy affordable SME and regular data bundles in Nigeria with instant delivery on Swifna.",
         path: "/data",
-        keywords: "buy cheap data nigeria, mtn data plans, sme data nigeria"
+        keywords: "buy cheap data nigeria, mtn data plan, mtn data code, mtn data plans, mtn data balance, mtn data balance code, how to check mtn data balance, code to check mtn data balance, how to share data on mtn, how to transfer data on mtn, code to share data on mtn, mtn data plan 200 for 1gb, airtel data plan, airtel data code, airtel data balance, airtel data balance code, airtel data balance check code, how to check airtel data balance, how to share data on airtel, code to share data on airtel, how to transfer data from airtel to airtel, how to buy data on airtel"
       },
       Cable: {
         title: "Pay Cable TV Subscription Online | Swifna",
@@ -542,6 +542,78 @@ const App: React.FC = () => {
                 acceptedAnswer: {
                   "@type": "Answer",
                   text: "Yes. Swifna supports airtime-to-cash conversion for supported networks."
+                }
+              },
+              {
+                "@type": "Question",
+                name: "How to check MTN data balance?",
+                acceptedAnswer: {
+                  "@type": "Answer",
+                  text: "You can check MTN data balance with the official MTN USSD code or app. On Swifna, you can quickly buy and manage your next data bundle in one place."
+                }
+              },
+              {
+                "@type": "Question",
+                name: "How to share data on MTN?",
+                acceptedAnswer: {
+                  "@type": "Answer",
+                  text: "Use MTN data gifting/share options from your MTN line. If you need another bundle instantly, buy MTN data directly on Swifna."
+                }
+              },
+              {
+                "@type": "Question",
+                name: "How to transfer data on MTN?",
+                acceptedAnswer: {
+                  "@type": "Answer",
+                  text: "Use MTN transfer or gifting options from your MTN line. You can also buy a fresh MTN plan instantly on Swifna."
+                }
+              },
+              {
+                "@type": "Question",
+                name: "What is the MTN data balance code?",
+                acceptedAnswer: {
+                  "@type": "Answer",
+                  text: "The MTN data balance code is available on official MTN channels. After checking, use Swifna to top up your preferred bundle."
+                }
+              },
+              {
+                "@type": "Question",
+                name: "What is MTN data plan 200 for 1GB?",
+                acceptedAnswer: {
+                  "@type": "Answer",
+                  text: "Plan availability and pricing can change by time and account type. Use Swifna to see current MTN data plan options before buying."
+                }
+              },
+              {
+                "@type": "Question",
+                name: "How to share data on Airtel?",
+                acceptedAnswer: {
+                  "@type": "Answer",
+                  text: "Use Airtel share or gifting options on your Airtel line. You can also buy Airtel data bundles instantly on Swifna."
+                }
+              },
+              {
+                "@type": "Question",
+                name: "How to check Airtel data balance?",
+                acceptedAnswer: {
+                  "@type": "Answer",
+                  text: "Use Airtel official balance check options via USSD or app. Swifna helps you top up your Airtel data quickly."
+                }
+              },
+              {
+                "@type": "Question",
+                name: "What is Airtel data balance check code?",
+                acceptedAnswer: {
+                  "@type": "Answer",
+                  text: "The Airtel data balance check code is available on official Airtel channels. After checking, buy your next plan on Swifna."
+                }
+              },
+              {
+                "@type": "Question",
+                name: "How to transfer data from Airtel to Airtel?",
+                acceptedAnswer: {
+                  "@type": "Answer",
+                  text: "Use Airtel transfer or share options for Airtel-to-Airtel data transfer, and use Swifna for quick Airtel data purchases."
                 }
               }
             ]

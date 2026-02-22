@@ -1612,6 +1612,50 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
         <ArrowRight size={20} className="text-slate-300 group-hover:text-emerald-500 transition-colors" />
       </button>
 
+      <section className="bg-white border border-slate-100 rounded-2xl p-5">
+        <h2 className="text-sm font-black text-slate-800 mb-3 uppercase tracking-wide">MTN Data Help & Plans</h2>
+        <div className="space-y-3 text-xs text-slate-600">
+          <p><span className="font-black text-slate-800">How to check MTN data balance:</span> Use official MTN methods, then buy your next plan instantly on Swifna.</p>
+          <p><span className="font-black text-slate-800">Code to check MTN data balance:</span> Use the MTN data balance code from official MTN channels and top up fast on Swifna.</p>
+          <p><span className="font-black text-slate-800">MTN data balance:</span> Always confirm remaining data before streaming, browsing, or studying.</p>
+          <p><span className="font-black text-slate-800">MTN data balance code:</span> This helps you verify usage quickly before purchasing a new bundle.</p>
+          <p><span className="font-black text-slate-800">How to share data on MTN:</span> Use MTN share/gift options to send data to another MTN line.</p>
+          <p><span className="font-black text-slate-800">Code to share data on MTN:</span> Use the approved MTN sharing code format, then complete transfer steps.</p>
+          <p><span className="font-black text-slate-800">How to transfer data on MTN:</span> Data transfer and gifting can be done from your MTN line settings.</p>
+          <p><span className="font-black text-slate-800">MTN data code:</span> Use official MTN purchase/check/share codes based on the action you need.</p>
+          <p><span className="font-black text-slate-800">MTN data plan:</span> Choose the right daily, weekly, or monthly option for your budget.</p>
+          <p><span className="font-black text-slate-800">MTN data plan 200 for 1GB:</span> Plan offers can vary by account/time; check latest available options on Swifna.</p>
+        </div>
+        <button
+          onClick={() => setView("Data")}
+          className="mt-4 w-full h-10 rounded-xl bg-emerald-600 text-white text-xs font-black uppercase tracking-wide hover:bg-emerald-700 transition-colors"
+        >
+          Buy Data Now
+        </button>
+      </section>
+
+      <section className="bg-white border border-slate-100 rounded-2xl p-5">
+        <h2 className="text-sm font-black text-slate-800 mb-3 uppercase tracking-wide">Airtel Data Help & Plans</h2>
+        <div className="space-y-3 text-xs text-slate-600">
+          <p><span className="font-black text-slate-800">How to share data on Airtel:</span> Use Airtel share/gift options on your Airtel line.</p>
+          <p><span className="font-black text-slate-800">Code to share data on Airtel:</span> Use the official Airtel sharing flow and complete recipient confirmation.</p>
+          <p><span className="font-black text-slate-800">How to transfer data from Airtel to Airtel:</span> Airtel-to-Airtel transfer is supported through Airtel share features.</p>
+          <p><span className="font-black text-slate-800">How to check Airtel data balance:</span> Use Airtel official methods to check remaining data before top-up.</p>
+          <p><span className="font-black text-slate-800">Airtel data balance:</span> Track your remaining MB/GB regularly to avoid interruption.</p>
+          <p><span className="font-black text-slate-800">Airtel data code:</span> Use official Airtel purchase/check/share codes depending on your action.</p>
+          <p><span className="font-black text-slate-800">Airtel data balance check code:</span> This lets you quickly confirm usage and plan your next purchase.</p>
+          <p><span className="font-black text-slate-800">Airtel data balance code:</span> Check the latest Airtel-supported code from official Airtel sources.</p>
+          <p><span className="font-black text-slate-800">How to buy data on Airtel:</span> Buy Airtel bundles instantly on Swifna with fast delivery.</p>
+          <p><span className="font-black text-slate-800">Airtel data plan:</span> Choose daily, weekly, or monthly Airtel bundles that fit your budget.</p>
+        </div>
+        <button
+          onClick={() => setView("Data")}
+          className="mt-4 w-full h-10 rounded-xl bg-emerald-600 text-white text-xs font-black uppercase tracking-wide hover:bg-emerald-700 transition-colors"
+        >
+          Buy Airtel Data Now
+        </button>
+      </section>
+
       {/* HISTORY */}
       <div className="pt-2">
         <h3 className="font-black text-[10px] uppercase text-slate-400 tracking-widest mb-3 ml-2">{t("dashboard.recent_activity")}</h3>
