@@ -2,7 +2,7 @@ import React, { Suspense, useState, useEffect, useRef } from "react";
 import {
   Smartphone, Tv, Zap, ArrowRight, ArrowLeftRight, X, Loader2,
   RotateCcw, CreditCard, GraduationCap, 
-  Printer, Building2, Activity, ShieldCheck, AlertCircle, CheckCircle2, Copy
+  Printer, Building2, Activity, ShieldCheck, AlertCircle, CheckCircle2, Copy, BookOpen
   // Removed 'Bell' to prevent duplication
 } from "lucide-react";
 import { supabase } from "../supabaseClient";
@@ -143,7 +143,7 @@ interface Transaction {
   meta?: any; 
 }
 
-type ViewState = "Dashboard" | "Airtime" | "Data" | "Cable" | "Electricity" | "Exam" | "RechargePin" | "AirtimeToCash" | "Admin";
+type ViewState = "Dashboard" | "Airtime" | "Data" | "Cable" | "Electricity" | "Exam" | "RechargePin" | "AirtimeToCash" | "Admin" | "DataHelpCenter";
 
 // --- HELPER: GET LOGO ---
 const getLogoOrIcon = (transaction: Transaction) => {
@@ -1429,6 +1429,58 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
   const renderContent = () => {
     switch (view) {
       case "Admin": return <Suspense fallback={lazyFallback}><AdminDashboard onBack={() => setView("Dashboard")} /></Suspense>;
+      case "DataHelpCenter":
+        return (
+          <div className="space-y-4 pb-20 animate-in fade-in">
+            <div className="bg-white border border-slate-100 rounded-2xl p-5">
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <h1 className="text-lg font-black text-slate-900 uppercase tracking-wide">Swifna Data Help Centre</h1>
+                <button
+                  onClick={() => setView("Dashboard")}
+                  className="px-3 h-8 rounded-lg border border-slate-200 text-[10px] font-black uppercase text-slate-600 hover:bg-slate-50"
+                >
+                  Back
+                </button>
+              </div>
+              <p className="text-xs text-slate-600">
+                Article-style guides for MTN and Airtel data balance checks, transfer/share methods, and plan tips.
+              </p>
+            </div>
+
+            <article className="bg-white border border-slate-100 rounded-2xl p-5 space-y-4">
+              <h2 className="text-sm font-black text-slate-900 uppercase tracking-wide">MTN Guides</h2>
+              <p className="text-xs text-slate-600"><span className="font-black text-slate-800">How to check MTN data balance:</span> Use official MTN methods to view your current data before buying.</p>
+              <p className="text-xs text-slate-600"><span className="font-black text-slate-800">Code to check MTN data balance:</span> Use MTN official balance-check code channels and confirm your remaining MB/GB.</p>
+              <p className="text-xs text-slate-600"><span className="font-black text-slate-800">MTN data balance code:</span> The official balance code can change by network updates, so verify current MTN guidance.</p>
+              <p className="text-xs text-slate-600"><span className="font-black text-slate-800">How to share data on MTN:</span> Use MTN gifting/share features from your line settings.</p>
+              <p className="text-xs text-slate-600"><span className="font-black text-slate-800">Code to share data on MTN:</span> Complete the official transfer steps and recipient confirmation.</p>
+              <p className="text-xs text-slate-600"><span className="font-black text-slate-800">How to transfer data on MTN:</span> Use MTN transfer options to move data to another MTN user.</p>
+              <p className="text-xs text-slate-600"><span className="font-black text-slate-800">MTN data plan:</span> Pick daily, weekly, or monthly options based on your usage.</p>
+              <p className="text-xs text-slate-600"><span className="font-black text-slate-800">MTN data plan 200 for 1GB:</span> Offer eligibility can vary. Check available current bundles before purchase.</p>
+            </article>
+
+            <article className="bg-white border border-slate-100 rounded-2xl p-5 space-y-4">
+              <h2 className="text-sm font-black text-slate-900 uppercase tracking-wide">Airtel Guides</h2>
+              <p className="text-xs text-slate-600"><span className="font-black text-slate-800">How to check Airtel data balance:</span> Use Airtel official methods to confirm your remaining data.</p>
+              <p className="text-xs text-slate-600"><span className="font-black text-slate-800">Airtel data balance check code:</span> Use the official Airtel balance-check flow for your line.</p>
+              <p className="text-xs text-slate-600"><span className="font-black text-slate-800">Airtel data balance code:</span> Verify the latest Airtel-supported code via official Airtel channels.</p>
+              <p className="text-xs text-slate-600"><span className="font-black text-slate-800">How to share data on Airtel:</span> Use Airtel gifting/share settings to send data.</p>
+              <p className="text-xs text-slate-600"><span className="font-black text-slate-800">Code to share data on Airtel:</span> Follow Airtel sharing prompts and recipient details correctly.</p>
+              <p className="text-xs text-slate-600"><span className="font-black text-slate-800">How to transfer data from Airtel to Airtel:</span> Airtel-to-Airtel transfer works through Airtel data sharing tools.</p>
+              <p className="text-xs text-slate-600"><span className="font-black text-slate-800">How to buy data on Airtel:</span> Buy Airtel bundles instantly on Swifna and receive delivery quickly.</p>
+              <p className="text-xs text-slate-600"><span className="font-black text-slate-800">Airtel data plan:</span> Select the bundle that fits your budget and speed needs.</p>
+            </article>
+
+            <div className="bg-white border border-slate-100 rounded-2xl p-5">
+              <button
+                onClick={() => setView("Data")}
+                className="w-full h-11 rounded-xl bg-emerald-600 text-white text-xs font-black uppercase tracking-wide hover:bg-emerald-700 transition-colors"
+              >
+                Buy Data On Swifna
+              </button>
+            </div>
+          </div>
+        );
       case "Airtime":
         return <Suspense fallback={lazyFallback}><Airtime user={user} onUpdateBalance={onUpdateBalance} onBack={() => setView("Dashboard")} isGuest={isGuest} onRequireAuth={onRequireAuth} /></Suspense>;
       case "Data":
@@ -1607,6 +1659,17 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
           <div className="text-left">
             <h3 className="font-black text-sm uppercase text-slate-800">{t("dashboard.airtime_to_cash")}</h3>
             <p className="text-[10px] text-slate-400 font-bold">{t("dashboard.swap_airtime_for_cash")}</p>
+          </div>
+        </div>
+        <ArrowRight size={20} className="text-slate-300 group-hover:text-emerald-500 transition-colors" />
+      </button>
+
+      <button onClick={() => setView("DataHelpCenter")} className="w-full p-5 rounded-[25px] flex items-center justify-between border-2 border-slate-100 bg-white hover:border-emerald-100 transition-colors group">
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-emerald-100 text-emerald-600 rounded-xl group-hover:bg-emerald-200 transition-colors"><BookOpen size={22} /></div>
+          <div className="text-left">
+            <h3 className="font-black text-sm uppercase text-slate-800">Data Help Centre</h3>
+            <p className="text-[10px] text-slate-400 font-bold">MTN & Airtel Guides In Article Format</p>
           </div>
         </div>
         <ArrowRight size={20} className="text-slate-300 group-hover:text-emerald-500 transition-colors" />

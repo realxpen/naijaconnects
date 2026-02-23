@@ -443,6 +443,12 @@ const App: React.FC = () => {
         path: "/data",
         keywords: "buy cheap data nigeria, mtn data plan, mtn data code, mtn data plans, mtn data balance, mtn data balance code, how to check mtn data balance, code to check mtn data balance, how to share data on mtn, how to transfer data on mtn, code to share data on mtn, mtn data plan 200 for 1gb, airtel data plan, airtel data code, airtel data balance, airtel data balance code, airtel data balance check code, how to check airtel data balance, how to share data on airtel, code to share data on airtel, how to transfer data from airtel to airtel, how to buy data on airtel"
       },
+      DataHelpCenter: {
+        title: "Data Help Centre: MTN & Airtel Balance, Codes, Sharing & Plans | Swifna",
+        description: "Read Swifna's data help centre articles for MTN and Airtel: balance checks, transfer/share codes, and plan guidance.",
+        path: "/data-help-centre",
+        keywords: "how to check mtn data balance, mtn data balance code, how to share data on mtn, how to transfer data on mtn, mtn data plan, mtn data code, how to check airtel data balance, airtel data balance check code, how to share data on airtel, code to share data on airtel, airtel data plan, how to buy data on airtel"
+      },
       Cable: {
         title: "Pay Cable TV Subscription Online | Swifna",
         description: "Renew GOtv, DStv and Startimes subscriptions online in seconds with Swifna.",
@@ -515,7 +521,7 @@ const App: React.FC = () => {
     }
 
     const faqJsonLd =
-      page.path === "/"
+      page.path === "/" || page.path === "/data-help-centre"
         ? {
             "@context": "https://schema.org",
             "@type": "FAQPage",
