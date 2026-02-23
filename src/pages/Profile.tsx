@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Moon, Sun, Monitor, Lock, LogOut, ChevronRight, Mail, Bell,
-  User, Phone, Save, Loader2, KeyRound, Zap
+  User, Phone, Save, Loader2, KeyRound, Zap, BookOpen
 } from 'lucide-react';
 import { dbService } from '../services/dbService';
 import { supabase } from "../supabaseClient"; 
@@ -317,6 +317,11 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
     return false;
   };
 
+  const openDataHelpCenter = () => {
+    localStorage.setItem("swifna_dashboard_view", "DataHelpCenter");
+    window.dispatchEvent(new CustomEvent("swifna:navigate", { detail: { tab: "buy" } }));
+  };
+
   if (activeView === 'admin') {
     return <AdminDashboard onBack={() => setActiveView('profile')} />;
   }
@@ -458,6 +463,20 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
           Open Agreements Page
         </button>
       </div>
+
+      <button
+        onClick={openDataHelpCenter}
+        className="w-full bg-white dark:bg-slate-800 p-5 rounded-[25px] flex items-center justify-between shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-all"
+      >
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-emerald-100 text-emerald-600 rounded-xl dark:bg-emerald-900/30 dark:text-emerald-300"><BookOpen size={20}/></div>
+          <div className="text-left">
+            <h4 className="font-black text-sm dark:text-white">Data Help Centre</h4>
+            <p className="text-[10px] text-slate-400 font-bold uppercase">MTN & Airtel article guides</p>
+          </div>
+        </div>
+        <ChevronRight size={18} className="text-slate-300"/>
+      </button>
 
       {/* 3. SETTINGS & SECURITY */}
       <div className="space-y-4">
