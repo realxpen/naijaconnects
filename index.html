@@ -16,7 +16,7 @@
     <meta name="author" content="Swifna" />
     <link rel="canonical" href="https://swifna.com/" />
     <meta name="theme-color" content="#0B0F0C" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Swifna" />
     <meta property="og:site_name" content="Swifna" />
@@ -106,12 +106,28 @@
     <script>
       (() => {
         let loaded = false;
+        const trustedTypesPolicy =
+          window.trustedTypes && typeof window.trustedTypes.createPolicy === "function"
+            ? (() => {
+                try {
+                  return window.trustedTypes.createPolicy("default", {
+                    createScriptURL: (value) => value,
+                  });
+                } catch {
+                  return null;
+                }
+              })()
+            : null;
         const loadAds = () => {
           if (loaded) return;
           loaded = true;
           const s = document.createElement("script");
           s.async = true;
-          s.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3897573403802639";
+          s.src = trustedTypesPolicy
+            ? trustedTypesPolicy.createScriptURL(
+                "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3897573403802639"
+              )
+            : "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3897573403802639";
           s.crossOrigin = "anonymous";
           document.head.appendChild(s);
           window.removeEventListener("pointerdown", loadAds);

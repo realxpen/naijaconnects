@@ -17,6 +17,30 @@ const History = React.lazy(() => import('./pages/History'));
 const Profile = React.lazy(() => import('./pages/Profile'));
 const Assistant = React.lazy(() => import('./pages/Assistant'));
 
+const readStorage = (key: string) => {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+const writeStorage = (key: string, value: string) => {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Ignore storage failures on restricted browsers.
+  }
+};
+
+const removeStorage = (key: string) => {
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // Ignore storage failures on restricted browsers.
+  }
+};
+
 const App: React.FC = () => {
   const pageFallback = (
     <div className="min-h-[40vh] flex items-center justify-center">
@@ -35,7 +59,7 @@ const App: React.FC = () => {
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [language, setLanguage] = useState<LanguageCode>(() => {
-    const stored = localStorage.getItem("language");
+    const stored = readStorage("language");
     return (stored as LanguageCode) || "en";
   });
   const [isNightSky, setIsNightSky] = useState(false);
@@ -68,8 +92,8 @@ const App: React.FC = () => {
   };
 
   const pickConstellationForNight = (nightKey: string) => {
-    const storedKey = localStorage.getItem('night_constellation_date');
-    const storedName = localStorage.getItem('night_constellation_name');
+    const storedKey = readStorage('night_constellation_date');
+    const storedName = readStorage('night_constellation_name');
     if (storedKey === nightKey && storedName) return storedName;
 
     let hash = 0;
@@ -78,8 +102,8 @@ const App: React.FC = () => {
     }
     const idx = hash % CONSTELLATIONS.length;
     const name = CONSTELLATIONS[idx];
-    localStorage.setItem('night_constellation_date', nightKey);
-    localStorage.setItem('night_constellation_name', name);
+    writeStorage('night_constellation_date', nightKey);
+    writeStorage('night_constellation_name', name);
     return name;
   };
 
@@ -170,7 +194,7 @@ const App: React.FC = () => {
   // --- 2. SESSION INITIALIZATION ---
   useEffect(() => {
     // Theme check (supports light/dark/system)
-    const storedTheme = localStorage.getItem('theme');
+    const storedTheme = readStorage('theme');
     const applyTheme = () => {
       const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
       const shouldUseDark = storedTheme === 'dark' || (storedTheme !== 'light' && prefersDark);
@@ -181,7 +205,7 @@ const App: React.FC = () => {
 
     const media = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
     const handleChange = () => {
-      if (localStorage.getItem('theme') === 'system') {
+      if (readStorage('theme') === 'system') {
         applyTheme();
       }
     };
@@ -218,10 +242,14 @@ const App: React.FC = () => {
     };
 
     const initSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
 
-      if (session && session.user.email) {
-        await fetchUser(session.user.email);
+        if (session && session.user.email) {
+          await fetchUser(session.user.email);
+        }
+      } catch (error) {
+        console.warn('Unable to load session:', error);
       }
     };
 
@@ -229,7 +257,7 @@ const App: React.FC = () => {
       const nightKey = getNightKey(new Date());
       const isNight = !!nightKey;
       const start = Date.now();
-      await Promise.all([initSession(), loadNightSky()]);
+      await Promise.allSettled([initSession(), loadNightSky()]);
       const minDelay = isNight ? 600 : 0;
       const elapsed = Date.now() - start;
       if (minDelay > elapsed) {
@@ -399,7 +427,7 @@ const App: React.FC = () => {
 
   // Persist language
   useEffect(() => {
-    localStorage.setItem("language", language);
+    writeStorage("language", language);
   }, [language]);
 
   useEffect(() => {

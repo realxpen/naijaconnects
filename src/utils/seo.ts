@@ -53,7 +53,7 @@ export const applySeo = (payload: SeoPayload) => {
     const script = document.createElement("script");
     script.id = "dynamic-jsonld";
     script.type = "application/ld+json";
-    script.text = JSON.stringify(payload.jsonLd);
+    script.appendChild(document.createTextNode(JSON.stringify(payload.jsonLd)));
     document.head.appendChild(script);
   }
 };
