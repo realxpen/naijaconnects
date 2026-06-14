@@ -1,19 +1,33 @@
 type PiPaymentDTO = {
   identifier?: string;
+  user_uid?: string;
   amount?: number;
   memo?: string;
   metadata?: Record<string, unknown>;
+  from_address?: string;
+  to_address?: string;
+  direction?: "user_to_app" | "app_to_user";
+  created_at?: string;
+  network?: "Pi Network" | "Pi Testnet";
   transaction?: {
     txid?: string;
     verified?: boolean;
+    _link?: string;
   } | null;
-  status?: Record<string, boolean>;
+  status?: {
+    developer_approved?: boolean;
+    transaction_verified?: boolean;
+    developer_completed?: boolean;
+    cancelled?: boolean;
+    user_cancelled?: boolean;
+  };
 };
 
 type PiAuthResult = {
   user: {
     uid: string;
     username?: string;
+    wallet_address?: string;
   };
   accessToken: string;
 };
@@ -28,16 +42,19 @@ type PiPaymentCallbacks = {
   onReadyForServerApproval: (paymentId: string) => void;
   onReadyForServerCompletion: (paymentId: string, txid: string) => void;
   onCancel: (paymentId: string) => void;
-  onError: (error: unknown, paymentData?: PiPaymentData) => void;
+  onError: (error: Error, payment?: PiPaymentDTO) => void;
 };
 
 type PiSDK = {
   init: (options: { version: "2.0"; sandbox?: boolean }) => Promise<void> | void;
   authenticate: (
-    scopes: string[],
+    scopes: Array<"username" | "payments" | "wallet_address">,
     onIncompletePaymentFound?: (payment: PiPaymentDTO) => void,
   ) => Promise<PiAuthResult>;
   createPayment: (paymentData: PiPaymentData, callbacks: PiPaymentCallbacks) => void;
+  nativeFeaturesList: () => Promise<unknown>;
+  openShareDialog: (title: string, message: string) => void;
+  openUrlInSystemBrowser: (url: string) => Promise<void>;
 };
 
 declare global {
@@ -66,7 +83,7 @@ const waitForPiSdk = async () => {
 export const initPiSdk = async () => {
   const Pi = await waitForPiSdk();
   if (!piInitPromise) {
-    const sandbox = String(import.meta.env.VITE_PI_SANDBOX || "").toLowerCase() === "true";
+    const sandbox = import.meta.env.DEV || String(import.meta.env.VITE_PI_SANDBOX || "").toLowerCase() === "true";
     piInitPromise = Promise.resolve(Pi.init({ version: "2.0", sandbox }));
   }
   return piInitPromise;
@@ -78,6 +95,14 @@ export const authenticatePiUser = async (
   await initPiSdk();
   if (!window.Pi) throw new Error("Pi SDK is unavailable.");
   return window.Pi.authenticate(["username", "payments"], onIncompletePaymentFound);
+};
+
+export const authenticatePiUserWithWallet = async (
+  onIncompletePaymentFound?: (payment: PiPaymentDTO) => void,
+) => {
+  await initPiSdk();
+  if (!window.Pi) throw new Error("Pi SDK is unavailable.");
+  return window.Pi.authenticate(["username", "payments", "wallet_address"], onIncompletePaymentFound);
 };
 
 export const createPiPayment = async (paymentData: PiPaymentData, callbacks: PiPaymentCallbacks) => {

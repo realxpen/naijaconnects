@@ -173,6 +173,14 @@
     </script>
 
     <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+    <script type="module">
+      if (window.Pi) {
+        await window.Pi.init({
+          version: "2.0",
+          sandbox: true
+        });
+      }
+    </script>
   </head>
   <body class="bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
     <div id="root"></div>
