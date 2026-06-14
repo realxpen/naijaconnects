@@ -7,18 +7,55 @@ import {
 import { useI18n } from '../i18n';
 import { LANGUAGES } from '../constants';
 import { useToast } from '../components/ui/ToastProvider';
+import { authenticatePiUser } from '../services/piNetworkService';
 
 interface AuthProps {
   onLogin: (email: string, pass: string) => Promise<void>;
   onSignup: (email: string, firstName: string, lastName: string, phone: string, preferredLanguage: string, pass: string) => Promise<void>;
   onForgotPassword: (email: string) => Promise<void>;
+  onPiLogin: (accessToken: string) => Promise<void>;
   isProcessing: boolean;
 }
 
-const Auth: React.FC<AuthProps> = ({ onLogin, onSignup, onForgotPassword, isProcessing }) => {
+const Auth: React.FC<AuthProps> = ({ onLogin, onSignup, onForgotPassword, onPiLogin, isProcessing }) => {
   const { t, language } = useI18n();
   const { showToast } = useToast();
   const [view, setView] = useState<'login' | 'signup' | 'forgot-password'>('login');
+  
+  // Check if we are inside Pi Browser and try silent auto-login
+  useEffect(() => {
+    const isPiBrowser = typeof window !== 'undefined' && (!!window.Pi || navigator.userAgent.toLowerCase().includes('pibrowser'));
+    if (isPiBrowser && view === 'login' && !isProcessing) {
+      const runSilentPiAuth = async () => {
+        try {
+          const auth = await authenticatePiUser();
+          if (auth?.accessToken) {
+            await onPiLogin(auth.accessToken);
+          }
+        } catch (err) {
+          console.warn("Silent Pi auth failed:", err);
+        }
+      };
+      void runSilentPiAuth();
+    }
+  }, [view]);
+
+  const handlePiLoginClick = async () => {
+    try {
+      const isPiBrowser = typeof window !== 'undefined' && (!!window.Pi || navigator.userAgent.toLowerCase().includes('pibrowser'));
+      if (!isPiBrowser) {
+        showToast("To sign in with Pi Network, please open this app inside the Pi Browser.", "info");
+        return;
+      }
+      showToast("Connecting to Pi Network...", "info");
+      const auth = await authenticatePiUser();
+      if (auth?.accessToken) {
+        await onPiLogin(auth.accessToken);
+      }
+    } catch (err: any) {
+      showToast(err.message || "Pi Authentication failed", "error");
+    }
+  };
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -246,6 +283,26 @@ const Auth: React.FC<AuthProps> = ({ onLogin, onSignup, onForgotPassword, isProc
             <button type="submit" disabled={isProcessing} className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black shadow-xl shadow-emerald-200 dark:shadow-none uppercase tracking-widest flex justify-center items-center gap-2 hover:bg-emerald-700 active:scale-95 transition-all mt-6 text-sm">
               {getButtonText()}
             </button>
+
+            {view === 'login' && (
+              <>
+                <div className="flex items-center my-4">
+                  <div className="flex-grow border-t border-slate-200 dark:border-slate-850"></div>
+                  <span className="mx-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Or</span>
+                  <div className="flex-grow border-t border-slate-200 dark:border-slate-855"></div>
+                </div>
+                
+                <button
+                  type="button"
+                  disabled={isProcessing}
+                  onClick={handlePiLoginClick}
+                  className="w-full py-4 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white rounded-2xl font-black shadow-xl shadow-indigo-200 dark:shadow-none uppercase tracking-widest flex justify-center items-center gap-2 active:scale-95 transition-all text-sm"
+                >
+                  <Sparkles size={18} className="text-yellow-300 animate-pulse" />
+                  Sign In with Pi Network
+                </button>
+              </>
+            )}
           </form>
 
           {/* BOTTOM NAVIGATION LINKS */}

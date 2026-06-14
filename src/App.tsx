@@ -345,6 +345,25 @@ const App: React.FC = () => {
     }
   };
 
+  const handlePiLogin = async (accessToken: string) => {
+    setIsProcessing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("pi-payment", {
+        body: { action: "auth", accessToken }
+      });
+      if (error || !data?.success) {
+        throw new Error(data?.error || error?.message || "Failed to authenticate with Pi Network");
+      }
+      const { email, password } = data;
+      await dbService.loginUser(email, password);
+      showToast("Signed in with Pi Network successfully!", "success");
+    } catch (e: any) {
+      showToast(e.message || "Pi Authentication Failed", "error");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   // UPDATED: Changed preferredLanguage type from LanguageCode to string
   const handleSignup = async (email: string, firstName: string, lastName: string, phone: string, preferredLanguage: string, pass: string) => {
     setIsProcessing(true);
@@ -782,6 +801,7 @@ const App: React.FC = () => {
               onLogin={handleLogin} 
               onSignup={handleSignup} 
               onForgotPassword={handleForgotPassword} 
+              onPiLogin={handlePiLogin}
               isProcessing={isProcessing} 
             />
           </Suspense>

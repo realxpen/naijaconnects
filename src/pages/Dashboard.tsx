@@ -18,6 +18,7 @@ import { calculateDepositFee, calculateTransferServiceFee } from "../utils/payme
 import { useSuccessScreen } from "../components/ui/SuccessScreenProvider";
 import { usePushNotifications } from "../hooks/usePushNotifications";
 import InstallPwaModal from "../components/InstallPwaModal";
+import { authenticatePiUser, createPiPayment, type PiPaymentDTO } from "../services/piNetworkService";
 
 // --- SERVICE COMPONENTS ---
 const Airtime = React.lazy(() => import("../components/services/Airtime"));
@@ -615,6 +616,57 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
   const [isCheckingPendingDeposit, setIsCheckingPendingDeposit] = useState(false);
   const pendingDepositPollRef = useRef<number | null>(null);
 
+  const [piPaymentQuote, setPiPaymentQuote] = useState<{
+    reference: string;
+    amountNgn: number;
+    piAmount: number;
+    rateNgnPerPi: number;
+    bufferMultiplier: number;
+    rateSource: string;
+  } | null>(null);
+
+  const [livePiQuote, setLivePiQuote] = useState<{ rate: number; piAmount: number } | null>(null);
+  const [isFetchingPiRate, setIsFetchingPiRate] = useState(false);
+
+  useEffect(() => {
+    if (depositMethod !== "PiNetwork") {
+      setLivePiQuote(null);
+      return;
+    }
+
+    const amountNum = Number(depositAmount);
+    if (!amountNum || amountNum <= 0 || isNaN(amountNum)) {
+      setLivePiQuote(null);
+      return;
+    }
+
+    let active = true;
+    const fetchQuote = async () => {
+      setIsFetchingPiRate(true);
+      try {
+        const { data, error } = await supabase.functions.invoke("pi-payment", {
+          body: { action: "quote", amount_ngn: amountNum }
+        });
+        if (active && !error && data) {
+          setLivePiQuote({
+            rate: Number(data.rate_ngn_per_pi || 0),
+            piAmount: Number(data.pi_amount || 0)
+          });
+        }
+      } catch (err) {
+        console.warn("Failed to fetch live Pi quote:", err);
+      } finally {
+        if (active) setIsFetchingPiRate(false);
+      }
+    };
+
+    const timer = setTimeout(fetchQuote, 500);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [depositAmount, depositMethod]);
+
   // Withdraw States
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState("");
@@ -802,6 +854,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
 
   const getDepositFee = (amount: number, method: string) => {
     if (!amount) return 0;
+    if (method === "PiNetwork") return 0;
     const mappedMethod =
       method === "BankTransfer" || method === "BankUssd" || method === "BankCard"
         ? method
@@ -896,6 +949,136 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
     loadWithdrawBeneficiaries();
   }, []);
 
+  const invokePiPayment = async (body: Record<string, unknown>, fallback = "Pi payment failed") => {
+    const { data, error } = await supabase.functions.invoke("pi-payment", { body });
+    if (error) {
+      throw new Error(await getFunctionErrorMessage(error, fallback));
+    }
+    return data as any;
+  };
+
+  const handleIncompletePiPayment = (payment: PiPaymentDTO) => {
+    const reference = String(payment?.metadata?.reference || "");
+    const paymentId = String(payment?.identifier || "");
+    const txid = String(payment?.transaction?.txid || "");
+    if (!reference || !paymentId || !txid) return;
+
+    void invokePiPayment(
+      { action: "incomplete", reference, paymentId, txid },
+      "Failed to complete pending Pi payment",
+    )
+      .then(async (data) => {
+        if (data?.local_status === "success") {
+          await fetchUser();
+          await fetchHistory();
+          showToast("Pending Pi payment completed. Balance updated.", "success");
+        }
+      })
+      .catch((error) => {
+        console.warn("Incomplete Pi payment handling failed:", error);
+      });
+  };
+
+  const handlePiDeposit = async (amountNum: number) => {
+    showToast("Connecting to Pi Browser...", "info");
+    const auth = await authenticatePiUser(handleIncompletePiPayment);
+
+    const quote = await invokePiPayment(
+      {
+        action: "start",
+        amount_ngn: amountNum,
+        accessToken: auth.accessToken,
+      },
+      "Failed to prepare Pi payment",
+    );
+
+    const reference = String(quote.reference || "");
+    const piAmount = Number(quote.pi_amount || 0);
+    const rateNgnPerPi = Number(quote.rate_ngn_per_pi || 0);
+    const buffer = Number(quote.buffer_multiplier || 1.1);
+    const rateSource = String(quote.rate_source || "live market");
+
+    if (!reference || !Number.isFinite(piAmount) || piAmount <= 0) {
+      throw new Error("Invalid Pi payment quote returned by server");
+    }
+
+    setCurrentTxRef(reference);
+    localStorage.setItem("pending_pi_deposit_ref", reference);
+    setPiPaymentQuote({
+      reference,
+      amountNgn: amountNum,
+      piAmount,
+      rateNgnPerPi,
+      bufferMultiplier: buffer,
+      rateSource,
+    });
+
+    showToast(`Pi amount ready: ${piAmount.toLocaleString(undefined, { maximumFractionDigits: 7 })} PI`, "info");
+
+    await createPiPayment(
+      {
+        amount: piAmount,
+        memo: `Swifna wallet deposit ₦${amountNum.toLocaleString()}`,
+        metadata: {
+          reference,
+          amount_ngn: amountNum,
+          rate_ngn_per_pi: rateNgnPerPi,
+          buffer_multiplier: buffer,
+        },
+      },
+      {
+        onReadyForServerApproval: (paymentId) => {
+          void invokePiPayment(
+            { action: "approve", reference, paymentId },
+            "Pi server approval failed",
+          )
+            .then(() => showToast("Pi payment approved. Confirm in Pi Wallet.", "info"))
+            .catch((error) => showToast(error.message || "Pi approval failed", "error"));
+        },
+        onReadyForServerCompletion: (paymentId, txid) => {
+          void invokePiPayment(
+            { action: "complete", reference, paymentId, txid },
+            "Pi server completion failed",
+          )
+            .then(async (data) => {
+              if (data?.local_status !== "success") {
+                throw new Error("Pi payment was not completed");
+              }
+              await fetchUser();
+              await fetchHistory();
+              setIsDepositModalOpen(false);
+              setDepositAmount("");
+              setPaymentUrl(null);
+              setDirectDeposit(null);
+              setPiPaymentQuote(null);
+              setDepositInitError("");
+              localStorage.removeItem("pending_pi_deposit_ref");
+              showSuccess({
+                title: "Pi deposit completed",
+                amount: amountNum,
+                message: "Your Swifna wallet has been funded via Pi Network.",
+                subtitle: "PI NETWORK",
+              });
+            })
+            .catch((error) => showToast(error.message || "Pi completion failed", "error"));
+        },
+        onCancel: (paymentId) => {
+          void invokePiPayment(
+            { action: "cancel", reference, paymentId },
+            "Failed to cancel Pi payment",
+          ).catch((error) => console.warn("Pi cancel failed:", error));
+          setPiPaymentQuote(null);
+          localStorage.removeItem("pending_pi_deposit_ref");
+          showToast("Pi payment cancelled.", "info");
+        },
+        onError: (error) => {
+          const message = error instanceof Error ? error.message : "Pi payment failed";
+          showToast(message, "error");
+        },
+      },
+    );
+  };
+
   // --- DEPOSIT INITIALIZATION LOGIC ---
   const handleStartDeposit = async () => {
     if (isGuest) return requireAuth();
@@ -909,8 +1092,13 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
     setIsStartingDeposit(true);
     setDepositInitError("");
     setDirectDeposit(null);
+    setPiPaymentQuote(null);
     
     try {
+        if (depositMethod === "PiNetwork") {
+          await handlePiDeposit(amountNum);
+          return;
+        }
         const withTimeout = async <T,>(promise: Promise<T>, ms: number, label: string): Promise<T> => {
           return await Promise.race([
             promise,
@@ -1817,50 +2005,109 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
               </div>
             ) : (
               <>
-            <div className="grid grid-cols-2 gap-3 mb-4">
+            {/* Payment Method Selector */}
+            <div className="grid grid-cols-2 gap-2 mb-4">
                 {[
-                    { id: "BankCard", label: "Card/USSD (1.2%, cap NGN 1,500)", icon: <CreditCard size={18}/> },
-                    { id: "BankTransfer", label: "Virtual Account (0.25%, cap NGN 1,000)", icon: <Building2 size={18}/> },
-                    { id: "BankUssd", label: "USSD (1.2%, cap NGN 1,500)", icon: <Smartphone size={18}/> },
+                    { id: "BankCard", label: "Card/USSD", sublabel: "1.2%, cap ₦1,500", icon: <CreditCard size={18}/> },
+                    { id: "BankTransfer", label: "Virtual Account", sublabel: "0.25%, cap ₦1,000", icon: <Building2 size={18}/> },
+                    { id: "BankUssd", label: "USSD", sublabel: "1.2%, cap ₦1,500", icon: <Smartphone size={18}/> },
+                    { id: "PiNetwork", label: "Pi Network", sublabel: "No fee • Crypto", icon: (
+                      <span className="text-lg font-black leading-none">π</span>
+                    )},
                 ].map((m) => (
                     <button
                         key={m.id}
                         onClick={() => setDepositMethod(m.id)}
-                        className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all ${
+                        className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all gap-1 ${
                             depositMethod === m.id 
                             ? "bg-emerald-50 border-emerald-500 text-emerald-700 font-bold shadow-sm" 
                             : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
                         }`}
                     >
                         {m.icon}
-                        <span className="text-xs mt-1 text-center">{m.label}</span>
+                        <span className="text-[11px] font-bold text-center leading-tight">{m.label}</span>
+                        <span className="text-[9px] text-center opacity-70 leading-tight">{m.sublabel}</span>
                     </button>
                 ))}
             </div>
 
+            {/* Quick amount buttons — hide for Pi (amounts are in NGN which still applies) */}
             <div className="flex gap-2 mb-4 overflow-x-auto pb-2 custom-scrollbar">
                   {[100, 500, 1000, 2000, 5000].map(amt => (
                       <button key={amt} onClick={() => setDepositAmount(amt.toString())} className="px-4 py-2 bg-slate-100 hover:bg-emerald-100 hover:text-emerald-700 rounded-xl text-xs font-bold text-slate-600 transition-colors whitespace-nowrap">₦{Number(amt).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</button>
                   ))}
             </div>
             
-            <input type="number" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl font-black mb-4 outline-none border border-slate-200 focus:border-emerald-500 transition-colors text-slate-800" placeholder={t("common.amount")} />
-            
-            <div className="bg-slate-50 p-3 rounded-xl mb-4 text-xs text-slate-600 flex justify-between items-center border border-slate-100">
-                <span>Processing Fee:</span>
-                <span className="font-bold">₦{Number(currentDepositFee).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-            </div>
-            <div className="flex justify-between items-center mb-4 text-sm font-bold text-slate-800 px-1">
-                <span>Total Payable:</span>
-                <span>₦{Number(depositAmountNum + currentDepositFee).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-            </div>
+            <input type="number" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl font-black mb-4 outline-none border border-slate-200 focus:border-emerald-500 transition-colors text-slate-800" placeholder={depositMethod === "PiNetwork" ? "Enter NGN amount to fund" : t("common.amount")} />
+
+            {/* Pi Network live rate info */}
+            {depositMethod === "PiNetwork" && (
+              <div className="mb-4 rounded-2xl border border-purple-200 bg-purple-50 p-4 space-y-2">
+                <div className="flex items-center gap-2 text-purple-700 mb-1">
+                  <span className="text-base font-black">π</span>
+                  <span className="text-[11px] font-black uppercase tracking-wide">Pi Network Payment</span>
+                </div>
+                {isFetchingPiRate ? (
+                  <div className="flex items-center gap-2 text-purple-500 text-xs">
+                    <Loader2 size={14} className="animate-spin" />
+                    <span>Fetching live rate...</span>
+                  </div>
+                ) : livePiQuote ? (
+                  <>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-purple-600 font-bold">Live Rate</span>
+                      <span className="font-black text-purple-800">1 π ≈ ₦{livePiQuote.rate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-purple-600 font-bold">You will pay</span>
+                      <span className="font-black text-purple-900 text-base">π {livePiQuote.piAmount.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-purple-600 font-bold">Processing Fee</span>
+                      <span className="font-black text-green-600">Free ✓</span>
+                    </div>
+                    <p className="text-[9px] text-purple-400 mt-1">Rate includes a small buffer to protect against market swings. Final amount confirmed at checkout.</p>
+                  </>
+                ) : depositAmountNum > 0 ? (
+                  <p className="text-xs text-purple-400">Unable to fetch rate. Check your connection.</p>
+                ) : (
+                  <p className="text-xs text-purple-400">Enter an NGN amount above to see the Pi equivalent.</p>
+                )}
+              </div>
+            )}
+
+            {/* NGN fee/total — only shown for non-Pi methods */}
+            {depositMethod !== "PiNetwork" && (
+              <>
+                <div className="bg-slate-50 p-3 rounded-xl mb-4 text-xs text-slate-600 flex justify-between items-center border border-slate-100">
+                    <span>Processing Fee:</span>
+                    <span className="font-bold">₦{Number(currentDepositFee).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between items-center mb-4 text-sm font-bold text-slate-800 px-1">
+                    <span>Total Payable:</span>
+                    <span>₦{Number(depositAmountNum + currentDepositFee).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+              </>
+            )}
 
             <button
                 onClick={handleStartDeposit}
-                disabled={isStartingDeposit}
-                className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-emerald-600/20 hover:bg-emerald-700 transition flex justify-center items-center gap-2 disabled:opacity-70"
+                disabled={isStartingDeposit || (depositMethod === "PiNetwork" && (!livePiQuote || isFetchingPiRate))}
+                className={`w-full py-3 rounded-xl font-bold shadow-lg transition flex justify-center items-center gap-2 disabled:opacity-70 ${
+                  depositMethod === "PiNetwork"
+                    ? "bg-purple-600 hover:bg-purple-700 text-white shadow-purple-600/20"
+                    : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20"
+                }`}
             >
-                {isStartingDeposit ? <Loader2 className="animate-spin" /> : `Pay ₦${Number(depositAmountNum + currentDepositFee).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                {isStartingDeposit ? (
+                  <Loader2 className="animate-spin" />
+                ) : depositMethod === "PiNetwork" ? (
+                  livePiQuote
+                    ? `Pay π ${livePiQuote.piAmount.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`
+                    : "Select amount to continue"
+                ) : (
+                  `Pay ₦${Number(depositAmountNum + currentDepositFee).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                )}
             </button>
             {!!depositInitError && (
               <p className="mt-3 text-[11px] font-bold text-rose-600 break-all">{depositInitError}</p>
