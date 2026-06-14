@@ -1,9 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+const getCorsHeaders = (origin?: string) => {
+  const allowOrigin = origin || "*";
+  return {
+    "Access-Control-Allow-Origin": allowOrigin,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Credentials": "true",
+  };
 };
 
 type PiRate = {
@@ -19,10 +24,10 @@ const rateCacheTtlMs = Number(Deno.env.get("PI_RATE_CACHE_TTL_MS") || "60000");
 
 let cachedRate: { expiresAt: number; value: PiRate } | null = null;
 
-const jsonResponse = (body: Record<string, unknown>, status = 200) =>
+const jsonResponse = (body: Record<string, unknown>, req: Request | null = null, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...(req ? getCorsHeaders(req.headers.get("Origin") || undefined) : getCorsHeaders()), "Content-Type": "application/json" },
   });
 
 const readPath = (value: unknown, path: string) => {
@@ -327,7 +332,7 @@ const creditWalletIfNeeded = async (supabase: any, txn: any, meta: any) => {
 };
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response("ok", { headers: getCorsHeaders(req.headers.get("Origin") || undefined) });
 
   try {
     const supabase = createClient(
@@ -340,7 +345,7 @@ serve(async (req) => {
 
     if (action === "quote") {
       const amountNgn = Number(body?.amount_ngn ?? body?.amount ?? 0);
-      return jsonResponse(await createQuote(amountNgn));
+      return jsonResponse(await createQuote(amountNgn), req);
     }
 
     if (action === "auth") {
@@ -411,7 +416,7 @@ serve(async (req) => {
         email,
         password,
         pi_user: piUser
-      });
+      }, req);
     }
 
     const user = await getAuthenticatedUser(req, supabase);
@@ -449,7 +454,7 @@ serve(async (req) => {
       });
       if (error) throw error;
 
-      return jsonResponse({ success: true, reference, ...quote, pi_user: piUser });
+      return jsonResponse({ success: true, reference, ...quote, pi_user: piUser }, req);
     }
 
     const reference = String(body?.reference || "");
@@ -473,7 +478,7 @@ serve(async (req) => {
         pi_approved_at: new Date().toISOString(),
       });
 
-      return jsonResponse({ success: true, reference, payment: approvedPayment });
+      return jsonResponse({ success: true, reference, payment: approvedPayment }, req);
     }
 
     if (action === "complete" || action === "incomplete") {
@@ -504,7 +509,7 @@ serve(async (req) => {
           pi_completion_response: completedPayment,
         }, "failed");
 
-        return jsonResponse({ success: false, reference, local_status: "failed", payment: completedPayment }, 400);
+        return jsonResponse({ success: false, reference, local_status: "failed", payment: completedPayment }, req, 400);
       }
 
       const creditResult = await creditWalletIfNeeded(supabase, txn, meta);
@@ -523,7 +528,7 @@ serve(async (req) => {
         local_status: "success",
         payment: completedPayment,
         ...creditResult,
-      });
+      }, req);
     }
 
     if (action === "cancel") {
@@ -541,7 +546,124 @@ serve(async (req) => {
         pi_cancelled_at: new Date().toISOString(),
       }, "failed");
 
-      return jsonResponse({ success: true, reference, local_status: "failed", payment: cancelResponse });
+      return jsonResponse({ success: true, reference, local_status: "failed", payment: cancelResponse }, req);
+    }
+
+    // --- SERVICE PAYMENTS (Airtime, Data, Cable, etc.) ---
+    if (action === "service_quote") {
+      const amountNgn = Number(body?.amount_ngn ?? body?.amount ?? 0);
+      return jsonResponse(await createQuote(amountNgn), req);
+    }
+
+    if (action === "service_start") {
+      const amountNgn = Number(body?.amount_ngn ?? body?.amount ?? 0);
+      if (!Number.isFinite(amountNgn) || amountNgn < 50) {
+        throw new Error("Minimum Pi service payment is ₦50");
+      }
+
+      const piUser = await verifyPiAccessToken(String(body?.accessToken || ""));
+      const quote = await createQuote(amountNgn);
+      const reference = `PI-SVC-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+      const serviceType = String(body?.service_type || "unknown");
+      const serviceDetails = body?.service_details || {};
+
+      const { error } = await supabase.from("transactions").insert({
+        user_id: user.id,
+        user_email: user.email,
+        reference,
+        amount: amountNgn,
+        type: "service",
+        status: "pending",
+        description: `${serviceType} payment via Pi Network`,
+        meta: {
+          gateway: "pi_network",
+          service_type: serviceType,
+          service_details: serviceDetails,
+          pi_user: piUser,
+          pi_amount: quote.pi_amount,
+          base_pi_amount: quote.base_pi_amount,
+          rate_ngn_per_pi: quote.rate_ngn_per_pi,
+          rate_source: quote.rate_source,
+          rate_last_updated_at: quote.rate_last_updated_at,
+          buffer_multiplier: quote.buffer_multiplier,
+        },
+      });
+      if (error) throw error;
+
+      return jsonResponse({ success: true, reference, ...quote, pi_user: piUser }, req);
+    }
+
+    if (action === "service_complete") {
+      const reference = String(body?.reference || "");
+      const paymentId = String(body?.paymentId || body?.payment_id || "");
+      const { txn, meta } = await getOwnedPiTransaction(supabase, reference, user);
+
+      if (!paymentId) throw new Error("Pi payment ID is required");
+
+      const txid = String(body?.txid || body?.tx_id || "");
+      const payment = await piPlatformFetch(`/payments/${encodeURIComponent(paymentId)}`);
+      validatePiPayment(payment, reference, meta);
+
+      const resolvedTxid = txid || payment?.transaction?.txid || "";
+      if (!resolvedTxid) throw new Error("Pi transaction ID is required");
+
+      const completedPayment = payment?.status?.developer_completed
+        ? payment
+        : await piPlatformFetch(`/payments/${encodeURIComponent(paymentId)}/complete`, {
+          method: "POST",
+          body: JSON.stringify({ txid: resolvedTxid }),
+        });
+
+      const completionFailed =
+        completedPayment?.status?.cancelled ||
+        completedPayment?.status?.user_cancelled ||
+        completedPayment?.transaction?.verified === false;
+
+      if (completionFailed) {
+        await updateTransactionMeta(supabase, txn.id, {
+          ...meta,
+          pi_payment_id: paymentId,
+          pi_txid: resolvedTxid,
+          pi_completion_response: completedPayment,
+        }, "failed");
+
+        return jsonResponse({ success: false, reference, local_status: "failed", payment: completedPayment }, req, 400);
+      }
+
+      // For services, deduct amount without wallet credit (caller will handle service fulfillment)
+      const profileId = user.id;
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("wallet_balance")
+        .eq("id", profileId)
+        .single();
+
+      if (profile) {
+        const currentBalance = Number(profile.wallet_balance) || 0;
+        const newBalance = currentBalance - (Number(txn.amount) || 0);
+        await supabase
+          .from("profiles")
+          .update({ wallet_balance: Math.max(0, newBalance) })
+          .eq("id", profileId);
+      }
+
+      await updateTransactionMeta(supabase, txn.id, {
+        ...meta,
+        pi_payment_id: paymentId,
+        pi_txid: resolvedTxid,
+        pi_completion_response: completedPayment,
+        balance_deducted: true,
+        balance_deducted_at: new Date().toISOString(),
+      }, "success");
+
+      return jsonResponse({
+        success: true,
+        reference,
+        local_status: "success",
+        payment: completedPayment,
+        service_type: meta?.service_type,
+      }, req);
     }
 
     throw new Error(`Unsupported Pi payment action: ${action}`);
@@ -550,10 +672,10 @@ serve(async (req) => {
       const text = await error.text();
       return new Response(text, {
         status: error.status,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...(getCorsHeaders(req.headers.get("Origin") || undefined)), "Content-Type": "application/json" },
       });
     }
 
-    return jsonResponse({ error: error?.message || "Pi payment failed" }, 400);
+    return jsonResponse({ error: error?.message || "Pi payment failed" }, req, 400);
   }
 });

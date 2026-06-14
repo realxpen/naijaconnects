@@ -10,6 +10,7 @@ import ConfirmTransactionModal from "../ConfirmTransactionModal";
 import { verifyPinHash } from "../../utils/pin";
 import { beneficiaryService, Beneficiary } from "../../services/beneficiaryService";
 import { useSuccessScreen } from "../ui/SuccessScreenProvider";
+import { authenticatePiUser, createPiPayment, type PiPaymentDTO } from "../../services/piNetworkService";
 
 interface AirtimeProps {
   user: any;
@@ -36,6 +37,13 @@ const Airtime = ({ user, onUpdateBalance, onBack, isGuest = false, onRequireAuth
   const [pinError, setPinError] = useState("");
   const [pendingAction, setPendingAction] = useState<null | (() => void)>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+
+  // Pi Payment State
+  const [paymentMethod, setPaymentMethod] = useState<"Wallet" | "PiNetwork">("Wallet");
+  const [livePiQuote, setLivePiQuote] = useState<{ rate: number; piAmount: number } | null>(null);
+  const [isFetchingPiRate, setIsFetchingPiRate] = useState(false);
+  const [piPaymentRef, setPiPaymentRef] = useState<string>("");
+  const [piPaymentQuote, setPiPaymentQuote] = useState<any>(null);
 
   // --- 1. INITIALIZE & PRE-FILL USER PHONE ---
   useEffect(() => {
@@ -106,6 +114,46 @@ const Airtime = ({ user, onUpdateBalance, onBack, isGuest = false, onRequireAuth
     }
   }, [phoneNumber]);
 
+  // --- 2.5. FETCH PI QUOTE FOR AIRTIME ---
+  useEffect(() => {
+    if (paymentMethod !== "PiNetwork") {
+      setLivePiQuote(null);
+      return;
+    }
+
+    const amountNum = Number(amount);
+    if (!amountNum || amountNum <= 0 || isNaN(amountNum)) {
+      setLivePiQuote(null);
+      return;
+    }
+
+    let active = true;
+    const fetchQuote = async () => {
+      setIsFetchingPiRate(true);
+      try {
+        const { data, error } = await supabase.functions.invoke("pi-payment", {
+          body: { action: "quote", amount_ngn: amountNum }
+        });
+        if (active && !error && data) {
+          setLivePiQuote({
+            rate: Number(data.rate_ngn_per_pi || 0),
+            piAmount: Number(data.pi_amount || 0)
+          });
+        }
+      } catch (err) {
+        console.warn("Failed to fetch live Pi quote:", err);
+      } finally {
+        if (active) setIsFetchingPiRate(false);
+      }
+    };
+
+    const timer = setTimeout(fetchQuote, 500);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [amount, paymentMethod];
+
   // --- 3. SAVE RECENT NUMBER ---
   const saveRecentNumber = async (number: string) => {
       if (number.length < 11 || number === userPhone) return;
@@ -127,8 +175,120 @@ const Airtime = ({ user, onUpdateBalance, onBack, isGuest = false, onRequireAuth
   };
 
   // --- 4. PURCHASE LOGIC ---
+  const invokePiPayment = async (body: Record<string, unknown>) => {
+    const { data, error } = await supabase.functions.invoke("pi-payment", { body });
+    if (error) throw new Error(error.message || "Pi payment failed");
+    return data;
+  };
+
+  const handleIncompletePiPayment = (payment: PiPaymentDTO) => {
+    const reference = String(payment?.metadata?.reference || "");
+    if (!reference) return;
+    void invokePiPayment({
+      action: "service_complete",
+      reference,
+      paymentId: payment?.identifier,
+      txid: payment?.transaction?.txid,
+    }).catch(err => console.warn("Incomplete Pi payment handling failed:", err));
+  };
+
+  const doPurchaseWithPi = async () => {
+    const amountNum = Number(amount);
+    if (!livePiQuote || !phoneNumber) return;
+
+    showToast("Connecting to Pi Browser...", "info");
+    setLoading(true);
+
+    try {
+      const auth = await authenticatePiUser(handleIncompletePiPayment);
+
+      const quote = await invokePiPayment({
+        action: "service_start",
+        amount_ngn: amountNum,
+        accessToken: auth.accessToken,
+        service_type: "airtime",
+        service_details: {
+          network: networkId,
+          phone: phoneNumber,
+          airtime_type: airtimeType,
+        },
+      });
+
+      const reference = String(quote.reference || "");
+      const piAmount = Number(quote.pi_amount || 0);
+      setPiPaymentRef(reference);
+      setPiPaymentQuote(quote);
+
+      showToast(`Pi amount ready: ${piAmount.toLocaleString(undefined, { maximumFractionDigits: 7 })} PI`, "info");
+
+      await createPiPayment(
+        {
+          amount: piAmount,
+          memo: `Swifna airtime ₦${amountNum.toLocaleString()} to ${phoneNumber}`,
+          metadata: { reference, network: networkId, phone: phoneNumber },
+        },
+        {
+          onReadyForServerApproval: (paymentId) => {
+            void invokePiPayment({
+              action: "service_complete",
+              reference,
+              paymentId,
+              txid: "",
+            }).catch(err => showToast(err.message || "Pi approval failed", "error"));
+          },
+          onReadyForServerCompletion: (paymentId, txid) => {
+            void invokePiPayment({
+              action: "service_complete",
+              reference,
+              paymentId,
+              txid,
+            })
+              .then(async (data) => {
+                if (data?.local_status !== "success") throw new Error("Pi payment was not completed");
+                
+                // Balance deducted by Edge Function, now fulfill the service
+                await saveRecentNumber(phoneNumber);
+                onUpdateBalance(user.balance - amountNum);
+
+                showSuccess({
+                  title: "Airtime purchase via Pi completed",
+                  amount: amountNum,
+                  message: "Your airtime has been delivered.",
+                  subtitle: phoneNumber ? `FOR ${phoneNumber}` : undefined,
+                });
+
+                setPhoneNumber(userPhone);
+                setAmount("");
+                setPiPaymentRef("");
+                setPiPaymentQuote(null);
+              })
+              .catch(err => showToast(err.message || "Pi completion failed", "error"));
+          },
+          onCancel: () => {
+            setPiPaymentRef("");
+            setPiPaymentQuote(null);
+            showToast("Pi payment cancelled.", "info");
+          },
+          onError: (error) => {
+            showToast(error instanceof Error ? error.message : "Pi payment failed", "error");
+          },
+        },
+      );
+    } catch (e: any) {
+      showToast(e.message || "Pi payment failed", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const doPurchase = async () => {
     if (!amount || !phoneNumber) return;
+
+    if (paymentMethod === "PiNetwork") {
+      return doPurchaseWithPi();
+    }
+
+    // Wallet (NGN) payment flow - existing logic
     if (Number(amount) > user.balance) return showToast(t("airtime.insufficient_balance"), "error");
     
     setLoading(true);
@@ -216,7 +376,11 @@ const Airtime = ({ user, onUpdateBalance, onBack, isGuest = false, onRequireAuth
   };
 
   const handlePurchase = () => {
-    setConfirmOpen(true);
+    if (paymentMethod === "PiNetwork") {
+      requirePin(() => setConfirmOpen(true));
+    } else {
+      requirePin(() => setConfirmOpen(true));
+    }
   };
 
   const presetAmounts = [50, 100, 200, 500, 1000, 2000];
@@ -324,6 +488,55 @@ const Airtime = ({ user, onUpdateBalance, onBack, isGuest = false, onRequireAuth
         </div>
 
         <div className="p-5">
+            {/* Payment Method Selector */}
+            <div className="mb-6">
+              <label className="text-xs font-bold text-slate-500 uppercase mb-3 block">Payment Method</label>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setPaymentMethod("Wallet");
+                    setLivePiQuote(null);
+                  }}
+                  className={`flex-1 py-3 rounded-2xl font-bold text-sm transition-all border-2 ${
+                    paymentMethod === "Wallet"
+                      ? "border-emerald-600 bg-emerald-50 text-emerald-700"
+                      : "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300"
+                  }`}
+                >
+                  <Wallet size={16} className="inline mr-2" /> Wallet
+                </button>
+                <button
+                  onClick={() => setPaymentMethod("PiNetwork")}
+                  className={`flex-1 py-3 rounded-2xl font-bold text-sm transition-all border-2 ${
+                    paymentMethod === "PiNetwork"
+                      ? "border-amber-600 bg-amber-50 text-amber-700"
+                      : "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300"
+                  }`}
+                >
+                  ✈️ Pi Network
+                </button>
+              </div>
+              
+              {/* Live Pi Quote Display */}
+              {paymentMethod === "PiNetwork" && amount && (
+                <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  {isFetchingPiRate ? (
+                    <div className="flex items-center gap-2 text-xs text-amber-700">
+                      <Loader2 size={14} className="animate-spin" />
+                      Fetching Pi rate...
+                    </div>
+                  ) : livePiQuote ? (
+                    <div className="text-xs text-amber-900">
+                      <div className="font-bold">₦{Number(amount).toLocaleString()} = {livePiQuote.piAmount.toLocaleString(undefined, { maximumFractionDigits: 7 })} π</div>
+                      <div className="text-amber-700 text-[10px]">Rate: ₦{livePiQuote.rate.toLocaleString(undefined, { maximumFractionDigits: 2 })}/π</div>
+                    </div>
+                  ) : (
+                    <div className="text-xs text-slate-500">Unable to fetch Pi rate</div>
+                  )}
+                </div>
+              )}
+            </div>
+
             <h3 className="font-bold text-slate-700 mb-4">{t("airtime.top_up")}</h3>
             
             {/* Amount Grid */}
@@ -386,12 +599,12 @@ const Airtime = ({ user, onUpdateBalance, onBack, isGuest = false, onRequireAuth
       open={confirmOpen}
       title="Confirm Transaction"
       subtitle={phoneNumber ? `FOR ${phoneNumber}` : undefined}
-      amountLabel="Total Pay"
-      amount={Number(amount || 0)}
+      amountLabel={paymentMethod === "PiNetwork" ? "Pay with Pi" : "Total Pay"}
+      amount={paymentMethod === "PiNetwork" && livePiQuote ? livePiQuote.piAmount : Number(amount || 0)}
       confirmLabel="Purchase Now"
       onConfirm={() => {
         setConfirmOpen(false);
-        requirePin(doPurchase);
+        doPurchase();
       }}
       onClose={() => setConfirmOpen(false)}
     />

@@ -69,6 +69,8 @@ const App: React.FC = () => {
   const [showLearn, setShowLearn] = useState(false);
   const learnHoldRef = useRef(false);
   const [splashDelayDone, setSplashDelayDone] = useState(false);
+  const [userDataLoaded, setUserDataLoaded] = useState(false);
+  const userDataLoadedRef = useRef(false);
   const [showPinSetup, setShowPinSetup] = useState(false);
   const [pushReady, setPushReady] = useState(false);
   const [showAuthScreen, setShowAuthScreen] = useState(false);
@@ -153,7 +155,12 @@ const App: React.FC = () => {
         .eq('email', email)
         .single();
 
-      if (error) console.error('Error fetching profile:', error);
+      if (error) {
+        console.error('Error fetching profile:', error);
+        userDataLoadedRef.current = true;
+        setUserDataLoaded(true); // Mark as loaded even on error
+        return;
+      }
       
       if (data) {
         let roles: string[] = [];
@@ -186,8 +193,12 @@ const App: React.FC = () => {
         }
         setIsAuthenticated(true);
       }
+      userDataLoadedRef.current = true;
+      setUserDataLoaded(true); // Mark as loaded after successful fetch
     } catch (error) {
       console.error('Connection error:', error);
+      userDataLoadedRef.current = true;
+      setUserDataLoaded(true); // Mark as loaded even on error
     }
   };
 
@@ -214,6 +225,7 @@ const App: React.FC = () => {
     else if (media?.addListener) media.addListener(handleChange);
 
     let cancelled = false;
+    let splashTimeout: ReturnType<typeof setTimeout> | null = null;
 
     const loadNightSky = async () => {
       const now = new Date();
@@ -246,10 +258,28 @@ const App: React.FC = () => {
         const { data: { session } } = await supabase.auth.getSession();
 
         if (session && session.user.email) {
+          console.log('[App] Session found, fetching user data:', session.user.email);
           await fetchUser(session.user.email);
+        } else {
+          // No session, mark data as loaded
+          console.log('[App] No session found');
+          userDataLoadedRef.current = true;
+          setUserDataLoaded(true);
         }
       } catch (error) {
-        console.warn('Unable to load session:', error);
+        console.warn('[App] Unable to load session:', error);
+        userDataLoadedRef.current = true;
+        setUserDataLoaded(true); // Mark as loaded even on error
+      }
+    };
+
+    const closeSplash = () => {
+      if (!cancelled) {
+        console.log('[App] Closing splash screen');
+        setSplashDelayDone(true);
+        if (!learnHoldRef.current) {
+          setIsSplashScreen(false);
+        }
       }
     };
 
@@ -257,33 +287,64 @@ const App: React.FC = () => {
       const nightKey = getNightKey(new Date());
       const isNight = !!nightKey;
       const start = Date.now();
+      
+      // Reset the ref at the start of initialization
+      userDataLoadedRef.current = false;
+      console.log('[App] Starting initialization, isNight:', isNight);
+      
       await Promise.allSettled([initSession(), loadNightSky()]);
+      console.log('[App] Promise.allSettled complete, userDataLoadedRef.current:', userDataLoadedRef.current);
+      
+      // Wait for user data to be loaded (with shorter timeout)
+      const startWait = Date.now();
+      const maxWait = 2000; // 2 second timeout
+      while (!userDataLoadedRef.current && Date.now() - startWait < maxWait) {
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      
+      if (!userDataLoadedRef.current) {
+        console.warn('[App] User data load timeout after 2s, forcing close');
+      }
+      
       const minDelay = isNight ? 600 : 0;
       const elapsed = Date.now() - start;
       if (minDelay > elapsed) {
         await new Promise((r) => setTimeout(r, minDelay - elapsed));
       }
-      if (!cancelled) {
-        setSplashDelayDone(true);
-        if (!learnHoldRef.current || !isNight) setIsSplashScreen(false);
-      }
+      
+      closeSplash();
     };
 
     run();
+    
+    // Safety timeout - force close splash after 8 seconds max
+    splashTimeout = setTimeout(() => {
+      console.warn('[App] Force closing splash screen due to safety timeout');
+      if (!cancelled) {
+        setSplashDelayDone(true);
+        setIsSplashScreen(false);
+      }
+    }, 8000);
 
     // Listen for Auth Changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      console.log('[App] Auth state changed, event:', _event);
       if (session?.user.email) {
         setShowAuthScreen(false);
+        console.log('[App] Auth state: user logged in, fetching profile');
         await fetchUser(session.user.email);
       } else {
+        console.log('[App] Auth state: user logged out');
         setUser(null);
         setIsAuthenticated(false);
+        userDataLoadedRef.current = true;
+        setUserDataLoaded(true);
       }
     });
 
     return () => {
       cancelled = true;
+      if (splashTimeout) clearTimeout(splashTimeout);
       subscription.unsubscribe();
       if (media?.removeEventListener) media.removeEventListener('change', handleChange);
       else if (media?.removeListener) media.removeListener(handleChange);
