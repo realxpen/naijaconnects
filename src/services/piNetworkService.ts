@@ -1,3 +1,5 @@
+import { supabase } from "../supabaseClient";
+
 type PiPaymentDTO = {
   identifier?: string;
   user_uid?: string;
@@ -46,12 +48,18 @@ type PiPaymentCallbacks = {
 };
 
 type PiSDK = {
-  init: (options: { version: "2.0"; sandbox?: boolean }) => Promise<void> | void;
+  init: (options: {
+    version: "2.0";
+    sandbox?: boolean;
+  }) => Promise<void> | void;
   authenticate: (
     scopes: Array<"username" | "payments" | "wallet_address">,
     onIncompletePaymentFound?: (payment: PiPaymentDTO) => void,
   ) => Promise<PiAuthResult>;
-  createPayment: (paymentData: PiPaymentData, callbacks: PiPaymentCallbacks) => void;
+  createPayment: (
+    paymentData: PiPaymentData,
+    callbacks: PiPaymentCallbacks,
+  ) => void;
   nativeFeaturesList: () => Promise<unknown>;
   openShareDialog: (title: string, message: string) => void;
   openUrlInSystemBrowser: (url: string) => Promise<void>;
@@ -65,7 +73,8 @@ declare global {
 
 let piInitPromise: Promise<void> | null = null;
 
-const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+const wait = (ms: number) =>
+  new Promise((resolve) => window.setTimeout(resolve, ms));
 
 const waitForPiSdk = async () => {
   if (typeof window === "undefined") {
@@ -77,13 +86,17 @@ const waitForPiSdk = async () => {
     await wait(250);
   }
 
-  throw new Error("Pi SDK is unavailable. Open Swifna inside Pi Browser and confirm the Pi SDK script is allowed.");
+  throw new Error(
+    "Pi SDK is unavailable. Open Swifna inside Pi Browser and confirm the Pi SDK script is allowed.",
+  );
 };
 
 export const initPiSdk = async () => {
   const Pi = await waitForPiSdk();
   if (!piInitPromise) {
-    const sandbox = import.meta.env.DEV || String(import.meta.env.VITE_PI_SANDBOX || "").toLowerCase() === "true";
+    const sandbox =
+      import.meta.env.DEV ||
+      String(import.meta.env.VITE_PI_SANDBOX || "").toLowerCase() === "true";
     piInitPromise = Promise.resolve(Pi.init({ version: "2.0", sandbox }));
   }
   return piInitPromise;
@@ -94,7 +107,10 @@ export const authenticatePiUser = async (
 ) => {
   await initPiSdk();
   if (!window.Pi) throw new Error("Pi SDK is unavailable.");
-  return window.Pi.authenticate(["username", "payments"], onIncompletePaymentFound);
+  return window.Pi.authenticate(
+    ["username", "payments", "wallet_address"],
+    onIncompletePaymentFound,
+  );
 };
 
 export const authenticatePiUserWithWallet = async (
@@ -102,10 +118,32 @@ export const authenticatePiUserWithWallet = async (
 ) => {
   await initPiSdk();
   if (!window.Pi) throw new Error("Pi SDK is unavailable.");
-  return window.Pi.authenticate(["username", "payments", "wallet_address"], onIncompletePaymentFound);
+  return window.Pi.authenticate(
+    ["username", "payments", "wallet_address"],
+    onIncompletePaymentFound,
+  );
 };
 
-export const createPiPayment = async (paymentData: PiPaymentData, callbacks: PiPaymentCallbacks) => {
+export const linkPiUserAccount = async (accessToken: string) => {
+  // 🔌 Call our brand new verification edge function
+  const { data, error } = await supabase.functions.invoke("pi-auth-verify", {
+    body: { accessToken },
+  });
+
+  if (error) {
+    throw new Error(
+      error?.message || "Failed to communicate with authentication server",
+    );
+  }
+
+  // Return the full JSON payload containing { success, linked, piUser, session }
+  return data;
+};
+
+export const createPiPayment = async (
+  paymentData: PiPaymentData,
+  callbacks: PiPaymentCallbacks,
+) => {
   await initPiSdk();
   if (!window.Pi) throw new Error("Pi SDK is unavailable.");
   window.Pi.createPayment(paymentData, callbacks);

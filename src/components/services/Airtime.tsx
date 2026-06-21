@@ -152,7 +152,7 @@ const Airtime = ({ user, onUpdateBalance, onBack, isGuest = false, onRequireAuth
       active = false;
       clearTimeout(timer);
     };
-  }, [amount, paymentMethod];
+  }, [amount, paymentMethod]);
 
   // --- 3. SAVE RECENT NUMBER ---
   const saveRecentNumber = async (number: string) => {

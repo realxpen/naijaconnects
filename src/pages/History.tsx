@@ -95,7 +95,7 @@ const History = () => {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'transactions' },
-        (payload) => {
+        (_payload: Record<string, unknown>) => {
             // Only refresh if it affects the current user (optional check, or just refresh)
             fetchTransactions();
         }

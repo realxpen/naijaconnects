@@ -386,7 +386,10 @@ serve(async (req) => {
             first_name: piUsername,
             last_name: "PiNetwork",
             phone: "",
-            preferred_language: "en"
+            preferred_language: "en",
+            pi_uid: piUid,
+            pi_username: piUsername,
+            pi_wallet_address: piUser.wallet_address || ""
           }
         });
 
@@ -403,11 +406,28 @@ serve(async (req) => {
             first_name: piUsername,
             last_name: "PiNetwork",
             wallet_balance: 0,
-            preferred_language: "en"
+            preferred_language: "en",
+            pi_uid: piUid,
+            pi_username: piUsername,
+            pi_wallet_address: piUser.wallet_address || ""
           });
 
         if (insertError) {
           console.warn("Profile creation warning/error:", insertError);
+        }
+      } else {
+        // Update existing profile with Pi metadata if missing
+        const { error: updateError } = await supabase
+          .from("profiles")
+          .update({
+            pi_uid: piUid,
+            pi_username: piUsername,
+            pi_wallet_address: piUser.wallet_address || ""
+          })
+          .eq("id", deterministicUuid);
+
+        if (updateError) {
+          console.warn("Profile metadata update warning/error:", updateError);
         }
       }
 
@@ -415,6 +435,42 @@ serve(async (req) => {
         success: true,
         email,
         password,
+        pi_user: piUser
+      }, req);
+    }
+
+    if (action === "link") {
+      const user = await getAuthenticatedUser(req, supabase);
+      const accessToken = String(body?.accessToken || "");
+      const piUser = await verifyPiAccessToken(accessToken);
+      const piUid = piUser.uid;
+      const piUsername = piUser.username || `pi_user_${piUid}`;
+
+      // Check if this Pi UID is already linked to another account
+      const { data: existingLink } = await supabase
+        .from("profiles")
+        .select("id, email")
+        .eq("pi_uid", piUid)
+        .maybeSingle();
+
+      if (existingLink && existingLink.id !== user.id) {
+        throw new Error(`This Pi account is already linked to another Swifna account (${existingLink.email}).`);
+      }
+
+      // Update the user's profile with the Pi metadata
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({
+          pi_uid: piUid,
+          pi_username: piUsername,
+          pi_wallet_address: piUser.wallet_address || ""
+        })
+        .eq("id", user.id);
+
+      if (updateError) throw updateError;
+
+      return jsonResponse({
+        success: true,
         pi_user: piUser
       }, req);
     }

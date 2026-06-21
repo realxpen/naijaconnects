@@ -1268,7 +1268,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
           table: 'profiles',
           filter: `id=eq.${user.id}`,
         },
-        (payload) => {
+        (payload: { new: { wallet_balance: number } }) => {
           const newBalance = payload.new.wallet_balance;
           onUpdateBalance(newBalance);
           showToast(`Balance updated: ₦${newBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, "success");

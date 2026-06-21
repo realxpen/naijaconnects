@@ -5,41 +5,41 @@ alter table public.profiles enable row level security;
 
 -- Drop old policies if they exist
 drop policy if exists "Read own profile" on public.profiles;
+
 drop policy if exists "Update own profile" on public.profiles;
+
 drop policy if exists "profiles_select_own" on public.profiles;
+
 drop policy if exists "profiles_update_own" on public.profiles;
+
 drop policy if exists "profiles_insert_own" on public.profiles;
+
 drop policy if exists "profiles_select_admin" on public.profiles;
+
 drop policy if exists "profiles_update_admin" on public.profiles;
 
 -- Users can read/insert/update only their own row
-create policy "profiles_select_own"
-  on public.profiles
-  for select
-  using (id = auth.uid());
+create policy "profiles_select_own" on public.profiles for
+select using (id = auth.uid ());
 
-create policy "profiles_insert_own"
-  on public.profiles
-  for insert
-  with check (id = auth.uid());
+create policy "profiles_insert_own" on public.profiles for
+insert
+with
+    check (id = auth.uid ());
 
-create policy "profiles_update_own"
-  on public.profiles
-  for update
-  using (id = auth.uid())
-  with check (id = auth.uid());
+create policy "profiles_update_own" on public.profiles for
+update using (id = auth.uid ())
+with
+    check (id = auth.uid ());
 
 -- Admin/Founder/CEO can read/update any row
-create policy "profiles_select_admin"
-  on public.profiles
-  for select
-  using (public.is_founder_admin());
+create policy "profiles_select_admin" on public.profiles for
+select using (public.is_founder_admin ());
 
-create policy "profiles_update_admin"
-  on public.profiles
-  for update
-  using (public.is_founder_admin())
-  with check (public.is_founder_admin());
+create policy "profiles_update_admin" on public.profiles for
+update using (public.is_founder_admin ())
+with
+    check (public.is_founder_admin ());
 
 -- Prevent direct wallet_balance updates from client roles
 revoke update on public.profiles from authenticated, anon;
@@ -56,7 +56,9 @@ begin
     'avatar_url',
     'preferred_language',
     'pin_hash',
-    'pin_length'
+    'pin_length',
+    'pi_uid',        -- ➕ Added
+    'pi_username'    -- ➕ Added
   ]
   loop
     if exists (

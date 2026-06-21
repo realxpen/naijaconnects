@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Moon, Sun, Monitor, Lock, LogOut, ChevronRight, Mail, Bell,
-  User, Phone, Save, Loader2, KeyRound, Zap, BookOpen
+  User, Phone, Save, Loader2, KeyRound, Zap, BookOpen, Sparkles, CheckCircle2
 } from 'lucide-react';
 import { dbService } from '../services/dbService';
 import { supabase } from "../supabaseClient"; 
@@ -12,6 +12,8 @@ import AdminDashboard from './AdminDashboard';
 import FounderDashboard from './FounderDashboard';
 import InvestorDashboard from './InvestorDashboard';
 import AgreementsPage from './AgreementsPage';
+import { linkPiUserAccount } from '../services/piNetworkService';
+import { useToast } from '../components/ui/ToastProvider';
 
 interface ProfileProps {
   user: { 
@@ -25,6 +27,9 @@ interface ProfileProps {
     pinLength?: number | null;
     role?: string | null;
     roles?: string[] | null;
+    piUid?: string | null;
+    piUsername?: string | null;
+    piWalletAddress?: string | null;
   };
   onLogout: () => void;
   onUpdateUser: (updatedData: any) => Promise<void>; 
@@ -32,6 +37,48 @@ interface ProfileProps {
 
 const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
   const { t } = useI18n();
+  const { showToast } = useToast();
+  const [isLinkingPi, setIsLinkingPi] = useState(false);
+
+  const handleLinkPi = async () => {
+    setIsLinkingPi(true);
+    try {
+      const isPiBrowser = typeof window !== 'undefined' && (!!window.Pi || navigator.userAgent.toLowerCase().includes('pibrowser'));
+      if (!isPiBrowser) {
+        showToast("To link your Pi account, please open Swifna inside the Pi Browser.", "info");
+        setIsLinkingPi(false);
+        return;
+      }
+
+      showToast("Connecting to Pi Network...", "info");
+      const { initPiSdk } = await import('../services/piNetworkService');
+      await initPiSdk();
+      if (!window.Pi) throw new Error("Pi SDK is unavailable.");
+
+      const auth = await window.Pi.authenticate(["username", "payments", "wallet_address"]);
+      if (!auth?.accessToken) {
+        throw new Error("No access token obtained from Pi SDK.");
+      }
+
+      showToast("Linking Pi account with your profile...", "info");
+      const piUser = await linkPiUserAccount(auth.accessToken);
+      
+      // Update local user state
+      await onUpdateUser({
+        piUid: piUser.uid,
+        piUsername: piUser.username,
+        piWalletAddress: piUser.wallet_address || ""
+      });
+
+      showToast(`Successfully linked Pi account @${piUser.username}!`, "success");
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.message || "Failed to link Pi account", "error");
+    } finally {
+      setIsLinkingPi(false);
+    }
+  };
+
   type ThemeMode = 'light' | 'dark' | 'system';
   
   const getInitialTheme = (): ThemeMode => {
@@ -415,6 +462,63 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
             </div>
          )}
       </div>
+
+       {/* 2.5. PI NETWORK ASSOCIATION */}
+       <div className="bg-white dark:bg-slate-800 rounded-[25px] shadow-sm border border-slate-100 dark:border-slate-700 p-5 space-y-4">
+         <div className="flex items-center gap-4">
+           <div className="p-3 bg-indigo-100 text-indigo-600 rounded-xl dark:bg-indigo-900/30 dark:text-indigo-300">
+             <Sparkles size={20} />
+           </div>
+           <div className="text-left flex-grow">
+             <h4 className="font-black text-sm dark:text-white">Pi Network Account</h4>
+             <p className="text-[10px] text-slate-400 font-bold uppercase">Enable frictionless login & fast deposits</p>
+           </div>
+         </div>
+
+         {user.piUsername ? (
+           <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 flex flex-col gap-2 animate-in slide-in-from-bottom-2">
+             <div className="flex items-center justify-between">
+               <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Connection Status</span>
+               <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                 <CheckCircle2 size={14} /> Linked
+               </span>
+             </div>
+             <div className="flex items-center justify-between">
+               <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Pi Username</span>
+               <span className="text-xs font-black dark:text-white">@{user.piUsername}</span>
+             </div>
+             {user.piWalletAddress && (
+               <div className="flex flex-col gap-1 pt-1 border-t border-slate-100 dark:border-slate-800">
+                 <span className="text-[10px] font-black text-slate-400 uppercase">Wallet Address</span>
+                 <span className="text-[10px] font-bold text-slate-500 dark:text-slate-300 break-all bg-white dark:bg-slate-950 p-2 rounded-lg border border-slate-100 dark:border-slate-850">
+                   {user.piWalletAddress}
+                 </span>
+               </div>
+             )}
+           </div>
+         ) : (
+           <div className="space-y-3">
+             <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-semibold">
+               Link your Swifna account to your Pi Network identity to log in instantly inside the Pi Browser and confirm deposits securely.
+             </p>
+             <button
+               onClick={handleLinkPi}
+               disabled={isLinkingPi}
+               className="w-full py-3.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-widest active:scale-95 transition-all shadow-md flex items-center justify-center gap-2"
+             >
+               {isLinkingPi ? (
+                 <>
+                   <Loader2 className="animate-spin" size={14} /> Linking Account...
+                 </>
+               ) : (
+                 <>
+                   <Sparkles size={14} className="text-yellow-300 animate-pulse" /> Link Pi Network Account
+                 </>
+               )}
+             </button>
+           </div>
+         )}
+       </div>
 
       {(hasRole('admin') || hasRole('founder') || hasRole('ceo') || hasRole('investor')) && (
         <div className="bg-white dark:bg-slate-800 rounded-[25px] shadow-sm border border-slate-100 dark:border-slate-700 p-5 space-y-3">
