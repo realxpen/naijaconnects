@@ -80,6 +80,9 @@ Deno.serve(async (req) => {
         }
       }
 
+      // 🆕 Generate a unique tracking reference ID for this deposit order
+      const generatedReference = `DEP-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
       // Compute pricing calculations with a 10% protection markup multiplier
       const rawPiAmount = nairaAmount / livePiInNaira;
       const finalPiAmount = parseFloat((rawPiAmount * 1.1).toFixed(4));
@@ -88,12 +91,15 @@ Deno.serve(async (req) => {
         `[Price Engine Settle] Price locked: ${finalPiAmount} π using ${rateSource} rate of ₦${livePiInNaira}`,
       );
 
+      // ✅ Key mapping updated to perfectly match Dashboard.tsx expectations
       return new Response(
         JSON.stringify({
           success: true,
-          calculatedPiAmount: finalPiAmount,
-          rateLocked: livePiInNaira,
-          rateSource,
+          reference: generatedReference,
+          pi_amount: finalPiAmount,
+          rate_ngn_per_pi: livePiInNaira,
+          buffer_multiplier: 1.1,
+          rate_source: rateSource,
           expiresInMinutes: 15,
         }),
         {
