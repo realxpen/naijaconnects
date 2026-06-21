@@ -1,7 +1,7 @@
 import React, { Suspense, useState, useEffect, useRef } from "react";
 import {
   Smartphone, Tv, Zap, ArrowRight, ArrowLeftRight, X, Loader2,
-  RotateCcw, CreditCard, GraduationCap, 
+  RotateCcw, CreditCard, GraduationCap,
   Printer, Building2, Activity, ShieldCheck, AlertCircle, CheckCircle2, Copy
   // Removed 'Bell' to prevent duplication
 } from "lucide-react";
@@ -123,7 +123,7 @@ const BANKS = [
   { code: "057", name: "Zenith Bank" }
 ];
 
-  // --- INTERFACES ---
+// --- INTERFACES ---
 interface DashboardProps {
   user: { name: string; email: string; balance: number; phone?: string; id: string; role?: string; roles?: string[]; pinHash?: string | null; pinLength?: number | null };
   onUpdateBalance: (newBalance: number) => void;
@@ -134,32 +134,32 @@ interface DashboardProps {
 }
 
 interface Transaction {
-  id: string; 
+  id: string;
   created_at: string;
   type: 'deposit' | 'withdrawal' | 'service';
   amount: number;
   status: string;
   reference: string;
-  description?: string; 
-  meta?: any; 
+  description?: string;
+  meta?: any;
 }
 
 type ViewState = "Dashboard" | "Airtime" | "Data" | "Cable" | "Electricity" | "Exam" | "RechargePin" | "AirtimeToCash" | "Admin" | "DataHelpCenter";
 
 // --- HELPER: GET LOGO ---
 const getLogoOrIcon = (transaction: Transaction) => {
-    switch(transaction.type) {
-        case 'deposit': return <ArrowRight size={18} className="rotate-45" />;
-        case 'withdrawal': return <ArrowRight size={18} className="-rotate-45" />;
-        default: return <Activity size={18} />;
-    }
+  switch (transaction.type) {
+    case 'deposit': return <ArrowRight size={18} className="rotate-45" />;
+    case 'withdrawal': return <ArrowRight size={18} className="-rotate-45" />;
+    default: return <Activity size={18} />;
+  }
 };
 
 const getColorClass = (type: string) => {
-    const t = type.toLowerCase();
-    if (t === 'deposit') return 'bg-emerald-100 text-emerald-600';
-    if (t === 'withdrawal') return 'bg-rose-100 text-rose-600';
-    return 'bg-slate-100 text-slate-600';
+  const t = type.toLowerCase();
+  if (t === 'deposit') return 'bg-emerald-100 text-emerald-600';
+  if (t === 'withdrawal') return 'bg-rose-100 text-rose-600';
+  return 'bg-slate-100 text-slate-600';
 };
 
 // --- COMPONENT: RECEIPT VIEW ---
@@ -172,414 +172,414 @@ const ReceiptView = ({
   onClose: () => void;
   onRequeryDeposit?: (reference: string) => Promise<any>;
 }) => {
-    const { t } = useI18n();
-    const { showToast } = useToast();
-    const displayRef = tx.reference || `TRX-${tx.id.substring(0,8)}`;
-    const txReference = String(tx.reference || "").trim();
-    const meta = (tx as any)?.meta || (tx as any)?.metadata || {};
-    const isDeposit = String(tx.type).toLowerCase() === "deposit";
-    const isExam = String(tx.type).toLowerCase() === "exam";
-    const examCards = Array.isArray(meta?.cards)
-      ? meta.cards
-          .map((c: any) => ({
-            pin: String(c?.pin || "").trim(),
-            serialNo: String(c?.serial_no || c?.serialNo || "").trim(),
-          }))
-          .filter((c: any) => c.pin || c.serialNo)
-      : [];
-    const examPin = String(meta?.pin || "").trim();
-    const examProviderRef = String(meta?.provider_reference || meta?.reference || "").trim();
-    const canRequeryDeposit =
-      isDeposit &&
-      !!txReference &&
-      ["pending", "failed"].includes(String(tx.status || "").toLowerCase());
-    const depositFee = Number(meta?.estimated_fee || 0);
-    const totalPaid = Number(meta?.total_paid || ((Number(tx.amount) || 0) + depositFee));
-    const receiptRef = useRef<HTMLDivElement | null>(null);
-    const [shareOpen, setShareOpen] = useState(false);
-    const [sharing, setSharing] = useState(false);
-    const [isRequerying, setIsRequerying] = useState(false);
-    const WHATSAPP_NUMBER = "2349151618451";
+  const { t } = useI18n();
+  const { showToast } = useToast();
+  const displayRef = tx.reference || `TRX-${tx.id.substring(0, 8)}`;
+  const txReference = String(tx.reference || "").trim();
+  const meta = (tx as any)?.meta || (tx as any)?.metadata || {};
+  const isDeposit = String(tx.type).toLowerCase() === "deposit";
+  const isExam = String(tx.type).toLowerCase() === "exam";
+  const examCards = Array.isArray(meta?.cards)
+    ? meta.cards
+      .map((c: any) => ({
+        pin: String(c?.pin || "").trim(),
+        serialNo: String(c?.serial_no || c?.serialNo || "").trim(),
+      }))
+      .filter((c: any) => c.pin || c.serialNo)
+    : [];
+  const examPin = String(meta?.pin || "").trim();
+  const examProviderRef = String(meta?.provider_reference || meta?.reference || "").trim();
+  const canRequeryDeposit =
+    isDeposit &&
+    !!txReference &&
+    ["pending", "failed"].includes(String(tx.status || "").toLowerCase());
+  const depositFee = Number(meta?.estimated_fee || 0);
+  const totalPaid = Number(meta?.total_paid || ((Number(tx.amount) || 0) + depositFee));
+  const receiptRef = useRef<HTMLDivElement | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [isRequerying, setIsRequerying] = useState(false);
+  const WHATSAPP_NUMBER = "2349151618451";
 
-    const getWhatsAppUrl = (message: string) =>
-      `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+  const getWhatsAppUrl = (message: string) =>
+    `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
 
-    const handleCopyRef = () => {
-        navigator.clipboard.writeText(displayRef).then(() => {
-            showToast(t("history.reference_copied_clipboard"), "success");
-        });
-    };
+  const handleCopyRef = () => {
+    navigator.clipboard.writeText(displayRef).then(() => {
+      showToast(t("history.reference_copied_clipboard"), "success");
+    });
+  };
 
-    const exportCanvas = async () => {
-      if (!receiptRef.current) return null;
-      document.body.classList.add("capture-mode");
-      const canvas = await html2canvas(receiptRef.current, {
-        backgroundColor: "#ffffff",
-        scale: 2,
-        ignoreElements: (el) => (el as HTMLElement).dataset?.noCapture === "true",
-      });
-      document.body.classList.remove("capture-mode");
-      return canvas;
-    };
+  const exportCanvas = async () => {
+    if (!receiptRef.current) return null;
+    document.body.classList.add("capture-mode");
+    const canvas = await html2canvas(receiptRef.current, {
+      backgroundColor: "#ffffff",
+      scale: 2,
+      ignoreElements: (el) => (el as HTMLElement).dataset?.noCapture === "true",
+    });
+    document.body.classList.remove("capture-mode");
+    return canvas;
+  };
 
-    const downloadBlob = (blob: Blob, filename: string) => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(url);
-    };
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
-    const shareFile = async (file: File) => {
-      if (navigator.share && (navigator as any).canShare?.({ files: [file] })) {
-        await navigator.share({ title: "Swifna Receipt", files: [file] });
-        return true;
-      }
-      return false;
-    };
+  const shareFile = async (file: File) => {
+    if (navigator.share && (navigator as any).canShare?.({ files: [file] })) {
+      await navigator.share({ title: "Swifna Receipt", files: [file] });
+      return true;
+    }
+    return false;
+  };
 
-    const handleSaveImage = async () => {
-      setSharing(true);
-      try {
-        const canvas = await exportCanvas();
-        if (!canvas) return;
-        const blob = await new Promise<Blob | null>((resolve) =>
-          canvas.toBlob(resolve, "image/png", 1)
-        );
-        if (!blob) return;
+  const handleSaveImage = async () => {
+    setSharing(true);
+    try {
+      const canvas = await exportCanvas();
+      if (!canvas) return;
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, "image/png", 1)
+      );
+      if (!blob) return;
+      downloadBlob(blob, "swifna-receipt.png");
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  const handleShareImage = async () => {
+    setSharing(true);
+    try {
+      const canvas = await exportCanvas();
+      if (!canvas) return;
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, "image/png", 1)
+      );
+      if (!blob) return;
+      const file = new File([blob], "swifna-receipt.png", { type: "image/png" });
+      const ok = await shareFile(file);
+      if (!ok) {
         downloadBlob(blob, "swifna-receipt.png");
-      } finally {
-        setSharing(false);
+        showToast("Sharing not supported. Image downloaded instead.", "info");
       }
-    };
+    } finally {
+      setSharing(false);
+    }
+  };
 
-    const handleShareImage = async () => {
-      setSharing(true);
-      try {
-        const canvas = await exportCanvas();
-        if (!canvas) return;
-        const blob = await new Promise<Blob | null>((resolve) =>
-          canvas.toBlob(resolve, "image/png", 1)
-        );
-        if (!blob) return;
-        const file = new File([blob], "swifna-receipt.png", { type: "image/png" });
-        const ok = await shareFile(file);
-        if (!ok) {
-          downloadBlob(blob, "swifna-receipt.png");
-          showToast("Sharing not supported. Image downloaded instead.", "info");
-        }
-      } finally {
-        setSharing(false);
+  const handleSavePdf = async () => {
+    setSharing(true);
+    try {
+      const canvas = await exportCanvas();
+      if (!canvas) return;
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: "p",
+        unit: "px",
+        format: [canvas.width, canvas.height],
+      });
+      pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
+      pdf.save("swifna-receipt.pdf");
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  const handleSharePdf = async () => {
+    setSharing(true);
+    try {
+      const canvas = await exportCanvas();
+      if (!canvas) return;
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: "p",
+        unit: "px",
+        format: [canvas.width, canvas.height],
+      });
+      pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
+      const blob = pdf.output("blob");
+      const file = new File([blob], "swifna-receipt.pdf", { type: "application/pdf" });
+      const ok = await shareFile(file);
+      if (!ok) {
+        downloadBlob(blob, "swifna-receipt.pdf");
+        showToast("Sharing not supported. PDF downloaded instead.", "info");
       }
-    };
+    } finally {
+      setSharing(false);
+    }
+  };
 
-    const handleSavePdf = async () => {
-      setSharing(true);
-      try {
-        const canvas = await exportCanvas();
-        if (!canvas) return;
-        const imgData = canvas.toDataURL("image/png");
-        const pdf = new jsPDF({
-          orientation: "p",
-          unit: "px",
-          format: [canvas.width, canvas.height],
-        });
-        pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
-        pdf.save("swifna-receipt.pdf");
-      } finally {
-        setSharing(false);
-      }
-    };
+  const handleRequeryDeposit = async () => {
+    if (!onRequeryDeposit || !txReference || isRequerying) return;
+    setIsRequerying(true);
+    try {
+      await onRequeryDeposit(txReference);
+    } finally {
+      setIsRequerying(false);
+    }
+  };
 
-    const handleSharePdf = async () => {
-      setSharing(true);
-      try {
-        const canvas = await exportCanvas();
-        if (!canvas) return;
-        const imgData = canvas.toDataURL("image/png");
-        const pdf = new jsPDF({
-          orientation: "p",
-          unit: "px",
-          format: [canvas.width, canvas.height],
-        });
-        pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
-        const blob = pdf.output("blob");
-        const file = new File([blob], "swifna-receipt.pdf", { type: "application/pdf" });
-        const ok = await shareFile(file);
-        if (!ok) {
-          downloadBlob(blob, "swifna-receipt.pdf");
-          showToast("Sharing not supported. PDF downloaded instead.", "info");
-        }
-      } finally {
-        setSharing(false);
-      }
-    };
+  return (
+    <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-200">
+      <div className="w-full max-w-sm relative">
+        <button aria-label="Close receipt" onClick={onClose} className="absolute -top-12 right-0 bg-white/20 p-2 rounded-full text-white hover:bg-white/30 transition-colors">
+          <X size={20} />
+        </button>
 
-    const handleRequeryDeposit = async () => {
-      if (!onRequeryDeposit || !txReference || isRequerying) return;
-      setIsRequerying(true);
-      try {
-        await onRequeryDeposit(txReference);
-      } finally {
-        setIsRequerying(false);
-      }
-    };
-
-    return (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-200">
-            <div className="w-full max-w-sm relative">
-                <button aria-label="Close receipt" onClick={onClose} className="absolute -top-12 right-0 bg-white/20 p-2 rounded-full text-white hover:bg-white/30 transition-colors">
-                    <X size={20}/>
-                </button>
-
-                <div ref={receiptRef} className="bg-white rounded-[30px] overflow-hidden shadow-2xl relative">
-                    <div
-                      className="absolute inset-0 pointer-events-none opacity-[0.1]"
-                      style={{
-                        backgroundImage: `url("data:image/svg+xml;utf8,${encodeURIComponent(
-                          "<svg xmlns='http://www.w3.org/2000/svg' width='260' height='160' viewBox='0 0 260 160'><g transform='rotate(-18 130 80)'><text x='60' y='86' fill='rgba(15,23,42,0.12)' font-size='20' font-family='Inter, Arial, sans-serif' font-weight='800'>Swifna</text><rect x='24' y='58' width='28' height='28' rx='6' ry='6' fill='rgba(34,197,94,0.18)'/><text x='32' y='79' fill='rgba(245,196,0,0.35)' font-size='22' font-family='Inter, Arial, sans-serif' font-weight='800'>S</text></g></svg>"
-                        )}")`,
-                        backgroundRepeat: "repeat",
-                        backgroundSize: "260px 160px",
-                      }}
-                    />
-                    <div className="h-32 bg-emerald-600 relative">
-                        <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle, #fff 2px, transparent 2px)', backgroundSize: '10px 10px' }}></div>
-                        <div className="absolute inset-0 flex items-start justify-between px-6 pt-3">
-                          <div className="flex items-center gap-2 bg-white/25 px-3 py-1.5 rounded-full">
-                            <img src="/logo-icon.svg" alt="Swifna" className="w-10 h-10 rounded-lg" />
-                            <span className="text-white font-black text-base">Swifna</span>
-                          </div>
-                          <span className="text-white text-xs font-black uppercase tracking-widest bg-white/25 px-3 py-1.5 rounded-full">
-                            Transaction Receipt
-                          </span>
-                        </div>
-                    </div>
-
-                    <div className="px-6 pb-8 -mt-10 relative">
-                        <div className="bg-white rounded-2xl shadow-lg p-6 text-center border border-slate-100">
-                            <div className={`w-16 h-16 rounded-full mx-auto flex items-center justify-center -mt-14 mb-3 border-4 border-white shadow-md ${getColorClass(tx.type)}`}>
-                                 <div className="w-10 h-10">{getLogoOrIcon(tx)}</div>
-                            </div>
-                            <h2 className="text-3xl font-black text-slate-800">₦{tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h2>
-                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">{tx.type}</p>
-                            
-                            <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase ${tx.status.toLowerCase() === 'success' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
-                                {tx.status.toLowerCase() === 'success' ? <CheckCircle2 size={12}/> : <X size={12}/>}
-                                {tx.status}
-                            </div>
-                        </div>
-
-                        <div className="mt-6 space-y-4">
-                            <div className="flex justify-between items-center py-2 border-b border-dashed border-slate-200">
-                                <span className="text-xs font-bold text-slate-400">{t("common.date")}</span>
-                                <span className="text-xs font-bold text-slate-700">{new Date(tx.created_at).toLocaleString()}</span>
-                            </div>
-                            
-                            <div className="flex justify-between items-center py-2 border-b border-dashed border-slate-200">
-                                <span className="text-xs font-bold text-slate-400">{t("common.ref_id")}</span>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xs font-bold text-slate-700">{displayRef}</span>
-                                    <button aria-label="Copy reference" onClick={handleCopyRef} className="text-slate-400 hover:text-emerald-600 transition-colors">
-                                        <Copy size={12}/>
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="flex justify-between items-center py-2 border-b border-dashed border-slate-200">
-                                <span className="text-xs font-bold text-slate-400">{t("common.desc")}</span>
-                                <span className="text-xs font-bold text-slate-700 text-right max-w-[150px]">{tx.description || tx.type}</span>
-                            </div>
-                            {isDeposit && (
-                              <>
-                                <div className="flex justify-between items-center py-2 border-b border-dashed border-slate-200">
-                                  <span className="text-xs font-bold text-slate-400">Wallet Credit</span>
-                                  <span className="text-xs font-bold text-slate-700">₦{Number(tx.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                </div>
-                                <div className="flex justify-between items-center py-2 border-b border-dashed border-slate-200">
-                                  <span className="text-xs font-bold text-slate-400">Processing Fee</span>
-                                  <span className="text-xs font-bold text-slate-700">₦{depositFee.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                </div>
-                                <div className="flex justify-between items-center py-2 border-b border-dashed border-slate-200">
-                                  <span className="text-xs font-bold text-slate-400">Total Paid</span>
-                                  <span className="text-xs font-bold text-slate-700">₦{totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                </div>
-                              </>
-                            )}
-
-                            {String(tx.type).toLowerCase() === "electricity" && (
-                              <div className="pt-2 space-y-3">
-                                {meta.provider && (
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-xs font-bold text-slate-400">Provider</span>
-                                    <span className="text-xs font-bold text-slate-700 text-right">{meta.provider}</span>
-                                  </div>
-                                )}
-                                {meta.meter_number && (
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-xs font-bold text-slate-400">Meter Number</span>
-                                    <span className="text-xs font-bold text-slate-700 text-right">{meta.meter_number}</span>
-                                  </div>
-                                )}
-                                {meta.customer_name && (
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-xs font-bold text-slate-400">Customer Name</span>
-                                    <span className="text-xs font-bold text-slate-700 text-right">{meta.customer_name}</span>
-                                  </div>
-                                )}
-                                {meta.service_address && (
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-xs font-bold text-slate-400">Service Address</span>
-                                    <span className="text-xs font-bold text-slate-700 text-right max-w-[170px]">{meta.service_address}</span>
-                                  </div>
-                                )}
-                                {(meta.meter_type_label || meta.meter_type) && (
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-xs font-bold text-slate-400">Purchase Type</span>
-                                    <span className="text-xs font-bold text-slate-700 text-right">
-                                      {meta.meter_type_label || (Number(meta.meter_type) === 1 ? "Prepaid" : "Postpaid")}
-                                    </span>
-                                  </div>
-                                )}
-                                {meta.units_purchased && (
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-xs font-bold text-slate-400">Units Purchased</span>
-                                    <span className="text-xs font-bold text-slate-700 text-right">{meta.units_purchased}</span>
-                                  </div>
-                                )}
-                                {meta.token && (
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-xs font-bold text-slate-400">Token</span>
-                                    <span className="text-xs font-bold text-slate-700 text-right">{meta.token}</span>
-                                  </div>
-                                )}
-                                {meta.hotline && (
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-xs font-bold text-slate-400">Hotline Number</span>
-                                    <a
-                                      href={getWhatsAppUrl(`Hello Swifna Support, I need help with transaction ${displayRef}.`)}
-                                      className="text-xs font-bold text-emerald-600 text-right hover:text-emerald-700"
-                                    >
-                                      {meta.hotline}
-                                    </a>
-                                  </div>
-                                )}
-                                {meta.transactionid && (
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-xs font-bold text-slate-400">Transaction No.</span>
-                                    <span className="text-xs font-bold text-slate-700 text-right">{meta.transactionid}</span>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                            {isExam && (
-                              <div className="pt-2 space-y-3">
-                                {examPin && (
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-xs font-bold text-slate-400">PIN</span>
-                                    <button
-                                      onClick={async () => {
-                                        await navigator.clipboard.writeText(examPin);
-                                        showToast("PIN copied", "success");
-                                      }}
-                                      className="text-xs font-bold text-emerald-700 flex items-center gap-1"
-                                    >
-                                      {examPin} <Copy size={12} />
-                                    </button>
-                                  </div>
-                                )}
-                                {examProviderRef && (
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-xs font-bold text-slate-400">Provider Ref</span>
-                                    <span className="text-xs font-bold text-slate-700 text-right">{examProviderRef}</span>
-                                  </div>
-                                )}
-                                {examCards.length > 0 && (
-                                  <div className="space-y-2">
-                                    {examCards.map((card: any, idx: number) => (
-                                      <div key={`exam-card-${idx}`} className="rounded-lg border border-slate-200 bg-slate-50 p-2">
-                                        {card.pin && (
-                                          <div className="flex justify-between items-center">
-                                            <span className="text-[10px] font-bold text-slate-400">PIN {idx + 1}</span>
-                                            <button
-                                              onClick={async () => {
-                                                await navigator.clipboard.writeText(card.pin);
-                                                showToast("PIN copied", "success");
-                                              }}
-                                              className="text-[10px] font-bold text-emerald-700 flex items-center gap-1"
-                                            >
-                                              {card.pin} <Copy size={11} />
-                                            </button>
-                                          </div>
-                                        )}
-                                        {card.serialNo && (
-                                          <div className="flex justify-between items-center mt-1">
-                                            <span className="text-[10px] font-bold text-slate-400">Serial No</span>
-                                            <span className="text-[10px] font-bold text-slate-700">{card.serialNo}</span>
-                                          </div>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                        </div>
-
-                        <div className="mt-6">
-                          <div className="flex items-center gap-3" data-no-capture="true">
-                            <button
-                              onClick={() => setShareOpen((v) => !v)}
-                              className="flex-1 h-12 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-colors"
-                              disabled={sharing}
-                            >
-                              {sharing ? "Preparing..." : "Share Receipt"}
-                            </button>
-                            <a
-                              href={getWhatsAppUrl(`Hello Swifna Support, please help resolve an issue with transaction ${displayRef}.`)}
-                              className="flex-1 h-12 rounded-xl border border-emerald-200 text-emerald-700 text-sm font-bold flex items-center justify-center hover:border-emerald-400"
-                            >
-                              Resolve Issue
-                            </a>
-                          </div>
-                          {shareOpen && (
-                            <div className="mt-3 grid grid-cols-2 gap-2" data-no-capture="true">
-                              <button onClick={handleShareImage} className="h-10 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200">
-                                Share Image
-                              </button>
-                              <button onClick={handleSaveImage} className="h-10 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200">
-                                Save Image
-                              </button>
-                              <button onClick={handleSharePdf} className="h-10 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200">
-                                Share PDF
-                              </button>
-                              <button onClick={handleSavePdf} className="h-10 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200">
-                                Save PDF
-                              </button>
-                            </div>
-                          )}
-                          {canRequeryDeposit && onRequeryDeposit && (
-                            <button
-                              onClick={handleRequeryDeposit}
-                              disabled={isRequerying}
-                              className="mt-3 w-full h-10 rounded-lg border border-emerald-300 text-emerald-700 text-xs font-bold hover:bg-emerald-50 disabled:opacity-60"
-                              data-no-capture="true"
-                            >
-                              {isRequerying ? "Requerying..." : "Requery Payment Status"}
-                            </button>
-                          )}
-                        </div>
-
-                        <div className="mt-6 text-center opacity-30">
-                            <p className="font-black text-xs uppercase">{t("app.name")}</p>
-                            <p className="text-[8px] font-bold">{t("history.generated_receipt")}</p>
-                        </div>
-                    </div>
-                </div>
+        <div ref={receiptRef} className="bg-white rounded-[30px] overflow-hidden shadow-2xl relative">
+          <div
+            className="absolute inset-0 pointer-events-none opacity-[0.1]"
+            style={{
+              backgroundImage: `url("data:image/svg+xml;utf8,${encodeURIComponent(
+                "<svg xmlns='http://www.w3.org/2000/svg' width='260' height='160' viewBox='0 0 260 160'><g transform='rotate(-18 130 80)'><text x='60' y='86' fill='rgba(15,23,42,0.12)' font-size='20' font-family='Inter, Arial, sans-serif' font-weight='800'>Swifna</text><rect x='24' y='58' width='28' height='28' rx='6' ry='6' fill='rgba(34,197,94,0.18)'/><text x='32' y='79' fill='rgba(245,196,0,0.35)' font-size='22' font-family='Inter, Arial, sans-serif' font-weight='800'>S</text></g></svg>"
+              )}")`,
+              backgroundRepeat: "repeat",
+              backgroundSize: "260px 160px",
+            }}
+          />
+          <div className="h-32 bg-emerald-600 relative">
+            <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle, #fff 2px, transparent 2px)', backgroundSize: '10px 10px' }}></div>
+            <div className="absolute inset-0 flex items-start justify-between px-6 pt-3">
+              <div className="flex items-center gap-2 bg-white/25 px-3 py-1.5 rounded-full">
+                <img src="/logo-icon.svg" alt="Swifna" className="w-10 h-10 rounded-lg" />
+                <span className="text-white font-black text-base">Swifna</span>
+              </div>
+              <span className="text-white text-xs font-black uppercase tracking-widest bg-white/25 px-3 py-1.5 rounded-full">
+                Transaction Receipt
+              </span>
             </div>
+          </div>
+
+          <div className="px-6 pb-8 -mt-10 relative">
+            <div className="bg-white rounded-2xl shadow-lg p-6 text-center border border-slate-100">
+              <div className={`w-16 h-16 rounded-full mx-auto flex items-center justify-center -mt-14 mb-3 border-4 border-white shadow-md ${getColorClass(tx.type)}`}>
+                <div className="w-10 h-10">{getLogoOrIcon(tx)}</div>
+              </div>
+              <h2 className="text-3xl font-black text-slate-800">₦{tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h2>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">{tx.type}</p>
+
+              <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase ${tx.status.toLowerCase() === 'success' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+                {tx.status.toLowerCase() === 'success' ? <CheckCircle2 size={12} /> : <X size={12} />}
+                {tx.status}
+              </div>
+            </div>
+
+            <div className="mt-6 space-y-4">
+              <div className="flex justify-between items-center py-2 border-b border-dashed border-slate-200">
+                <span className="text-xs font-bold text-slate-400">{t("common.date")}</span>
+                <span className="text-xs font-bold text-slate-700">{new Date(tx.created_at).toLocaleString()}</span>
+              </div>
+
+              <div className="flex justify-between items-center py-2 border-b border-dashed border-slate-200">
+                <span className="text-xs font-bold text-slate-400">{t("common.ref_id")}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-700">{displayRef}</span>
+                  <button aria-label="Copy reference" onClick={handleCopyRef} className="text-slate-400 hover:text-emerald-600 transition-colors">
+                    <Copy size={12} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center py-2 border-b border-dashed border-slate-200">
+                <span className="text-xs font-bold text-slate-400">{t("common.desc")}</span>
+                <span className="text-xs font-bold text-slate-700 text-right max-w-[150px]">{tx.description || tx.type}</span>
+              </div>
+              {isDeposit && (
+                <>
+                  <div className="flex justify-between items-center py-2 border-b border-dashed border-slate-200">
+                    <span className="text-xs font-bold text-slate-400">Wallet Credit</span>
+                    <span className="text-xs font-bold text-slate-700">₦{Number(tx.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-dashed border-slate-200">
+                    <span className="text-xs font-bold text-slate-400">Processing Fee</span>
+                    <span className="text-xs font-bold text-slate-700">₦{depositFee.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-dashed border-slate-200">
+                    <span className="text-xs font-bold text-slate-400">Total Paid</span>
+                    <span className="text-xs font-bold text-slate-700">₦{totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                </>
+              )}
+
+              {String(tx.type).toLowerCase() === "electricity" && (
+                <div className="pt-2 space-y-3">
+                  {meta.provider && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-slate-400">Provider</span>
+                      <span className="text-xs font-bold text-slate-700 text-right">{meta.provider}</span>
+                    </div>
+                  )}
+                  {meta.meter_number && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-slate-400">Meter Number</span>
+                      <span className="text-xs font-bold text-slate-700 text-right">{meta.meter_number}</span>
+                    </div>
+                  )}
+                  {meta.customer_name && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-slate-400">Customer Name</span>
+                      <span className="text-xs font-bold text-slate-700 text-right">{meta.customer_name}</span>
+                    </div>
+                  )}
+                  {meta.service_address && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-slate-400">Service Address</span>
+                      <span className="text-xs font-bold text-slate-700 text-right max-w-[170px]">{meta.service_address}</span>
+                    </div>
+                  )}
+                  {(meta.meter_type_label || meta.meter_type) && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-slate-400">Purchase Type</span>
+                      <span className="text-xs font-bold text-slate-700 text-right">
+                        {meta.meter_type_label || (Number(meta.meter_type) === 1 ? "Prepaid" : "Postpaid")}
+                      </span>
+                    </div>
+                  )}
+                  {meta.units_purchased && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-slate-400">Units Purchased</span>
+                      <span className="text-xs font-bold text-slate-700 text-right">{meta.units_purchased}</span>
+                    </div>
+                  )}
+                  {meta.token && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-slate-400">Token</span>
+                      <span className="text-xs font-bold text-slate-700 text-right">{meta.token}</span>
+                    </div>
+                  )}
+                  {meta.hotline && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-slate-400">Hotline Number</span>
+                      <a
+                        href={getWhatsAppUrl(`Hello Swifna Support, I need help with transaction ${displayRef}.`)}
+                        className="text-xs font-bold text-emerald-600 text-right hover:text-emerald-700"
+                      >
+                        {meta.hotline}
+                      </a>
+                    </div>
+                  )}
+                  {meta.transactionid && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-slate-400">Transaction No.</span>
+                      <span className="text-xs font-bold text-slate-700 text-right">{meta.transactionid}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+              {isExam && (
+                <div className="pt-2 space-y-3">
+                  {examPin && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-slate-400">PIN</span>
+                      <button
+                        onClick={async () => {
+                          await navigator.clipboard.writeText(examPin);
+                          showToast("PIN copied", "success");
+                        }}
+                        className="text-xs font-bold text-emerald-700 flex items-center gap-1"
+                      >
+                        {examPin} <Copy size={12} />
+                      </button>
+                    </div>
+                  )}
+                  {examProviderRef && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-slate-400">Provider Ref</span>
+                      <span className="text-xs font-bold text-slate-700 text-right">{examProviderRef}</span>
+                    </div>
+                  )}
+                  {examCards.length > 0 && (
+                    <div className="space-y-2">
+                      {examCards.map((card: any, idx: number) => (
+                        <div key={`exam-card-${idx}`} className="rounded-lg border border-slate-200 bg-slate-50 p-2">
+                          {card.pin && (
+                            <div className="flex justify-between items-center">
+                              <span className="text-[10px] font-bold text-slate-400">PIN {idx + 1}</span>
+                              <button
+                                onClick={async () => {
+                                  await navigator.clipboard.writeText(card.pin);
+                                  showToast("PIN copied", "success");
+                                }}
+                                className="text-[10px] font-bold text-emerald-700 flex items-center gap-1"
+                              >
+                                {card.pin} <Copy size={11} />
+                              </button>
+                            </div>
+                          )}
+                          {card.serialNo && (
+                            <div className="flex justify-between items-center mt-1">
+                              <span className="text-[10px] font-bold text-slate-400">Serial No</span>
+                              <span className="text-[10px] font-bold text-slate-700">{card.serialNo}</span>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6">
+              <div className="flex items-center gap-3" data-no-capture="true">
+                <button
+                  onClick={() => setShareOpen((v) => !v)}
+                  className="flex-1 h-12 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-colors"
+                  disabled={sharing}
+                >
+                  {sharing ? "Preparing..." : "Share Receipt"}
+                </button>
+                <a
+                  href={getWhatsAppUrl(`Hello Swifna Support, please help resolve an issue with transaction ${displayRef}.`)}
+                  className="flex-1 h-12 rounded-xl border border-emerald-200 text-emerald-700 text-sm font-bold flex items-center justify-center hover:border-emerald-400"
+                >
+                  Resolve Issue
+                </a>
+              </div>
+              {shareOpen && (
+                <div className="mt-3 grid grid-cols-2 gap-2" data-no-capture="true">
+                  <button onClick={handleShareImage} className="h-10 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200">
+                    Share Image
+                  </button>
+                  <button onClick={handleSaveImage} className="h-10 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200">
+                    Save Image
+                  </button>
+                  <button onClick={handleSharePdf} className="h-10 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200">
+                    Share PDF
+                  </button>
+                  <button onClick={handleSavePdf} className="h-10 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200">
+                    Save PDF
+                  </button>
+                </div>
+              )}
+              {canRequeryDeposit && onRequeryDeposit && (
+                <button
+                  onClick={handleRequeryDeposit}
+                  disabled={isRequerying}
+                  className="mt-3 w-full h-10 rounded-lg border border-emerald-300 text-emerald-700 text-xs font-bold hover:bg-emerald-50 disabled:opacity-60"
+                  data-no-capture="true"
+                >
+                  {isRequerying ? "Requerying..." : "Requery Payment Status"}
+                </button>
+              )}
+            </div>
+
+            <div className="mt-6 text-center opacity-30">
+              <p className="font-black text-xs uppercase">{t("app.name")}</p>
+              <p className="text-[8px] font-bold">{t("history.generated_receipt")}</p>
+            </div>
+          </div>
         </div>
-    );
+      </div>
+    </div>
+  );
 };
 
 
@@ -594,13 +594,13 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
   const [pullDistance, setPullDistance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const pullStartY = useRef<number | null>(null);
-  
+
   // Receipt & Modal States
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
   const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
   const [depositAmount, setDepositAmount] = useState("");
   const [depositMethod, setDepositMethod] = useState("BankCard");
-  const [currentTxRef, setCurrentTxRef] = useState<string>(""); 
+  const [currentTxRef, setCurrentTxRef] = useState<string>("");
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
   const [directDeposit, setDirectDeposit] = useState<{
     accountNumber: string;
@@ -644,15 +644,22 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
     const fetchQuote = async () => {
       setIsFetchingPiRate(true);
       try {
-        const { data, error } = await supabase.functions.invoke("pi-payment", {
-          body: { action: "quote", amount_ngn: amountNum }
+        // ✨ Call our unified handler with the CREATE_PAYMENT action parameter rule
+        const { data, error } = await supabase.functions.invoke("pi-payment-handler", {
+          body: {
+            action: "CREATE_PAYMENT",
+            nairaAmount: amountNum,
+            serviceId: "00000000-0000-0000-0000-000000000000" // Temporary system ID for deposit orders
+          }
         });
+
         if (active && !error && data) {
           setLivePiQuote({
-            rate: Number(data.rate_ngn_per_pi || 0),
-            piAmount: Number(data.pi_amount || 0)
+            rate: Number(data.rateLocked || 0),
+            piAmount: Number(data.calculatedPiAmount || 0)
           });
         }
+
       } catch (err) {
         console.warn("Failed to fetch live Pi quote:", err);
       } finally {
@@ -752,7 +759,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
     }
   };
   const [pendingAction, setPendingAction] = useState<null | (() => void)>(null);
-  
+
   // --- STATE VARIABLES ---
   const [accountName, setAccountName] = useState("");
   const [isResolving, setIsResolving] = useState(false);
@@ -834,13 +841,13 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
     setGreeting(messages[0]);
 
     const interval = setInterval(() => {
-      setFade(false); 
+      setFade(false);
       setTimeout(() => {
         currentIndex = (currentIndex + 1) % messages.length;
         setGreeting(messages[currentIndex]);
-        setFade(true); 
-      }, 500); 
-    }, 4000); 
+        setFade(true);
+      }, 500);
+    }, 4000);
 
     return () => clearInterval(interval);
   }, [user]);
@@ -871,13 +878,13 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
     } catch (e) { console.error(e); }
   };
 
- const fetchHistory = async () => {
+  const fetchHistory = async () => {
     if (isGuest) {
-        setHistory([]);
-        return;
+      setHistory([]);
+      return;
     }
     if (!user || !user.id) {
-        return; 
+      return;
     }
     try {
       const { data, error } = await supabase
@@ -886,11 +893,11 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
         .or(`user_id.eq.${user.id},user_email.eq.${user.email}`)
         .order("created_at", { ascending: false })
         .limit(5);
-        
+
       if (error) throw error;
       if (data) setHistory(data as unknown as Transaction[]);
-    } catch (e: any) { 
-        console.error("History Fetch Error:", e.message); 
+    } catch (e: any) {
+      console.error("History Fetch Error:", e.message);
     }
   };
 
@@ -950,7 +957,23 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
   }, []);
 
   const invokePiPayment = async (body: Record<string, unknown>, fallback = "Pi payment failed") => {
-    const { data, error } = await supabase.functions.invoke("pi-payment", { body });
+    // Clone the incoming body so we can safely modify the action names
+    const normalizedBody = { ...body };
+
+    // Remap client actions to the uppercase parameters expected by the new backend
+    if (body.action === "approve") {
+      normalizedBody.action = "APPROVE_PAYMENT";
+    } else if (body.action === "complete") {
+      normalizedBody.action = "COMPLETE_PAYMENT";
+    } else if (body.action === "cancel") {
+      normalizedBody.action = "CANCEL_PAYMENT";
+    }
+
+    // Notice the updated function target name: "pi-payment-handler"
+    const { data, error } = await supabase.functions.invoke("pi-payment-handler", {
+      body: normalizedBody
+    });
+
     if (error) {
       throw new Error(await getFunctionErrorMessage(error, fallback));
     }
@@ -983,14 +1006,18 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
     showToast("Connecting to Pi Browser...", "info");
     const auth = await authenticatePiUser(handleIncompletePiPayment);
 
-    const quote = await invokePiPayment(
-      {
-        action: "start",
-        amount_ngn: amountNum,
-        accessToken: auth.accessToken,
-      },
-      "Failed to prepare Pi payment",
-    );
+    // ✨ Forward to the newly updated handler to capture the locked contract quote parameters
+    const { data: quote, error: invokeError } = await supabase.functions.invoke("pi-payment-handler", {
+      body: {
+        action: "CREATE_PAYMENT",
+        nairaAmount: amountNum,
+        serviceId: "00000000-0000-0000-0000-000000000000"
+      }
+    });
+
+    if (invokeError || !quote?.success) {
+      throw new Error(quote?.error || "Failed to establish dynamic price contract lock.");
+    }
 
     const reference = String(quote.reference || "");
     const piAmount = Number(quote.pi_amount || 0);
@@ -1084,7 +1111,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
     if (isGuest) return requireAuth();
     const amountNum = Number(depositAmount);
     if (!depositAmount || amountNum < 100) return showToast(t("dashboard.min_deposit"), "error");
-    
+
     const fee = getDepositFee(amountNum, depositMethod);
     const totalToPay = amountNum + fee;
 
@@ -1093,165 +1120,165 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
     setDepositInitError("");
     setDirectDeposit(null);
     setPiPaymentQuote(null);
-    
+
     try {
-        if (depositMethod === "PiNetwork") {
-          await handlePiDeposit(amountNum);
-          return;
+      if (depositMethod === "PiNetwork") {
+        await handlePiDeposit(amountNum);
+        return;
+      }
+      const withTimeout = async <T,>(promise: Promise<T>, ms: number, label: string): Promise<T> => {
+        return await Promise.race([
+          promise,
+          new Promise<T>((_, reject) =>
+            setTimeout(() => reject(new Error(`${label} timed out. Please retry.`)), ms)
+          ),
+        ]);
+      };
+
+      const clientRef = getProjectRefFromUrl(import.meta.env.VITE_SUPABASE_URL);
+
+      const invokePayload = {
+        body: {
+          amount: amountNum.toString(),
+          email: user.email,
+          name: user.name,
+          method: depositMethod
         }
-        const withTimeout = async <T,>(promise: Promise<T>, ms: number, label: string): Promise<T> => {
-          return await Promise.race([
-            promise,
-            new Promise<T>((_, reject) =>
-              setTimeout(() => reject(new Error(`${label} timed out. Please retry.`)), ms)
-            ),
-          ]);
-        };
+      };
 
-        const clientRef = getProjectRefFromUrl(import.meta.env.VITE_SUPABASE_URL);
+      let { data, error } = await withTimeout(
+        supabase.functions.invoke("squad-deposit", invokePayload),
+        20000,
+        "Deposit initialization"
+      );
 
-        const invokePayload = {
-            body: {
-                amount: amountNum.toString(),
-                email: user.email,
-                name: user.name,
-                method: depositMethod
-            }
-        };
-
-        let { data, error } = await withTimeout(
-          supabase.functions.invoke("squad-deposit", invokePayload),
-          20000,
-          "Deposit initialization"
+      const firstStatus = (error as any)?.context?.status;
+      if (firstStatus === 401) {
+        const { data: refreshed, error: refreshError } = await withTimeout(
+          supabase.auth.refreshSession(),
+          12000,
+          "Session refresh"
         );
-
-        const firstStatus = (error as any)?.context?.status;
-        if (firstStatus === 401) {
-          const { data: refreshed, error: refreshError } = await withTimeout(
-            supabase.auth.refreshSession(),
-            12000,
-            "Session refresh"
-          );
-          if (refreshError || !refreshed?.session?.access_token) {
-            throw new Error("Unauthorized (401). Please log out and log in again.");
-          }
-
-          const refreshedToken = refreshed.session.access_token;
-          const refreshedTokenRef = getProjectRefFromJwt(refreshedToken);
-          if (clientRef && refreshedTokenRef && clientRef !== refreshedTokenRef) {
-            throw new Error(`Auth project mismatch: app=${clientRef}, token=${refreshedTokenRef}. Check VITE_SUPABASE_URL/ANON_KEY.`);
-          }
-
-          ({ data, error } = await withTimeout(
-            supabase.functions.invoke("squad-deposit", {
-              ...invokePayload,
-              headers: { Authorization: `Bearer ${refreshedToken}` }
-            }),
-            20000,
-            "Deposit initialization retry"
-          ));
+        if (refreshError || !refreshed?.session?.access_token) {
+          throw new Error("Unauthorized (401). Please log out and log in again.");
         }
 
-        if (error) {
-            let detailMessage = "";
-            const ctxBody = (error as any)?.context?.body;
-            if (ctxBody) {
-                if (typeof ctxBody === "string") {
-                    try {
-                        const parsed = JSON.parse(ctxBody);
-                        detailMessage = parsed?.error || parsed?.message || ctxBody;
-                    } catch {
-                        detailMessage = ctxBody;
-                    }
-                } else if (typeof ctxBody === "object") {
-                    detailMessage = ctxBody?.error || ctxBody?.message || "";
-                }
+        const refreshedToken = refreshed.session.access_token;
+        const refreshedTokenRef = getProjectRefFromJwt(refreshedToken);
+        if (clientRef && refreshedTokenRef && clientRef !== refreshedTokenRef) {
+          throw new Error(`Auth project mismatch: app=${clientRef}, token=${refreshedTokenRef}. Check VITE_SUPABASE_URL/ANON_KEY.`);
+        }
+
+        ({ data, error } = await withTimeout(
+          supabase.functions.invoke("squad-deposit", {
+            ...invokePayload,
+            headers: { Authorization: `Bearer ${refreshedToken}` }
+          }),
+          20000,
+          "Deposit initialization retry"
+        ));
+      }
+
+      if (error) {
+        let detailMessage = "";
+        const ctxBody = (error as any)?.context?.body;
+        if (ctxBody) {
+          if (typeof ctxBody === "string") {
+            try {
+              const parsed = JSON.parse(ctxBody);
+              detailMessage = parsed?.error || parsed?.message || ctxBody;
+            } catch {
+              detailMessage = ctxBody;
             }
-
-            const status = (error as any)?.context?.status;
-            const fullMessage = detailMessage || error.message || "Failed to start payment";
-            throw new Error(status ? `${fullMessage} (status ${status})` : fullMessage);
-        }
-        
-        let payload: any = data;
-        if (typeof data === "string") {
-          try {
-            payload = JSON.parse(data);
-          } catch {
-            payload = { raw: data };
+          } else if (typeof ctxBody === "object") {
+            detailMessage = ctxBody?.error || ctxBody?.message || "";
           }
         }
 
-        const rawCheckoutUrl =
-          payload?.url ??
-          payload?.cashierUrl ??
-          payload?.checkout_url ??
-          payload?.data?.url ??
-          payload?.data?.cashierUrl;
+        const status = (error as any)?.context?.status;
+        const fullMessage = detailMessage || error.message || "Failed to start payment";
+        throw new Error(status ? `${fullMessage} (status ${status})` : fullMessage);
+      }
 
-        const rawReference =
-          payload?.reference ??
-          payload?.txnRef ??
-          payload?.data?.reference;
-
-        const transferPayload = payload?.transfer ?? payload?.data?.transfer ?? payload?.data;
-        const rawAccountNumber =
-          transferPayload?.account_number ??
-          transferPayload?.virtual_account_number ??
-          transferPayload?.accountNumber;
-        const rawBankName =
-          transferPayload?.bank_name ??
-          transferPayload?.bank ??
-          transferPayload?.bankName;
-        const rawAccountName =
-          transferPayload?.account_name ??
-          transferPayload?.accountName ??
-          transferPayload?.beneficiary_name;
-        const rawExpiresAt =
-          transferPayload?.expires_at ??
-          transferPayload?.expiry_date ??
-          transferPayload?.valid_till;
-
-        if (rawAccountNumber) {
-          const resolvedRef = String(rawReference || "").trim();
-          if (resolvedRef) {
-            setCurrentTxRef(resolvedRef);
-            localStorage.setItem("pending_deposit_ref", resolvedRef);
-          }
-          setPaymentUrl(null);
-          setDirectDeposit({
-            accountNumber: String(rawAccountNumber),
-            bankName: rawBankName ? String(rawBankName) : "",
-            accountName: rawAccountName ? String(rawAccountName) : "",
-            expiresAt: rawExpiresAt ? String(rawExpiresAt) : "",
-            amount: Number(totalToPay),
-            reference: resolvedRef || "",
-          });
-          showToast("Transfer account generated. Send exactly the amount shown.", "success");
-          return;
+      let payload: any = data;
+      if (typeof data === "string") {
+        try {
+          payload = JSON.parse(data);
+        } catch {
+          payload = { raw: data };
         }
+      }
 
-        if (rawCheckoutUrl) {
-          const checkoutUrl = String(rawCheckoutUrl).trim();
-          if (!/^https?:\/\//i.test(checkoutUrl)) {
-            throw new Error("Invalid checkout URL returned. Please try again.");
-          }
-          if (rawReference) {
-            setCurrentTxRef(rawReference);
-            localStorage.setItem("pending_deposit_ref", rawReference);
-          }
-          setDirectDeposit(null);
-          setPaymentUrl(checkoutUrl);
-          showToast("Payment link generated. Tap Proceed to Checkout.", "success");
-        } else {
-          throw new Error(`Failed to get payment URL. Response: ${JSON.stringify(payload || {})}`);
+      const rawCheckoutUrl =
+        payload?.url ??
+        payload?.cashierUrl ??
+        payload?.checkout_url ??
+        payload?.data?.url ??
+        payload?.data?.cashierUrl;
+
+      const rawReference =
+        payload?.reference ??
+        payload?.txnRef ??
+        payload?.data?.reference;
+
+      const transferPayload = payload?.transfer ?? payload?.data?.transfer ?? payload?.data;
+      const rawAccountNumber =
+        transferPayload?.account_number ??
+        transferPayload?.virtual_account_number ??
+        transferPayload?.accountNumber;
+      const rawBankName =
+        transferPayload?.bank_name ??
+        transferPayload?.bank ??
+        transferPayload?.bankName;
+      const rawAccountName =
+        transferPayload?.account_name ??
+        transferPayload?.accountName ??
+        transferPayload?.beneficiary_name;
+      const rawExpiresAt =
+        transferPayload?.expires_at ??
+        transferPayload?.expiry_date ??
+        transferPayload?.valid_till;
+
+      if (rawAccountNumber) {
+        const resolvedRef = String(rawReference || "").trim();
+        if (resolvedRef) {
+          setCurrentTxRef(resolvedRef);
+          localStorage.setItem("pending_deposit_ref", resolvedRef);
         }
+        setPaymentUrl(null);
+        setDirectDeposit({
+          accountNumber: String(rawAccountNumber),
+          bankName: rawBankName ? String(rawBankName) : "",
+          accountName: rawAccountName ? String(rawAccountName) : "",
+          expiresAt: rawExpiresAt ? String(rawExpiresAt) : "",
+          amount: Number(totalToPay),
+          reference: resolvedRef || "",
+        });
+        showToast("Transfer account generated. Send exactly the amount shown.", "success");
+        return;
+      }
+
+      if (rawCheckoutUrl) {
+        const checkoutUrl = String(rawCheckoutUrl).trim();
+        if (!/^https?:\/\//i.test(checkoutUrl)) {
+          throw new Error("Invalid checkout URL returned. Please try again.");
+        }
+        if (rawReference) {
+          setCurrentTxRef(rawReference);
+          localStorage.setItem("pending_deposit_ref", rawReference);
+        }
+        setDirectDeposit(null);
+        setPaymentUrl(checkoutUrl);
+        showToast("Payment link generated. Tap Proceed to Checkout.", "success");
+      } else {
+        throw new Error(`Failed to get payment URL. Response: ${JSON.stringify(payload || {})}`);
+      }
 
     } catch (e: any) {
-        setDepositInitError(e.message || "Failed to start payment");
-        showToast(e.message || "Failed to start payment", "error");
+      setDepositInitError(e.message || "Failed to start payment");
+      showToast(e.message || "Failed to start payment", "error");
     } finally {
-        setIsStartingDeposit(false);
+      setIsStartingDeposit(false);
     }
   };
 
@@ -1285,11 +1312,11 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
   // --- VERIFY DEPOSIT (Direct DB Check) ---
   const verifyDeposit = async (reference: string, opts?: { silent?: boolean }) => {
     if (isGuest) return "missing";
-    if(!reference) {
+    if (!reference) {
       if (!opts?.silent) showToast("No transaction reference found", "error");
       return "missing";
     }
-    
+
     setIsVerifyingDeposit(true);
     try {
       // Actively requery Squad in case webhook delivery is delayed.
@@ -1310,23 +1337,23 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
 
       const status = String(data?.status || "").toLowerCase();
       if (status === 'success') {
-          if (!opts?.silent) showToast("Payment confirmed! Updating balance...", "success");
-          await fetchUser();
-          await fetchHistory();
-          setIsDepositModalOpen(false);
-          setDepositAmount("");
-          setPaymentUrl(null);
-          setDirectDeposit(null);
-          setDepositInitError("");
-          localStorage.removeItem("pending_deposit_ref");
-          return "success";
+        if (!opts?.silent) showToast("Payment confirmed! Updating balance...", "success");
+        await fetchUser();
+        await fetchHistory();
+        setIsDepositModalOpen(false);
+        setDepositAmount("");
+        setPaymentUrl(null);
+        setDirectDeposit(null);
+        setDepositInitError("");
+        localStorage.removeItem("pending_deposit_ref");
+        return "success";
       } else if (status === 'failed') {
-          if (!opts?.silent) showToast("Payment failed or cancelled.", "error");
-          localStorage.removeItem("pending_deposit_ref");
-          return "failed";
+        if (!opts?.silent) showToast("Payment failed or cancelled.", "error");
+        localStorage.removeItem("pending_deposit_ref");
+        return "failed";
       } else {
-          if (!opts?.silent) showToast("Payment is still pending. Please wait.", "info");
-          return "pending";
+        if (!opts?.silent) showToast("Payment is still pending. Please wait.", "info");
+        return "pending";
       }
     } catch (e: any) {
       if (!opts?.silent) showToast(e.message || "Verification failed", "error");
@@ -1403,35 +1430,35 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
     if (acct.length !== 10 || !bank) return;
 
     setIsResolving(true);
-    setAccountName(""); 
+    setAccountName("");
 
-    console.log(`Verifying: ${acct} with Bank: ${bank}`); 
+    console.log(`Verifying: ${acct} with Bank: ${bank}`);
 
     try {
-        const { data, error } = await supabase.functions.invoke("verify-account", {
-            body: { account_number: acct, bank_code: bank }
-        });
+      const { data, error } = await supabase.functions.invoke("verify-account", {
+        body: { account_number: acct, bank_code: bank }
+      });
 
-        console.log("Verification Response:", data, error);
+      console.log("Verification Response:", data, error);
 
-        if (error) throw error;
+      if (error) throw error;
 
-        if (data?.valid) {
-            setAccountName(data.account_name);
-            showToast(`Verified: ${data.account_name}`, "success");
-        } else {
-            const errorMsg = data?.message || "Account not found";
-            console.error("Verification failed:", errorMsg);
-            setAccountName("INVALID ACCOUNT");
-            showToast(errorMsg, "error");
-        }
+      if (data?.valid) {
+        setAccountName(data.account_name);
+        showToast(`Verified: ${data.account_name}`, "success");
+      } else {
+        const errorMsg = data?.message || "Account not found";
+        console.error("Verification failed:", errorMsg);
+        setAccountName("INVALID ACCOUNT");
+        showToast(errorMsg, "error");
+      }
     } catch (e: any) {
-        console.error("System Error:", e);
-        setAccountName("SYSTEM ERROR");
-        const errorMessage = await getFunctionErrorMessage(e, "Account verification failed");
-        showToast(errorMessage, "error");
+      console.error("System Error:", e);
+      setAccountName("SYSTEM ERROR");
+      const errorMessage = await getFunctionErrorMessage(e, "Account verification failed");
+      showToast(errorMessage, "error");
     } finally {
-        setIsResolving(false);
+      setIsResolving(false);
     }
   };
 
@@ -1439,11 +1466,11 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
   const doWithdraw = async () => {
     if (isGuest) return requireAuth();
     const amount = Number(withdrawAmount);
-    
+
     if (amount <= 0) return showToast("Invalid amount", "error");
     if (amount > user.balance) return showToast("Insufficient balance", "error");
-    if (!bankCode || !accountNumber) return showToast("Please fill all bank details", "error"); 
-    
+    if (!bankCode || !accountNumber) return showToast("Please fill all bank details", "error");
+
     if (!accountName || accountName === "INVALID ACCOUNT") return showToast("Please wait for account verification", "error");
     if (accountName === "SYSTEM ERROR") return showToast("System error on verification. Try again later.", "error");
 
@@ -1451,7 +1478,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
     const fee = getWithdrawalFee(amount);
 
     setIsWithdrawing(true);
-    
+
     try {
       const { data, error } = await supabase.functions.invoke("squad-withdraw", {
         body: {
@@ -1480,7 +1507,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
       setIsWithdrawModalOpen(false);
       setWithdrawAmount("");
       setAccountNumber("");
-      setAccountName(""); 
+      setAccountName("");
       setBankCode("");
 
       if (saveWithdrawBeneficiary) {
@@ -1502,7 +1529,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
           console.error("Failed to save withdraw beneficiary:", e);
         }
       }
-      
+
     } catch (error: any) {
       console.error("Withdrawal Error Full:", error);
       const errorMessage = await getFunctionErrorMessage(error, "Withdrawal failed");
@@ -1704,97 +1731,97 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
     const currentDepositFee = getDepositFee(depositAmountNum, depositMethod);
 
     return (
-    <div
-      className="space-y-6 pb-24 animate-in fade-in"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
       <div
-        className="flex items-center justify-center"
-        style={{ height: pullDistance ? Math.max(24, pullDistance * 0.6) : 0 }}
+        className="space-y-6 pb-24 animate-in fade-in"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
-        {(pullDistance > 0 || isRefreshing) && (
-          <div className="text-xs font-bold text-slate-400">
-            {isRefreshing ? "Refreshing..." : pullDistance > 80 ? "Release to refresh" : "Pull to refresh"}
-          </div>
-        )}
-      </div>
-      
-      {/* --- CLEANED DYNAMIC HEADER --- */}
-      {/* No extra balance text. No extra Bell. Just the animated greeting. */}
-      <div className="flex items-center mb-2 mt-2 h-10"> 
-        <h1 
+        <div
+          className="flex items-center justify-center"
+          style={{ height: pullDistance ? Math.max(24, pullDistance * 0.6) : 0 }}
+        >
+          {(pullDistance > 0 || isRefreshing) && (
+            <div className="text-xs font-bold text-slate-400">
+              {isRefreshing ? "Refreshing..." : pullDistance > 80 ? "Release to refresh" : "Pull to refresh"}
+            </div>
+          )}
+        </div>
+
+        {/* --- CLEANED DYNAMIC HEADER --- */}
+        {/* No extra balance text. No extra Bell. Just the animated greeting. */}
+        <div className="flex items-center mb-2 mt-2 h-10">
+          <h1
             className={`
                 text-2xl font-black text-slate-800 tracking-tight
                 transition-opacity duration-500 ease-in-out
                 ${fade ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}
             `}
-        >
+          >
             {greeting}
-        </h1>
-      </div>
-      {/* --- END HEADER --- */}
-
-      {isCheckingPendingDeposit && (
-        <div className="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-xl flex items-center gap-3">
-          <Loader2 size={14} className="animate-spin shrink-0" />
-          <p className="text-xs font-bold flex-1">Checking your payment status and updating wallet balance...</p>
-          <button
-            onClick={handleRetryPendingDeposit}
-            disabled={isVerifyingDeposit}
-            className="px-3 py-1.5 rounded-lg bg-amber-100 border border-amber-300 text-[10px] font-black uppercase tracking-wide hover:bg-amber-200 disabled:opacity-60"
-          >
-            {isVerifyingDeposit ? "Checking..." : "Retry now"}
-          </button>
+          </h1>
         </div>
-      )}
-      {isGuest && (
-        <div className="bg-amber-50 border border-amber-200 text-amber-900 p-3 rounded-xl">
-          <p className="text-xs font-bold">
-            You are browsing as a guest. Login or sign up to buy services, fund wallet, or withdraw.
-          </p>
-        </div>
-      )}
+        {/* --- END HEADER --- */}
 
-      {/* PUSH NOTIFICATIONS PROMPT */}
-      {permission === 'default' && (
-        <div className="bg-emerald-900/40 border border-emerald-500/30 p-4 rounded-xl mb-6 flex justify-between items-center">
-          <div>
-            <h3 className="font-bold text-white text-sm">Enable Notifications</h3>
-            <p className="text-xs text-slate-400">Get alerts for deposits and transfers.</p>
-          </div>
-          <button 
-            onClick={subscribeToPush}
-            disabled={pushLoading}
-            className="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-500 transition"
-          >
-            {pushLoading ? 'Enabling...' : 'Enable'}
-          </button>
-        </div>
-      )}
-
-      {/* WALLET CARD */}
-      <section className="bg-emerald-600 dark:bg-slate-800 p-6 rounded-[35px] text-white shadow-xl relative overflow-hidden">
-        {/* Background Pattern */}
-        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
-        <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full blur-2xl -ml-5 -mb-5"></div>
-
-        <div className="relative z-10">
-            <div className="flex justify-between items-start mb-1">
-            <p className="text-[10px] font-black uppercase tracking-widest opacity-80">{t("dashboard.available_balance")}</p>
-            <button aria-label="Refresh balance" onClick={() => { if (isGuest) { requireAuth(); return; } setIsRefreshingBalance(true); fetchUser(); setTimeout(() => setIsRefreshingBalance(false), 1000); }} className="p-2 bg-emerald-700/70 rounded-full hover:bg-emerald-800 transition-colors">
-                <RotateCcw size={14} className={isRefreshingBalance ? "animate-spin" : ""} />
+        {isCheckingPendingDeposit && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-xl flex items-center gap-3">
+            <Loader2 size={14} className="animate-spin shrink-0" />
+            <p className="text-xs font-bold flex-1">Checking your payment status and updating wallet balance...</p>
+            <button
+              onClick={handleRetryPendingDeposit}
+              disabled={isVerifyingDeposit}
+              className="px-3 py-1.5 rounded-lg bg-amber-100 border border-amber-300 text-[10px] font-black uppercase tracking-wide hover:bg-amber-200 disabled:opacity-60"
+            >
+              {isVerifyingDeposit ? "Checking..." : "Retry now"}
             </button>
+          </div>
+        )}
+        {isGuest && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-900 p-3 rounded-xl">
+            <p className="text-xs font-bold">
+              You are browsing as a guest. Login or sign up to buy services, fund wallet, or withdraw.
+            </p>
+          </div>
+        )}
+
+        {/* PUSH NOTIFICATIONS PROMPT */}
+        {permission === 'default' && (
+          <div className="bg-emerald-900/40 border border-emerald-500/30 p-4 rounded-xl mb-6 flex justify-between items-center">
+            <div>
+              <h3 className="font-bold text-white text-sm">Enable Notifications</h3>
+              <p className="text-xs text-slate-400">Get alerts for deposits and transfers.</p>
+            </div>
+            <button
+              onClick={subscribeToPush}
+              disabled={pushLoading}
+              className="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-500 transition"
+            >
+              {pushLoading ? 'Enabling...' : 'Enable'}
+            </button>
+          </div>
+        )}
+
+        {/* WALLET CARD */}
+        <section className="bg-emerald-600 dark:bg-slate-800 p-6 rounded-[35px] text-white shadow-xl relative overflow-hidden">
+          {/* Background Pattern */}
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full blur-2xl -ml-5 -mb-5"></div>
+
+          <div className="relative z-10">
+            <div className="flex justify-between items-start mb-1">
+              <p className="text-[10px] font-black uppercase tracking-widest opacity-80">{t("dashboard.available_balance")}</p>
+              <button aria-label="Refresh balance" onClick={() => { if (isGuest) { requireAuth(); return; } setIsRefreshingBalance(true); fetchUser(); setTimeout(() => setIsRefreshingBalance(false), 1000); }} className="p-2 bg-emerald-700/70 rounded-full hover:bg-emerald-800 transition-colors">
+                <RotateCcw size={14} className={isRefreshingBalance ? "animate-spin" : ""} />
+              </button>
             </div>
             <h2 className="text-4xl font-black mb-6">₦{user.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h2>
             <div className="flex gap-3">
-            <button onClick={() => { setPaymentUrl(null); setDirectDeposit(null); setDepositInitError(""); setIsDepositModalOpen(true); }} className="flex-1 bg-white text-emerald-700 py-4 rounded-2xl font-black text-xs uppercase shadow-lg flex items-center justify-center gap-2 hover:bg-emerald-50 transition-colors">
+              <button onClick={() => { setPaymentUrl(null); setDirectDeposit(null); setDepositInitError(""); setIsDepositModalOpen(true); }} className="flex-1 bg-white text-emerald-700 py-4 rounded-2xl font-black text-xs uppercase shadow-lg flex items-center justify-center gap-2 hover:bg-emerald-50 transition-colors">
                 <CreditCard size={16} /> {t("dashboard.fund")}
-            </button>
-            <button onClick={() => { setIsWithdrawModalOpen(true); }} className="flex-1 bg-emerald-700/70 border border-emerald-300/40 text-white py-4 rounded-2xl font-black text-xs uppercase hover:bg-emerald-800/80 transition-colors">
+              </button>
+              <button onClick={() => { setIsWithdrawModalOpen(true); }} className="flex-1 bg-emerald-700/70 border border-emerald-300/40 text-white py-4 rounded-2xl font-black text-xs uppercase hover:bg-emerald-800/80 transition-colors">
                 {t("dashboard.withdraw")}
-            </button>
+              </button>
             </div>
             <button
               onClick={() => setIsTransferModalOpen(true)}
@@ -1802,400 +1829,400 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
             >
               Send To Swifna User
             </button>
-        </div>
-      </section>
+          </div>
+        </section>
 
-      {/* ADMIN PANEL BUTTON - Only visible to Admins */}
-      {(user.roles?.includes('admin') || user.role === 'admin') && (
-          <button 
+        {/* ADMIN PANEL BUTTON - Only visible to Admins */}
+        {(user.roles?.includes('admin') || user.role === 'admin') && (
+          <button
             onClick={() => setView("Admin")}
             className="w-full bg-emerald-600 dark:bg-slate-900 text-white p-5 rounded-[25px] flex items-center justify-between shadow-xl shadow-slate-200 hover:shadow-2xl transition-all active:scale-[0.98] mb-6 border border-emerald-700 dark:border-slate-800"
           >
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-emerald-700/70 dark:bg-slate-800 rounded-2xl border border-emerald-400/30 dark:border-slate-700">
-                    <ShieldCheck size={24} className="text-white"/>
-                </div>
-                <div className="text-left">
-                    <h3 className="font-black text-lg text-white">Admin Panel</h3>
-                    <p className="text-xs font-bold text-white/80 uppercase tracking-wider">Manage Withdrawals</p>
-                </div>
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-emerald-700/70 dark:bg-slate-800 rounded-2xl border border-emerald-400/30 dark:border-slate-700">
+                <ShieldCheck size={24} className="text-white" />
               </div>
-              <div className="bg-emerald-700/70 dark:bg-slate-800 p-2 rounded-full">
-                <ArrowRight size={20} className="text-white"/>
+              <div className="text-left">
+                <h3 className="font-black text-lg text-white">Admin Panel</h3>
+                <p className="text-xs font-bold text-white/80 uppercase tracking-wider">Manage Withdrawals</p>
               </div>
+            </div>
+            <div className="bg-emerald-700/70 dark:bg-slate-800 p-2 rounded-full">
+              <ArrowRight size={20} className="text-white" />
+            </div>
           </button>
-      )}
+        )}
 
-      {/* SERVICE GRID */}
-      <div className="grid grid-cols-3 gap-2 bg-slate-100 dark:bg-slate-800 p-2 rounded-2xl">
-        {[
-          { id: "Airtime", labelKey: "dashboard.airtime", icon: <Smartphone size={18} /> },
-          { id: "Data", labelKey: "dashboard.data", icon: <Zap size={18} /> },
-          { id: "Cable", labelKey: "dashboard.cable", icon: <Tv size={18} /> },
-          { 
-            id: "Electricity", 
-            labelKey: "dashboard.electricity",
-            icon: <div className="relative"><Building2 size={18} /><Zap size={10} className="absolute -top-2 -right-1 text-yellow-500 fill-yellow-500" strokeWidth={3}/></div>
-          },
-          { id: "Exam", labelKey: "dashboard.exam", icon: <GraduationCap size={18} /> },
-          { id: "RechargePin", labelKey: "dashboard.recharge_pin", icon: <Printer size={18} /> },
-        ].map((s) => (
-          <button
-            key={s.id}
-            onClick={() => setView(s.id as ViewState)}
-            className="flex flex-col items-center py-4 rounded-xl text-slate-400 hover:bg-white hover:text-emerald-600 hover:shadow-sm transition-all"
-          >
-            {s.icon} <span className="text-[9px] font-black uppercase mt-1">{t(s.labelKey)}</span>
-          </button>
-        ))}
-      </div>
-
-      <button onClick={() => setView("AirtimeToCash")} className="w-full p-5 rounded-[25px] flex items-center justify-between border-2 border-slate-100 bg-white hover:border-emerald-100 transition-colors group">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-orange-100 text-orange-600 rounded-xl group-hover:bg-orange-200 transition-colors"><ArrowLeftRight size={22} /></div>
-          <div className="text-left">
-            <h3 className="font-black text-sm uppercase text-slate-800">{t("dashboard.airtime_to_cash")}</h3>
-            <p className="text-[10px] text-slate-400 font-bold">{t("dashboard.swap_airtime_for_cash")}</p>
-          </div>
-        </div>
-        <ArrowRight size={20} className="text-slate-300 group-hover:text-emerald-500 transition-colors" />
-      </button>
-
-      {/* HISTORY */}
-      <div className="pt-2">
-        <h3 className="font-black text-[10px] uppercase text-slate-400 tracking-widest mb-3 ml-2">{t("dashboard.recent_activity")}</h3>
-        <div className="space-y-2">
-          {history.length === 0 && <p className="text-center text-xs text-slate-300 py-4">{t("common.no_recent_activity")}</p>}
-          
-          {history.map((tx) => (
-            <button 
-                key={tx.id} 
-                onClick={() => setSelectedTx(tx)}
-                className="w-full bg-white p-4 rounded-2xl flex items-center justify-between shadow-sm hover:shadow-md border border-transparent hover:border-emerald-100 transition-all active:scale-[0.98]"
+        {/* SERVICE GRID */}
+        <div className="grid grid-cols-3 gap-2 bg-slate-100 dark:bg-slate-800 p-2 rounded-2xl">
+          {[
+            { id: "Airtime", labelKey: "dashboard.airtime", icon: <Smartphone size={18} /> },
+            { id: "Data", labelKey: "dashboard.data", icon: <Zap size={18} /> },
+            { id: "Cable", labelKey: "dashboard.cable", icon: <Tv size={18} /> },
+            {
+              id: "Electricity",
+              labelKey: "dashboard.electricity",
+              icon: <div className="relative"><Building2 size={18} /><Zap size={10} className="absolute -top-2 -right-1 text-yellow-500 fill-yellow-500" strokeWidth={3} /></div>
+            },
+            { id: "Exam", labelKey: "dashboard.exam", icon: <GraduationCap size={18} /> },
+            { id: "RechargePin", labelKey: "dashboard.recharge_pin", icon: <Printer size={18} /> },
+          ].map((s) => (
+            <button
+              key={s.id}
+              onClick={() => setView(s.id as ViewState)}
+              className="flex flex-col items-center py-4 rounded-xl text-slate-400 hover:bg-white hover:text-emerald-600 hover:shadow-sm transition-all"
             >
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${tx.type === "deposit" ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-600"}`}>
-                   {getLogoOrIcon(tx)}
-                </div>
-                <div className="text-left">
-                  <p className="font-bold text-xs text-slate-800 uppercase">{tx.type}</p>
-                  <p className="text-[10px] text-slate-400 font-bold">
-                    {new Date(tx.created_at).toLocaleDateString()}
-                  </p>
-                </div>
-              </div>
-              <div className="text-right">
-                <span className={`font-black text-sm block ${tx.type === "deposit" ? "text-emerald-600" : "text-slate-800"}`}>
-                    {tx.type === "deposit" ? "+" : "-"}₦{tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-                <span className={`text-[9px] font-black uppercase ${tx.status === 'success' ? 'text-emerald-500' : 'text-rose-500'}`}>
-                   {tx.status}
-                </span>
-              </div>
+              {s.icon} <span className="text-[9px] font-black uppercase mt-1">{t(s.labelKey)}</span>
             </button>
           ))}
         </div>
-      </div>
 
-      {/* RENDER RECEIPT MODAL */}
-      {selectedTx && (
-        <ReceiptView
-          tx={selectedTx}
-          onClose={() => setSelectedTx(null)}
-          onRequeryDeposit={(ref) => verifyDeposit(ref)}
-        />
-      )}
+        <button onClick={() => setView("AirtimeToCash")} className="w-full p-5 rounded-[25px] flex items-center justify-between border-2 border-slate-100 bg-white hover:border-emerald-100 transition-colors group">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-orange-100 text-orange-600 rounded-xl group-hover:bg-orange-200 transition-colors"><ArrowLeftRight size={22} /></div>
+            <div className="text-left">
+              <h3 className="font-black text-sm uppercase text-slate-800">{t("dashboard.airtime_to_cash")}</h3>
+              <p className="text-[10px] text-slate-400 font-bold">{t("dashboard.swap_airtime_for_cash")}</p>
+            </div>
+          </div>
+          <ArrowRight size={20} className="text-slate-300 group-hover:text-emerald-500 transition-colors" />
+        </button>
 
-      {/* DEPOSIT MODAL */}
-      {isDepositModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-in fade-in">
-          <div className="bg-white w-full max-w-sm rounded-[35px] p-8 shadow-2xl relative">
-            <button
-              aria-label="Close fund wallet"
-              onClick={() => {
-                setIsDepositModalOpen(false);
-                setPaymentUrl(null);
-                setDirectDeposit(null);
-                setDepositInitError("");
-                setDepositAmount("");
-              }}
-              className="absolute top-6 right-6 p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"
-            >
-              <X size={16} />
-            </button>
-            <h3 className="text-xl font-black text-center mb-6 text-slate-800">{t("dashboard.fund_wallet")}</h3>
+        {/* HISTORY */}
+        <div className="pt-2">
+          <h3 className="font-black text-[10px] uppercase text-slate-400 tracking-widest mb-3 ml-2">{t("dashboard.recent_activity")}</h3>
+          <div className="space-y-2">
+            {history.length === 0 && <p className="text-center text-xs text-slate-300 py-4">{t("common.no_recent_activity")}</p>}
 
-            {paymentUrl || directDeposit ? (
-              <div className="text-center space-y-6 animate-in slide-in-from-bottom-4">
-                <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto text-emerald-600 mb-2">
-                  <CheckCircle2 size={32} />
-                </div>
-                <div>
-                  <h4 className="font-black text-slate-800 text-lg">{directDeposit ? "Transfer Account Ready!" : "Order Created!"}</h4>
-                  <p className="text-xs text-slate-500 font-bold mt-1">
-                    {directDeposit ? "Transfer exactly this amount to complete funding." : "Ready to complete payment."}
-                  </p>
-                </div>
-                {directDeposit ? (
-                  <div className="space-y-3 text-left bg-slate-50 rounded-2xl p-4 border border-slate-200">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-bold text-slate-500">Bank</span>
-                      <span className="text-xs font-black text-slate-800">{directDeposit.bankName || "Squad Transfer"}</span>
-                    </div>
-                    <div className="flex justify-between items-center gap-3">
-                      <span className="text-xs font-bold text-slate-500">Account Number</span>
-                      <button
-                        aria-label="Copy account number"
-                        onClick={async () => {
-                          await navigator.clipboard.writeText(directDeposit.accountNumber);
-                          showToast("Account number copied", "success");
-                        }}
-                        className="text-xs font-black text-emerald-700 flex items-center gap-1"
-                      >
-                        {directDeposit.accountNumber} <Copy size={12} />
-                      </button>
-                    </div>
-                    {!!directDeposit.accountName && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs font-bold text-slate-500">Account Name</span>
-                        <span className="text-xs font-black text-slate-800">{directDeposit.accountName}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-bold text-slate-500">Amount to Transfer</span>
-                      <span className="text-xs font-black text-slate-800">
-                        ₦{Number(directDeposit.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                    {!!directDeposit.expiresAt && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs font-bold text-slate-500">Expires</span>
-                        <span className="text-xs font-black text-slate-700">{new Date(directDeposit.expiresAt).toLocaleString()}</span>
-                      </div>
-                    )}
+            {history.map((tx) => (
+              <button
+                key={tx.id}
+                onClick={() => setSelectedTx(tx)}
+                className="w-full bg-white p-4 rounded-2xl flex items-center justify-between shadow-sm hover:shadow-md border border-transparent hover:border-emerald-100 transition-all active:scale-[0.98]"
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${tx.type === "deposit" ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-600"}`}>
+                    {getLogoOrIcon(tx)}
                   </div>
-                ) : (
-                  <a
-                    href={paymentUrl || "#"}
-                    className="block w-full bg-emerald-600 text-white py-4 rounded-2xl font-black uppercase shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-transform active:scale-95"
-                  >
-                    Proceed to Checkout
-                  </a>
-                )}
-                {directDeposit && (
-                  <button
-                    onClick={() => verifyDeposit(directDeposit.reference || currentTxRef)}
-                    disabled={isVerifyingDeposit}
-                    className="w-full border border-emerald-300 text-emerald-700 py-3 rounded-xl font-bold hover:bg-emerald-50 disabled:opacity-60"
-                  >
-                    {isVerifyingDeposit ? "Checking Payment..." : "I Have Paid, Check Now"}
-                  </button>
-                )}
-                <button
-                  onClick={() => {
-                    setPaymentUrl(null);
-                    setDirectDeposit(null);
-                    setDepositInitError("");
-                    localStorage.removeItem("pending_deposit_ref");
-                  }}
-                  className="text-xs font-bold text-slate-400 hover:text-slate-600"
-                >
-                  Cancel Transaction
-                </button>
-              </div>
-            ) : (
-              <>
-            {/* Payment Method Selector */}
-            <div className="grid grid-cols-2 gap-2 mb-4">
-                {[
-                    { id: "BankCard", label: "Card/USSD", sublabel: "1.2%, cap ₦1,500", icon: <CreditCard size={18}/> },
-                    { id: "BankTransfer", label: "Virtual Account", sublabel: "0.25%, cap ₦1,000", icon: <Building2 size={18}/> },
-                    { id: "BankUssd", label: "USSD", sublabel: "1.2%, cap ₦1,500", icon: <Smartphone size={18}/> },
-                    { id: "PiNetwork", label: "Pi Network", sublabel: "No fee • Crypto", icon: (
-                      <span className="text-lg font-black leading-none">π</span>
-                    )},
-                ].map((m) => (
+                  <div className="text-left">
+                    <p className="font-bold text-xs text-slate-800 uppercase">{tx.type}</p>
+                    <p className="text-[10px] text-slate-400 font-bold">
+                      {new Date(tx.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className={`font-black text-sm block ${tx.type === "deposit" ? "text-emerald-600" : "text-slate-800"}`}>
+                    {tx.type === "deposit" ? "+" : "-"}₦{tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                  <span className={`text-[9px] font-black uppercase ${tx.status === 'success' ? 'text-emerald-500' : 'text-rose-500'}`}>
+                    {tx.status}
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* RENDER RECEIPT MODAL */}
+        {selectedTx && (
+          <ReceiptView
+            tx={selectedTx}
+            onClose={() => setSelectedTx(null)}
+            onRequeryDeposit={(ref) => verifyDeposit(ref)}
+          />
+        )}
+
+        {/* DEPOSIT MODAL */}
+        {isDepositModalOpen && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-in fade-in">
+            <div className="bg-white w-full max-w-sm rounded-[35px] p-8 shadow-2xl relative">
+              <button
+                aria-label="Close fund wallet"
+                onClick={() => {
+                  setIsDepositModalOpen(false);
+                  setPaymentUrl(null);
+                  setDirectDeposit(null);
+                  setDepositInitError("");
+                  setDepositAmount("");
+                }}
+                className="absolute top-6 right-6 p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"
+              >
+                <X size={16} />
+              </button>
+              <h3 className="text-xl font-black text-center mb-6 text-slate-800">{t("dashboard.fund_wallet")}</h3>
+
+              {paymentUrl || directDeposit ? (
+                <div className="text-center space-y-6 animate-in slide-in-from-bottom-4">
+                  <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto text-emerald-600 mb-2">
+                    <CheckCircle2 size={32} />
+                  </div>
+                  <div>
+                    <h4 className="font-black text-slate-800 text-lg">{directDeposit ? "Transfer Account Ready!" : "Order Created!"}</h4>
+                    <p className="text-xs text-slate-500 font-bold mt-1">
+                      {directDeposit ? "Transfer exactly this amount to complete funding." : "Ready to complete payment."}
+                    </p>
+                  </div>
+                  {directDeposit ? (
+                    <div className="space-y-3 text-left bg-slate-50 rounded-2xl p-4 border border-slate-200">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-bold text-slate-500">Bank</span>
+                        <span className="text-xs font-black text-slate-800">{directDeposit.bankName || "Squad Transfer"}</span>
+                      </div>
+                      <div className="flex justify-between items-center gap-3">
+                        <span className="text-xs font-bold text-slate-500">Account Number</span>
+                        <button
+                          aria-label="Copy account number"
+                          onClick={async () => {
+                            await navigator.clipboard.writeText(directDeposit.accountNumber);
+                            showToast("Account number copied", "success");
+                          }}
+                          className="text-xs font-black text-emerald-700 flex items-center gap-1"
+                        >
+                          {directDeposit.accountNumber} <Copy size={12} />
+                        </button>
+                      </div>
+                      {!!directDeposit.accountName && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs font-bold text-slate-500">Account Name</span>
+                          <span className="text-xs font-black text-slate-800">{directDeposit.accountName}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-bold text-slate-500">Amount to Transfer</span>
+                        <span className="text-xs font-black text-slate-800">
+                          ₦{Number(directDeposit.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                      {!!directDeposit.expiresAt && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs font-bold text-slate-500">Expires</span>
+                          <span className="text-xs font-black text-slate-700">{new Date(directDeposit.expiresAt).toLocaleString()}</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <a
+                      href={paymentUrl || "#"}
+                      className="block w-full bg-emerald-600 text-white py-4 rounded-2xl font-black uppercase shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-transform active:scale-95"
+                    >
+                      Proceed to Checkout
+                    </a>
+                  )}
+                  {directDeposit && (
                     <button
+                      onClick={() => verifyDeposit(directDeposit.reference || currentTxRef)}
+                      disabled={isVerifyingDeposit}
+                      className="w-full border border-emerald-300 text-emerald-700 py-3 rounded-xl font-bold hover:bg-emerald-50 disabled:opacity-60"
+                    >
+                      {isVerifyingDeposit ? "Checking Payment..." : "I Have Paid, Check Now"}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      setPaymentUrl(null);
+                      setDirectDeposit(null);
+                      setDepositInitError("");
+                      localStorage.removeItem("pending_deposit_ref");
+                    }}
+                    className="text-xs font-bold text-slate-400 hover:text-slate-600"
+                  >
+                    Cancel Transaction
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {/* Payment Method Selector */}
+                  <div className="grid grid-cols-2 gap-2 mb-4">
+                    {[
+                      { id: "BankCard", label: "Card/USSD", sublabel: "1.2%, cap ₦1,500", icon: <CreditCard size={18} /> },
+                      { id: "BankTransfer", label: "Virtual Account", sublabel: "0.25%, cap ₦1,000", icon: <Building2 size={18} /> },
+                      { id: "BankUssd", label: "USSD", sublabel: "1.2%, cap ₦1,500", icon: <Smartphone size={18} /> },
+                      {
+                        id: "PiNetwork", label: "Pi Network", sublabel: "No fee • Crypto", icon: (
+                          <span className="text-lg font-black leading-none">π</span>
+                        )
+                      },
+                    ].map((m) => (
+                      <button
                         key={m.id}
                         onClick={() => setDepositMethod(m.id)}
-                        className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all gap-1 ${
-                            depositMethod === m.id 
-                            ? "bg-emerald-50 border-emerald-500 text-emerald-700 font-bold shadow-sm" 
-                            : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
-                        }`}
-                    >
+                        className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all gap-1 ${depositMethod === m.id
+                          ? "bg-emerald-50 border-emerald-500 text-emerald-700 font-bold shadow-sm"
+                          : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
+                          }`}
+                      >
                         {m.icon}
                         <span className="text-[11px] font-bold text-center leading-tight">{m.label}</span>
                         <span className="text-[9px] text-center opacity-70 leading-tight">{m.sublabel}</span>
-                    </button>
-                ))}
-            </div>
-
-            {/* Quick amount buttons — hide for Pi (amounts are in NGN which still applies) */}
-            <div className="flex gap-2 mb-4 overflow-x-auto pb-2 custom-scrollbar">
-                  {[100, 500, 1000, 2000, 5000].map(amt => (
-                      <button key={amt} onClick={() => setDepositAmount(amt.toString())} className="px-4 py-2 bg-slate-100 hover:bg-emerald-100 hover:text-emerald-700 rounded-xl text-xs font-bold text-slate-600 transition-colors whitespace-nowrap">₦{Number(amt).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</button>
-                  ))}
-            </div>
-            
-            <input type="number" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl font-black mb-4 outline-none border border-slate-200 focus:border-emerald-500 transition-colors text-slate-800" placeholder={depositMethod === "PiNetwork" ? "Enter NGN amount to fund" : t("common.amount")} />
-
-            {/* Pi Network live rate info */}
-            {depositMethod === "PiNetwork" && (
-              <div className="mb-4 rounded-2xl border border-purple-200 bg-purple-50 p-4 space-y-2">
-                <div className="flex items-center gap-2 text-purple-700 mb-1">
-                  <span className="text-base font-black">π</span>
-                  <span className="text-[11px] font-black uppercase tracking-wide">Pi Network Payment</span>
-                </div>
-                {isFetchingPiRate ? (
-                  <div className="flex items-center gap-2 text-purple-500 text-xs">
-                    <Loader2 size={14} className="animate-spin" />
-                    <span>Fetching live rate...</span>
-                  </div>
-                ) : livePiQuote ? (
-                  <>
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-purple-600 font-bold">Live Rate</span>
-                      <span className="font-black text-purple-800">1 π ≈ ₦{livePiQuote.rate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-purple-600 font-bold">You will pay</span>
-                      <span className="font-black text-purple-900 text-base">π {livePiQuote.piAmount.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-purple-600 font-bold">Processing Fee</span>
-                      <span className="font-black text-green-600">Free ✓</span>
-                    </div>
-                    <p className="text-[9px] text-purple-400 mt-1">Rate includes a small buffer to protect against market swings. Final amount confirmed at checkout.</p>
-                  </>
-                ) : depositAmountNum > 0 ? (
-                  <p className="text-xs text-purple-400">Unable to fetch rate. Check your connection.</p>
-                ) : (
-                  <p className="text-xs text-purple-400">Enter an NGN amount above to see the Pi equivalent.</p>
-                )}
-              </div>
-            )}
-
-            {/* NGN fee/total — only shown for non-Pi methods */}
-            {depositMethod !== "PiNetwork" && (
-              <>
-                <div className="bg-slate-50 p-3 rounded-xl mb-4 text-xs text-slate-600 flex justify-between items-center border border-slate-100">
-                    <span>Processing Fee:</span>
-                    <span className="font-bold">₦{Number(currentDepositFee).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                </div>
-                <div className="flex justify-between items-center mb-4 text-sm font-bold text-slate-800 px-1">
-                    <span>Total Payable:</span>
-                    <span>₦{Number(depositAmountNum + currentDepositFee).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                </div>
-              </>
-            )}
-
-            <button
-                onClick={handleStartDeposit}
-                disabled={isStartingDeposit || (depositMethod === "PiNetwork" && (!livePiQuote || isFetchingPiRate))}
-                className={`w-full py-3 rounded-xl font-bold shadow-lg transition flex justify-center items-center gap-2 disabled:opacity-70 ${
-                  depositMethod === "PiNetwork"
-                    ? "bg-purple-600 hover:bg-purple-700 text-white shadow-purple-600/20"
-                    : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20"
-                }`}
-            >
-                {isStartingDeposit ? (
-                  <Loader2 className="animate-spin" />
-                ) : depositMethod === "PiNetwork" ? (
-                  livePiQuote
-                    ? `Pay π ${livePiQuote.piAmount.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`
-                    : "Select amount to continue"
-                ) : (
-                  `Pay ₦${Number(depositAmountNum + currentDepositFee).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                )}
-            </button>
-            {!!depositInitError && (
-              <p className="mt-3 text-[11px] font-bold text-rose-600 break-all">{depositInitError}</p>
-            )}
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* WITHDRAW MODAL */}
-      {isWithdrawModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-in fade-in">
-          <div className="bg-white w-full max-w-sm rounded-[35px] p-8 shadow-2xl relative">
-            <button aria-label="Close withdrawal" onClick={() => setIsWithdrawModalOpen(false)} className="absolute top-6 right-6 p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"><X size={16} /></button>
-            <h3 className="text-xl font-black text-center mb-6 text-slate-800">{t("dashboard.withdraw")}</h3>
-
-            <label className="block text-xs font-bold text-slate-500 mb-1">Bank</label>
-            <div className="mb-4">
-                <select 
-                    className="w-full p-2.5 border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-emerald-500 outline-none text-slate-800 text-sm" 
-                    value={bankCode} 
-                    onChange={(e) => { 
-                        setBankCode(e.target.value); 
-                        if(accountNumber.length === 10) resolveAccount(accountNumber, e.target.value);
-                    }}
-                >
-                    {BANKS.map((b) => (
-                        <option key={b.code} value={b.code}>{b.name}</option>
-                    ))}
-                </select>
-            </div>
-
-            <div className="mb-4">
-              <p className="text-[10px] font-black uppercase text-slate-400 mb-2">Saved Beneficiaries</p>
-              {recentWithdraws.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {recentWithdraws.map((b) => {
-                    const bankLabel = BANKS.find((bank) => bank.code === b.bank_code)?.name || "Unknown Bank";
-                    return (
-                      <button
-                        key={b.beneficiary_key}
-                        onClick={() => {
-                          if (b.bank_code) setBankCode(b.bank_code);
-                          if (b.account_number) setAccountNumber(b.account_number);
-                          if (b.account_name) setAccountName(b.account_name);
-                          if (b.account_number && b.bank_code) resolveAccount(b.account_number, b.bank_code);
-                        }}
-                        className="px-3 py-2 rounded-2xl text-left border border-slate-700 text-slate-300 hover:text-white hover:border-emerald-500 transition-colors w-full sm:w-auto"
-                      >
-                        <span className="block text-[10px] font-black uppercase text-slate-400">{bankLabel}</span>
-                        <span className="block text-xs font-bold text-white">{b.account_name || "Beneficiary"}</span>
-                        <span className="block text-[10px] text-slate-400">{b.account_number || "---"}</span>
                       </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="text-[10px] text-slate-500">No saved beneficiaries yet.</p>
+                    ))}
+                  </div>
+
+                  {/* Quick amount buttons — hide for Pi (amounts are in NGN which still applies) */}
+                  <div className="flex gap-2 mb-4 overflow-x-auto pb-2 custom-scrollbar">
+                    {[100, 500, 1000, 2000, 5000].map(amt => (
+                      <button key={amt} onClick={() => setDepositAmount(amt.toString())} className="px-4 py-2 bg-slate-100 hover:bg-emerald-100 hover:text-emerald-700 rounded-xl text-xs font-bold text-slate-600 transition-colors whitespace-nowrap">₦{Number(amt).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</button>
+                    ))}
+                  </div>
+
+                  <input type="number" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl font-black mb-4 outline-none border border-slate-200 focus:border-emerald-500 transition-colors text-slate-800" placeholder={depositMethod === "PiNetwork" ? "Enter NGN amount to fund" : t("common.amount")} />
+
+                  {/* Pi Network live rate info */}
+                  {depositMethod === "PiNetwork" && (
+                    <div className="mb-4 rounded-2xl border border-purple-200 bg-purple-50 p-4 space-y-2">
+                      <div className="flex items-center gap-2 text-purple-700 mb-1">
+                        <span className="text-base font-black">π</span>
+                        <span className="text-[11px] font-black uppercase tracking-wide">Pi Network Payment</span>
+                      </div>
+                      {isFetchingPiRate ? (
+                        <div className="flex items-center gap-2 text-purple-500 text-xs">
+                          <Loader2 size={14} className="animate-spin" />
+                          <span>Fetching live rate...</span>
+                        </div>
+                      ) : livePiQuote ? (
+                        <>
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-purple-600 font-bold">Live Rate</span>
+                            <span className="font-black text-purple-800">1 π ≈ ₦{livePiQuote.rate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-purple-600 font-bold">You will pay</span>
+                            <span className="font-black text-purple-900 text-base">π {livePiQuote.piAmount.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-purple-600 font-bold">Processing Fee</span>
+                            <span className="font-black text-green-600">Free ✓</span>
+                          </div>
+                          <p className="text-[9px] text-purple-400 mt-1">Rate includes a small buffer to protect against market swings. Final amount confirmed at checkout.</p>
+                        </>
+                      ) : depositAmountNum > 0 ? (
+                        <p className="text-xs text-purple-400">Unable to fetch rate. Check your connection.</p>
+                      ) : (
+                        <p className="text-xs text-purple-400">Enter an NGN amount above to see the Pi equivalent.</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* NGN fee/total — only shown for non-Pi methods */}
+                  {depositMethod !== "PiNetwork" && (
+                    <>
+                      <div className="bg-slate-50 p-3 rounded-xl mb-4 text-xs text-slate-600 flex justify-between items-center border border-slate-100">
+                        <span>Processing Fee:</span>
+                        <span className="font-bold">₦{Number(currentDepositFee).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="flex justify-between items-center mb-4 text-sm font-bold text-slate-800 px-1">
+                        <span>Total Payable:</span>
+                        <span>₦{Number(depositAmountNum + currentDepositFee).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                    </>
+                  )}
+
+                  <button
+                    onClick={handleStartDeposit}
+                    disabled={isStartingDeposit || (depositMethod === "PiNetwork" && (!livePiQuote || isFetchingPiRate))}
+                    className={`w-full py-3 rounded-xl font-bold shadow-lg transition flex justify-center items-center gap-2 disabled:opacity-70 ${depositMethod === "PiNetwork"
+                      ? "bg-purple-600 hover:bg-purple-700 text-white shadow-purple-600/20"
+                      : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20"
+                      }`}
+                  >
+                    {isStartingDeposit ? (
+                      <Loader2 className="animate-spin" />
+                    ) : depositMethod === "PiNetwork" ? (
+                      livePiQuote
+                        ? `Pay π ${livePiQuote.piAmount.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`
+                        : "Select amount to continue"
+                    ) : (
+                      `Pay ₦${Number(depositAmountNum + currentDepositFee).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                    )}
+                  </button>
+                  {!!depositInitError && (
+                    <p className="mt-3 text-[11px] font-bold text-rose-600 break-all">{depositInitError}</p>
+                  )}
+                </>
               )}
             </div>
+          </div>
+        )}
 
-            <label className="block text-xs font-bold text-slate-500 mb-1">Account Number</label>
-            <div className="mb-2">
-                <input 
-                    type="text" 
-                    maxLength={10} 
-                    className="w-full p-2.5 border rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none" 
-                    placeholder="0123456789" 
-                    value={accountNumber} 
-                    onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g,''); 
-                        setAccountNumber(val);
-                        if(val.length === 10 && bankCode) resolveAccount(val, bankCode);
-                    }} 
+        {/* WITHDRAW MODAL */}
+        {isWithdrawModalOpen && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-in fade-in">
+            <div className="bg-white w-full max-w-sm rounded-[35px] p-8 shadow-2xl relative">
+              <button aria-label="Close withdrawal" onClick={() => setIsWithdrawModalOpen(false)} className="absolute top-6 right-6 p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"><X size={16} /></button>
+              <h3 className="text-xl font-black text-center mb-6 text-slate-800">{t("dashboard.withdraw")}</h3>
+
+              <label className="block text-xs font-bold text-slate-500 mb-1">Bank</label>
+              <div className="mb-4">
+                <select
+                  className="w-full p-2.5 border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-emerald-500 outline-none text-slate-800 text-sm"
+                  value={bankCode}
+                  onChange={(e) => {
+                    setBankCode(e.target.value);
+                    if (accountNumber.length === 10) resolveAccount(accountNumber, e.target.value);
+                  }}
+                >
+                  {BANKS.map((b) => (
+                    <option key={b.code} value={b.code}>{b.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="mb-4">
+                <p className="text-[10px] font-black uppercase text-slate-400 mb-2">Saved Beneficiaries</p>
+                {recentWithdraws.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {recentWithdraws.map((b) => {
+                      const bankLabel = BANKS.find((bank) => bank.code === b.bank_code)?.name || "Unknown Bank";
+                      return (
+                        <button
+                          key={b.beneficiary_key}
+                          onClick={() => {
+                            if (b.bank_code) setBankCode(b.bank_code);
+                            if (b.account_number) setAccountNumber(b.account_number);
+                            if (b.account_name) setAccountName(b.account_name);
+                            if (b.account_number && b.bank_code) resolveAccount(b.account_number, b.bank_code);
+                          }}
+                          className="px-3 py-2 rounded-2xl text-left border border-slate-700 text-slate-300 hover:text-white hover:border-emerald-500 transition-colors w-full sm:w-auto"
+                        >
+                          <span className="block text-[10px] font-black uppercase text-slate-400">{bankLabel}</span>
+                          <span className="block text-xs font-bold text-white">{b.account_name || "Beneficiary"}</span>
+                          <span className="block text-[10px] text-slate-400">{b.account_number || "---"}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-slate-500">No saved beneficiaries yet.</p>
+                )}
+              </div>
+
+              <label className="block text-xs font-bold text-slate-500 mb-1">Account Number</label>
+              <div className="mb-2">
+                <input
+                  type="text"
+                  maxLength={10}
+                  className="w-full p-2.5 border rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+                  placeholder="0123456789"
+                  value={accountNumber}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '');
+                    setAccountNumber(val);
+                    if (val.length === 10 && bankCode) resolveAccount(val, bankCode);
+                  }}
                 />
-            </div>
+              </div>
 
-            <div className="mt-2 mb-4">
+              <div className="mt-2 mb-4">
                 <label className="block text-xs font-bold text-slate-500 mb-1">Account Name</label>
                 <div className={`w-full p-2.5 border rounded-xl bg-slate-50 min-h-[42px] flex items-center ${isResolving ? 'text-slate-400' : 'text-slate-800'}`}>
-                    {isResolving ? (
-                        <span className="flex items-center gap-2"><Loader2 size={14} className="animate-spin"/> Verifying...</span>
-                    ) : (
-                        <span className={accountName === "INVALID ACCOUNT" || accountName === "SYSTEM ERROR" ? "text-red-500 font-bold" : "font-bold text-green-700"}>
-                            {accountName || "---"}
-                        </span>
-                    )}
+                  {isResolving ? (
+                    <span className="flex items-center gap-2"><Loader2 size={14} className="animate-spin" /> Verifying...</span>
+                  ) : (
+                    <span className={accountName === "INVALID ACCOUNT" || accountName === "SYSTEM ERROR" ? "text-red-500 font-bold" : "font-bold text-green-700"}>
+                      {accountName || "---"}
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center justify-between mt-2">
                   <label className="flex items-center gap-2 text-[10px] font-bold uppercase text-slate-500">
@@ -2215,154 +2242,154 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
                     Save now
                   </button>
                 </div>
-            </div>
+              </div>
 
-            <label className="text-[10px] font-black uppercase text-slate-400">Amount</label>
-            <input
-              type="number"
-              value={withdrawAmount}
-              onChange={(e) => setWithdrawAmount(e.target.value)}
-              className="w-full p-4 bg-slate-50 rounded-2xl font-black mb-4 outline-none border border-slate-200 focus:border-emerald-500 transition-colors text-slate-800"
-              placeholder="Amount"
-            />
-            
-            <div className="mb-3 bg-slate-50 p-2 rounded-lg border border-slate-100">
+              <label className="text-[10px] font-black uppercase text-slate-400">Amount</label>
+              <input
+                type="number"
+                value={withdrawAmount}
+                onChange={(e) => setWithdrawAmount(e.target.value)}
+                className="w-full p-4 bg-slate-50 rounded-2xl font-black mb-4 outline-none border border-slate-200 focus:border-emerald-500 transition-colors text-slate-800"
+                placeholder="Amount"
+              />
+
+              <div className="mb-3 bg-slate-50 p-2 rounded-lg border border-slate-100">
                 <div className="flex items-center gap-2 mb-1 text-slate-500">
-                    <AlertCircle size={12} />
-                    <span className="text-[10px] font-bold uppercase">Transfer Service Fee</span>
+                  <AlertCircle size={12} />
+                  <span className="text-[10px] font-bold uppercase">Transfer Service Fee</span>
                 </div>
                 <div className="text-[10px] text-slate-600 grid grid-cols-3 gap-1">
-                    <div className="bg-white px-2 py-1 rounded border border-slate-100 text-center">
-                        <span className="block text-slate-400">≤ 5k</span>
-                        <span className="font-bold">₦8</span>
-                    </div>
-                    <div className="bg-white px-2 py-1 rounded border border-slate-100 text-center">
-                        <span className="block text-slate-400">≤ 50k</span>
-                        <span className="font-bold">₦20</span>
-                    </div>
-                    <div className="bg-white px-2 py-1 rounded border border-slate-100 text-center">
-                        <span className="block text-slate-400">&gt; 50k</span>
-                        <span className="font-bold">₦40</span>
-                    </div>
+                  <div className="bg-white px-2 py-1 rounded border border-slate-100 text-center">
+                    <span className="block text-slate-400">≤ 5k</span>
+                    <span className="font-bold">₦8</span>
+                  </div>
+                  <div className="bg-white px-2 py-1 rounded border border-slate-100 text-center">
+                    <span className="block text-slate-400">≤ 50k</span>
+                    <span className="font-bold">₦20</span>
+                  </div>
+                  <div className="bg-white px-2 py-1 rounded border border-slate-100 text-center">
+                    <span className="block text-slate-400">&gt; 50k</span>
+                    <span className="font-bold">₦40</span>
+                  </div>
                 </div>
-            </div>
+              </div>
 
-            <div className="bg-slate-50 p-3 rounded-xl mb-4 text-xs text-slate-600 flex justify-between items-center border border-slate-100">
+              <div className="bg-slate-50 p-3 rounded-xl mb-4 text-xs text-slate-600 flex justify-between items-center border border-slate-100">
                 <span>Withdrawal Fee:</span>
                 <span className="font-bold">₦{Number(currentWithdrawFee).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-            </div>
-            <div className="flex justify-between items-center mb-4 text-sm font-bold text-slate-800 px-1">
+              </div>
+              <div className="flex justify-between items-center mb-4 text-sm font-bold text-slate-800 px-1">
                 <span>Total Deduction:</span>
                 <span>₦{Number(amountNum + currentWithdrawFee).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              </div>
+
+              <button
+                onClick={handleWithdraw}
+                disabled={isWithdrawing || isResolving || !accountName || accountName === "INVALID ACCOUNT" || accountName === "SYSTEM ERROR"}
+                className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black uppercase transition-colors shadow-lg shadow-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isWithdrawing ? "Processing..." : "Withdraw Funds"}
+              </button>
             </div>
-
-            <button
-              onClick={handleWithdraw}
-              disabled={isWithdrawing || isResolving || !accountName || accountName === "INVALID ACCOUNT" || accountName === "SYSTEM ERROR"}
-              className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black uppercase transition-colors shadow-lg shadow-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isWithdrawing ? "Processing..." : "Withdraw Funds"}
-            </button>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* SEND TO SWIFNA USER MODAL */}
-      {isTransferModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-in fade-in">
-          <div className="bg-white w-full max-w-sm rounded-[35px] p-8 shadow-2xl relative">
-            <button
-              aria-label="Close transfer"
-              onClick={() => setIsTransferModalOpen(false)}
-              className="absolute top-6 right-6 p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"
-            >
-              <X size={16} />
-            </button>
-            <h3 className="text-xl font-black text-center mb-6 text-slate-800">Send To Swifna User</h3>
+        {/* SEND TO SWIFNA USER MODAL */}
+        {isTransferModalOpen && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-in fade-in">
+            <div className="bg-white w-full max-w-sm rounded-[35px] p-8 shadow-2xl relative">
+              <button
+                aria-label="Close transfer"
+                onClick={() => setIsTransferModalOpen(false)}
+                className="absolute top-6 right-6 p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"
+              >
+                <X size={16} />
+              </button>
+              <h3 className="text-xl font-black text-center mb-6 text-slate-800">Send To Swifna User</h3>
 
-            <label className="block text-xs font-bold text-slate-500 mb-1">Recipient Email</label>
-            <input
-              type="email"
-              value={transferRecipientEmail}
-              onChange={(e) => setTransferRecipientEmail(e.target.value)}
-              className="w-full p-4 bg-slate-50 rounded-2xl font-bold mb-4 outline-none border border-slate-200 focus:border-emerald-500 transition-colors text-slate-800"
-              placeholder="user@email.com"
-            />
+              <label className="block text-xs font-bold text-slate-500 mb-1">Recipient Email</label>
+              <input
+                type="email"
+                value={transferRecipientEmail}
+                onChange={(e) => setTransferRecipientEmail(e.target.value)}
+                className="w-full p-4 bg-slate-50 rounded-2xl font-bold mb-4 outline-none border border-slate-200 focus:border-emerald-500 transition-colors text-slate-800"
+                placeholder="user@email.com"
+              />
 
-            <label className="block text-xs font-bold text-slate-500 mb-1">Amount</label>
-            <input
-              type="number"
-              value={transferAmount}
-              onChange={(e) => setTransferAmount(e.target.value)}
-              className="w-full p-4 bg-slate-50 rounded-2xl font-black mb-4 outline-none border border-slate-200 focus:border-emerald-500 transition-colors text-slate-800"
-              placeholder="Amount"
-            />
+              <label className="block text-xs font-bold text-slate-500 mb-1">Amount</label>
+              <input
+                type="number"
+                value={transferAmount}
+                onChange={(e) => setTransferAmount(e.target.value)}
+                className="w-full p-4 bg-slate-50 rounded-2xl font-black mb-4 outline-none border border-slate-200 focus:border-emerald-500 transition-colors text-slate-800"
+                placeholder="Amount"
+              />
 
-            <label className="block text-xs font-bold text-slate-500 mb-1">Note (optional)</label>
-            <input
-              type="text"
-              value={transferNote}
-              onChange={(e) => setTransferNote(e.target.value)}
-              className="w-full p-4 bg-slate-50 rounded-2xl font-bold mb-6 outline-none border border-slate-200 focus:border-emerald-500 transition-colors text-slate-800"
-              placeholder="What's this for?"
-              maxLength={120}
-            />
+              <label className="block text-xs font-bold text-slate-500 mb-1">Note (optional)</label>
+              <input
+                type="text"
+                value={transferNote}
+                onChange={(e) => setTransferNote(e.target.value)}
+                className="w-full p-4 bg-slate-50 rounded-2xl font-bold mb-6 outline-none border border-slate-200 focus:border-emerald-500 transition-colors text-slate-800"
+                placeholder="What's this for?"
+                maxLength={120}
+              />
 
-            <button
-              onClick={handleSendTransfer}
-              disabled={isSendingTransfer}
-              className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black uppercase transition-colors shadow-lg shadow-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSendingTransfer ? "Sending..." : "Send Money"}
-            </button>
+              <button
+                onClick={handleSendTransfer}
+                disabled={isSendingTransfer}
+                className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black uppercase transition-colors shadow-lg shadow-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSendingTransfer ? "Sending..." : "Send Money"}
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <ConfirmTransactionModal
-        open={confirmWithdrawOpen}
-        title="Confirm Transaction"
-        subtitle={accountName ? `FOR ${accountName}` : accountNumber ? `FOR ${accountNumber}` : undefined}
-        amountLabel="Total Pay"
-        amount={amountNum + currentWithdrawFee}
-        confirmLabel="Withdraw Now"
-        onConfirm={() => {
-          setConfirmWithdrawOpen(false);
-          requirePin(doWithdraw);
-        }}
-        onClose={() => setConfirmWithdrawOpen(false)}
-      />
-      <ConfirmTransactionModal
-        open={confirmTransferOpen}
-        title="Confirm Transfer"
-        subtitle={transferRecipientEmail ? `TO ${transferRecipientEmail.trim().toLowerCase()}` : undefined}
-        amountLabel="Amount"
-        amount={Number(transferAmount || 0)}
-        confirmLabel="Send Now"
-        onConfirm={() => {
-          setConfirmTransferOpen(false);
-          requirePin(doSendTransfer);
-        }}
-        onClose={() => setConfirmTransferOpen(false)}
-      />
-      <PinPrompt
-        open={pinOpen}
-        requiredLength={user?.pinLength || null}
-        onConfirm={handlePinConfirm}
-        onClose={() => setPinOpen(false)}
-        error={pinError}
-      />
+        <ConfirmTransactionModal
+          open={confirmWithdrawOpen}
+          title="Confirm Transaction"
+          subtitle={accountName ? `FOR ${accountName}` : accountNumber ? `FOR ${accountNumber}` : undefined}
+          amountLabel="Total Pay"
+          amount={amountNum + currentWithdrawFee}
+          confirmLabel="Withdraw Now"
+          onConfirm={() => {
+            setConfirmWithdrawOpen(false);
+            requirePin(doWithdraw);
+          }}
+          onClose={() => setConfirmWithdrawOpen(false)}
+        />
+        <ConfirmTransactionModal
+          open={confirmTransferOpen}
+          title="Confirm Transfer"
+          subtitle={transferRecipientEmail ? `TO ${transferRecipientEmail.trim().toLowerCase()}` : undefined}
+          amountLabel="Amount"
+          amount={Number(transferAmount || 0)}
+          confirmLabel="Send Now"
+          onConfirm={() => {
+            setConfirmTransferOpen(false);
+            requirePin(doSendTransfer);
+          }}
+          onClose={() => setConfirmTransferOpen(false)}
+        />
+        <PinPrompt
+          open={pinOpen}
+          requiredLength={user?.pinLength || null}
+          onConfirm={handlePinConfirm}
+          onClose={() => setPinOpen(false)}
+          error={pinError}
+        />
 
-      {/* ... rest of your dashboard code ... */}
+        {/* ... rest of your dashboard code ... */}
 
-      {/* INSTALL PWA MODAL */}
-      {showInstallPrompt && (
-        <InstallPwaModal onClose={() => setShowInstallPrompt(false)} />
-      )}
+        {/* INSTALL PWA MODAL */}
+        {showInstallPrompt && (
+          <InstallPwaModal onClose={() => setShowInstallPrompt(false)} />
+        )}
 
-      {/* End of Dashboard */}
-</div>
-  );
+        {/* End of Dashboard */}
+      </div>
+    );
   }
 
   return renderContent();
