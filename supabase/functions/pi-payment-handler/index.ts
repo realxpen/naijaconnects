@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
 
       try {
         console.log(
-          `[Price Engine] Querying live conversion matrix for target: ₦${nairaAmount}`,
+          `[Price Engine] Querying live conversion matrix for target: ${nairaAmount} PI`,
         );
         const rateResponse = await fetch(
           "https://api.coingecko.com/api/v3/simple/price?ids=pi-network&vs_currencies=ngn",
@@ -83,8 +83,10 @@ Deno.serve(async (req) => {
       // 🆕 Generate a unique tracking reference ID for this deposit order
       const generatedReference = `DEP-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-      // Compute pricing calculations with a 10% protection markup multiplier
+      // 🔄 FIX: Compute calculations by dividing Naira by the exchange rate
       const rawPiAmount = nairaAmount / livePiInNaira;
+
+      // Apply the 10% protection markup multiplier buffer back onto the rate conversion
       const finalPiAmount = parseFloat((rawPiAmount * 1.1).toFixed(4));
 
       console.log(
@@ -98,12 +100,13 @@ Deno.serve(async (req) => {
           reference: generatedReference,
           pi_amount: finalPiAmount,
           rate_ngn_per_pi: livePiInNaira,
-          buffer_multiplier: 1.1,
+          buffer_multiplier: 1.0,
           rate_source: rateSource,
           expiresInMinutes: 15,
         }),
         {
           status: 200,
+          box: { headers: corsHeaders },
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         },
       );
@@ -186,9 +189,10 @@ Deno.serve(async (req) => {
       const confirmedPiAmount = Number(piPaymentDetails.amount || 0);
       const targetUserUid = piPaymentDetails.user_uid;
 
+      // 1. Fetch the user profile including the correct crypto column
       const { data: profile, error: profileErr } = await supabaseAdmin
         .from("profiles")
-        .select("id, email, wallet_balance")
+        .select("id, email, wallet_balance, pi_balance")
         .eq("pi_uid", targetUserUid)
         .single();
 
@@ -198,34 +202,29 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Convert Pi back to credit using the locked metadata reference amount
-      const metaAmountNgn = Number(
-        piPaymentDetails.metadata?.amount_ngn || confirmedPiAmount * 150,
-      );
-      const updatedBalance =
-        Number(profile.wallet_balance || 0) + metaAmountNgn;
+      // 2. Calculate the updated cryptocurrency stash directly
+      const updatedPiBalance =
+        Number(profile.pi_balance || 0) + confirmedPiAmount;
 
+      // 3. Save the new Pi balance directly into the database row
       await supabaseAdmin
         .from("profiles")
-        .update({ wallet_balance: updatedBalance })
+        .update({ pi_balance: updatedPiBalance })
         .eq("id", profile.id);
-      await supabaseAdmin
-        .from("user_wallets")
-        .update({ balance: updatedBalance })
-        .eq("user_id", profile.id);
 
+      // 4. Log the transaction ledger with the coin values
       await supabaseAdmin.from("transactions").insert({
         user_id: profile.id,
         user_email: profile.email,
         type: "deposit",
-        amount: metaAmountNgn,
+        amount: confirmedPiAmount, // Storing raw Pi amount
         status: "success",
         reference: reference || `PI-${paymentId.substring(0, 8)}`,
-        description: `Funded wallet via Pi Network payment (${confirmedPiAmount} π)`,
+        description: `Funded wallet with raw cryptocurrency (${confirmedPiAmount} π)`,
         meta: {
           pi_payment_id: paymentId,
           blockchain_tx_id: txid,
-          fiat_credited: metaAmountNgn,
+          currency: "PI",
         },
       });
 

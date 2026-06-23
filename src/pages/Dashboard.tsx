@@ -125,8 +125,20 @@ const BANKS = [
 
 // --- INTERFACES ---
 interface DashboardProps {
-  user: { name: string; email: string; balance: number; phone?: string; id: string; role?: string; roles?: string[]; pinHash?: string | null; pinLength?: number | null };
+  user: {
+    name: string;
+    email: string;
+    balance: number;
+    piBalance?: number; // 🪙 Added Pi balance field
+    phone?: string;
+    id: string;
+    role?: string;
+    roles?: string[];
+    pinHash?: string | null;
+    pinLength?: number | null
+  };
   onUpdateBalance: (newBalance: number) => void;
+  onUpdatePiBalance?: (newPiBalance: number) => void; // 📤 Added global state function
   activeTab?: string;
   isGuest?: boolean;
   onRequireAuth?: () => void;
@@ -584,8 +596,7 @@ const ReceiptView = ({
 
 
 // --- MAIN DASHBOARD COMPONENT ---
-const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequireAuth, onViewChange }: DashboardProps) => {
-  const { t } = useI18n();
+const Dashboard = ({ user, onUpdateBalance, onUpdatePiBalance, activeTab, isGuest = false, onRequireAuth, onViewChange }: DashboardProps) => {
   const { showToast } = useToast();
   const { showSuccess } = useSuccessScreen();
   const [view, setView] = useState<ViewState>("Dashboard");
@@ -628,51 +639,46 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
   const [livePiQuote, setLivePiQuote] = useState<{ rate: number; piAmount: number } | null>(null);
   const [isFetchingPiRate, setIsFetchingPiRate] = useState(false);
 
+  // 🔄 FIXED: Global background currency fetcher for dashboard asset computations
   useEffect(() => {
-    if (depositMethod !== "PiNetwork") {
-      setLivePiQuote(null);
-      return;
-    }
-
-    const amountNum = Number(depositAmount);
-    if (!amountNum || amountNum <= 0 || isNaN(amountNum)) {
-      setLivePiQuote(null);
-      return;
-    }
-
     let active = true;
-    const fetchQuote = async () => {
-      setIsFetchingPiRate(true);
+
+    const fetchGlobalPiRate = async () => {
       try {
-        // ✨ Call our unified handler with the CREATE_PAYMENT action parameter rule
+        // Fetch our secure unified conversion rate matrix from your Edge function
         const { data, error } = await supabase.functions.invoke("pi-payment-handler", {
           body: {
             action: "CREATE_PAYMENT",
-            nairaAmount: amountNum,
-            serviceId: "00000000-0000-0000-0000-000000000000" // Temporary system ID for deposit orders
+            nairaAmount: 1000, // Standard base amount to read current matrix weights
+            serviceId: "00000000-0000-0000-0000-000000000000"
           }
         });
 
         if (active && !error && data) {
+          const fetchedRate = Number(data.rate_ngn_per_pi || 0);
+          console.log(`[Global Price Engine] Settle exchange base contract multiplier: ₦${fetchedRate}`);
+
           setLivePiQuote({
-            rate: Number(data.rate_ngn_per_pi || data.rateLocked || 0),
-            piAmount: Number(data.pi_amount || data.calculatedPiAmount || 0)
+            rate: fetchedRate,
+            piAmount: data.pi_amount || 0
           });
         }
-
       } catch (err) {
-        console.warn("Failed to fetch live Pi quote:", err);
-      } finally {
-        if (active) setIsFetchingPiRate(false);
+        console.warn("Global asset tracker failed to compile conversion weights:", err);
       }
     };
 
-    const timer = setTimeout(fetchQuote, 500);
+    // Run immediately when dashboard loads
+    fetchGlobalPiRate();
+
+    // Re-check asset valuation intervals every 3 minutes
+    const globalInterval = setInterval(fetchGlobalPiRate, 180000);
+
     return () => {
       active = false;
-      clearTimeout(timer);
+      clearInterval(globalInterval);
     };
-  }, [depositAmount, depositMethod]);
+  }, []);
 
   // Withdraw States
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
@@ -873,8 +879,14 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
   const fetchUser = async () => {
     if (isGuest) return;
     try {
-      const { data } = await supabase.from("profiles").select("wallet_balance").eq("email", user.email).single();
-      if (data) onUpdateBalance(data.wallet_balance);
+      // 💎 Pulling both standard currency and cryptocurrency rows
+      const { data } = await supabase.from("profiles").select("wallet_balance, pi_balance").eq("email", user.email).single();
+      if (data) {
+        onUpdateBalance(Number(data.wallet_balance || 0));
+        if (onUpdatePiBalance) {
+          onUpdatePiBalance(Number(data.pi_balance || 0)); // 🪙 Updates the global state!
+        }
+      }
     } catch (e) { console.error(e); }
   };
 
@@ -1725,6 +1737,8 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
   };
 
   const renderDashboardHome = () => {
+    const { t } = useI18n();
+
     const amountNum = Number(withdrawAmount) || 0;
     const currentWithdrawFee = getWithdrawalFee(amountNum);
     const depositAmountNum = Number(depositAmount) || 0;
@@ -1749,7 +1763,6 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
         </div>
 
         {/* --- CLEANED DYNAMIC HEADER --- */}
-        {/* No extra balance text. No extra Bell. Just the animated greeting. */}
         <div className="flex items-center mb-2 mt-2 h-10">
           <h1
             className={`
@@ -1761,7 +1774,6 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
             {greeting}
           </h1>
         </div>
-        {/* --- END HEADER --- */}
 
         {isCheckingPendingDeposit && (
           <div className="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-xl flex items-center gap-3">
@@ -1801,31 +1813,70 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
           </div>
         )}
 
-        {/* WALLET CARD */}
-        <section className="bg-emerald-600 dark:bg-slate-800 p-6 rounded-[35px] text-white shadow-xl relative overflow-hidden">
-          {/* Background Pattern */}
+        {/* MULTI-CURRENCY UNIFIED WALLET CARD */}
+        <section className="bg-gradient-to-br from-emerald-600 to-teal-700 dark:from-slate-800 dark:to-slate-900 p-6 rounded-[35px] text-white shadow-xl relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
           <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full blur-2xl -ml-5 -mb-5"></div>
 
           <div className="relative z-10">
+            {/* Header row with refresh trigger */}
             <div className="flex justify-between items-start mb-1">
-              <p className="text-[10px] font-black uppercase tracking-widest opacity-80">{t("dashboard.available_balance")}</p>
-              <button aria-label="Refresh balance" onClick={() => { if (isGuest) { requireAuth(); return; } setIsRefreshingBalance(true); fetchUser(); setTimeout(() => setIsRefreshingBalance(false), 1000); }} className="p-2 bg-emerald-700/70 rounded-full hover:bg-emerald-800 transition-colors">
+              <div>
+                <p className="text-[9px] font-black uppercase tracking-widest opacity-75">Total Net Worth</p>
+                <h2 className="text-3xl font-black mt-0.5 tracking-tight break-all max-w-[250px]">
+                  ₦{Number(user.balance + ((user.piBalance || 0) * (livePiQuote?.rate || 0))).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </h2>
+              </div>
+              <button
+                aria-label="Refresh balances"
+                onClick={() => {
+                  if (isGuest) { requireAuth(); return; }
+                  setIsRefreshingBalance(true);
+                  fetchUser();
+                  setTimeout(() => setIsRefreshingBalance(false), 1000);
+                }}
+                className="p-2 bg-white/15 rounded-full hover:bg-white/25 transition-colors mt-1 shrink-0"
+              >
                 <RotateCcw size={14} className={isRefreshingBalance ? "animate-spin" : ""} />
               </button>
             </div>
-            <h2 className="text-4xl font-black mb-6">₦{user.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h2>
-            <div className="flex gap-3">
-              <button onClick={() => { setPaymentUrl(null); setDirectDeposit(null); setDepositInitError(""); setIsDepositModalOpen(true); }} className="flex-1 bg-white text-emerald-700 py-4 rounded-2xl font-black text-xs uppercase shadow-lg flex items-center justify-center gap-2 hover:bg-emerald-50 transition-colors">
+
+            {/* 📉 Integrated, lightweight vertical stack directly below the Net Worth figure */}
+            <div className="mt-3 pt-2.5 border-t border-white/10 text-xs space-y-1 w-full text-left px-0.5">
+              {/* Pi Row with protected text alignment */}
+              <div className="flex justify-between items-start opacity-85 py-0.5 gap-2">
+                <span className="flex items-center gap-1 shrink-0 font-medium">
+                  <span className="text-yellow-300 font-bold text-sm leading-none">π</span> Pi Network Balance:
+                </span>
+                <span className="font-bold tracking-tight text-right break-all max-w-[150px]">
+                  {(user.piBalance || 0).toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 })} π
+                  <span className="block text-[10px] opacity-75 font-normal tracking-normal">
+                    ≈ ₦{Number((user.piBalance || 0) * (livePiQuote?.rate || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </span>
+              </div>
+
+              {/* Fiat Row */}
+              <div className="flex justify-between items-center opacity-85 pt-1.5 gap-2">
+                <span className="font-medium">💵 Naira cash wallet:</span>
+                <span className="font-bold tracking-tight text-right break-all max-w-[150px]">
+                  ₦{user.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 mt-4">
+              <button onClick={() => { setPaymentUrl(null); setDirectDeposit(null); setDepositInitError(""); setIsDepositModalOpen(true); }} className="flex-1 bg-white text-emerald-700 py-3.5 rounded-2xl font-black text-xs uppercase shadow-lg flex items-center justify-center gap-2 hover:bg-emerald-50 transition-colors">
                 <CreditCard size={16} /> {t("dashboard.fund")}
               </button>
-              <button onClick={() => { setIsWithdrawModalOpen(true); }} className="flex-1 bg-emerald-700/70 border border-emerald-300/40 text-white py-4 rounded-2xl font-black text-xs uppercase hover:bg-emerald-800/80 transition-colors">
+              <button onClick={() => { setIsWithdrawModalOpen(true); }} className="flex-1 bg-emerald-800/40 border border-white/20 text-white py-3.5 rounded-2xl font-black text-xs uppercase hover:bg-emerald-800/60 transition-colors">
                 {t("dashboard.withdraw")}
               </button>
             </div>
             <button
               onClick={() => setIsTransferModalOpen(true)}
-              className="mt-3 w-full bg-emerald-700/70 border border-emerald-300/40 text-white py-3 rounded-2xl font-black text-xs uppercase hover:bg-emerald-800/80 transition-colors"
+              className="mt-3 w-full bg-emerald-800/40 border border-white/20 text-white py-3 rounded-2xl font-black text-xs uppercase hover:bg-emerald-800/60 transition-colors"
             >
               Send To Swifna User
             </button>
@@ -2059,7 +2110,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
                     ))}
                   </div>
 
-                  {/* Quick amount buttons — hide for Pi (amounts are in NGN which still applies) */}
+                  {/* Quick amount buttons */}
                   <div className="flex gap-2 mb-4 overflow-x-auto pb-2 custom-scrollbar">
                     {[100, 500, 1000, 2000, 5000].map(amt => (
                       <button key={amt} onClick={() => setDepositAmount(amt.toString())} className="px-4 py-2 bg-slate-100 hover:bg-emerald-100 hover:text-emerald-700 rounded-xl text-xs font-bold text-slate-600 transition-colors whitespace-nowrap">₦{Number(amt).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</button>
@@ -2104,7 +2155,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
                     </div>
                   )}
 
-                  {/* NGN fee/total — only shown for non-Pi methods */}
+                  {/* NGN fee/total */}
                   {depositMethod !== "PiNetwork" && (
                     <>
                       <div className="bg-slate-50 p-3 rounded-xl mb-4 text-xs text-slate-600 flex justify-between items-center border border-slate-100">
@@ -2120,7 +2171,7 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
 
                   <button
                     onClick={handleStartDeposit}
-                    disabled={isStartingDeposit || (depositMethod === "PiNetwork" && (!livePiQuote || isFetchingPiRate))}
+                    disabled={isStartingDeposit || (depositMethod === "PiNetwork" && !livePiQuote)}
                     className={`w-full py-3 rounded-xl font-bold shadow-lg transition flex justify-center items-center gap-2 disabled:opacity-70 ${depositMethod === "PiNetwork"
                       ? "bg-purple-600 hover:bg-purple-700 text-white shadow-purple-600/20"
                       : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20"
@@ -2380,17 +2431,13 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
           error={pinError}
         />
 
-        {/* ... rest of your dashboard code ... */}
-
         {/* INSTALL PWA MODAL */}
         {showInstallPrompt && (
           <InstallPwaModal onClose={() => setShowInstallPrompt(false)} />
         )}
-
-        {/* End of Dashboard */}
       </div>
     );
-  }
+  };
 
   return renderContent();
 };

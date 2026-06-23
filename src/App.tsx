@@ -64,6 +64,7 @@ const App: React.FC = () => {
     name: string;
     email: string;
     balance: number;
+    piBalance?: number; // 🪙 Track Pi balance globally
     phone?: string;
     role?: string;
     roles?: string[];
@@ -209,19 +210,21 @@ const App: React.FC = () => {
         }
 
         setUser({
-          id: data.id,
-          name: `${data.first_name || ""} ${data.last_name || ""}`.trim() || data.name || "Naija Connects User",
-          email: data.email || email,
-          balance: data.wallet_balance || 0,
-          phone: data.phone || "",
-          role: data.role || "user",
-          roles,
-          pinHash: data.pin_hash || null,
-          pinLength: data.pin_length || null,
-          piUid: data.pi_uid || null,
-          piUsername: data.pi_username || null,
-          piWalletAddress: data.pi_wallet_address || null,
+          id: "sandbox-fallback-uuid",
+          name: fallbackName.charAt(0).toUpperCase() + fallbackName.slice(1),
+          email: email,
+          balance: 0,
+          piBalance: 0, // 🪙 Default to 0
+          phone: "",
+          role: "user",
+          roles: ["user"],
+          pinHash: null,
+          pinLength: null,
+          piUid: null,
+          piUsername: null,
+          piWalletAddress: null,
         });
+
         if (data.preferred_language) {
           setLanguage(data.preferred_language as LanguageCode);
         }
@@ -232,14 +235,15 @@ const App: React.FC = () => {
     } catch (error: any) {
       console.warn("[fetchUser] Pipeline fallback triggered due to network environment:", error.message || error);
 
-      // 🛡️ CRITICAL FALLBACK: If the sandbox blocks database connections, generate a clean local runtime fallback profile
-      // so that users are never stuck behind a frozen loader or recurring alert dialogues.
-      const fallbackName = email.split("@")[0];
+      // 🛡️ Declare the variable first before using it below
+      const fallbackName = email ? email.split("@")[0] : "user";
+
       setUser({
         id: "sandbox-fallback-uuid",
         name: fallbackName.charAt(0).toUpperCase() + fallbackName.slice(1),
         email: email,
         balance: 0,
+        piBalance: 0,
         phone: "",
         role: "user",
         roles: ["user"],
@@ -461,6 +465,7 @@ const App: React.FC = () => {
       name: "Guest User",
       email: "guest@swifna.local",
       balance: 0,
+      piBalance: 0, // 🪙 Default guest balance
       phone: "",
       role: "guest",
       roles: [] as string[],
@@ -633,6 +638,11 @@ const App: React.FC = () => {
 
   const onUpdateBalance = (newBalance: number) => {
     setUser((prev) => (prev ? { ...prev, balance: newBalance } : prev));
+  };
+
+  // 🪙 New Pi state handler function
+  const onUpdatePiBalance = (newPiBalance: number) => {
+    setUser((prev) => (prev ? { ...prev, piBalance: newPiBalance } : prev));
   };
 
   const urlBase64ToUint8Array = (base64String: string) => {
@@ -1139,9 +1149,10 @@ const App: React.FC = () => {
           {activeTab === "buy" && (
             <Suspense fallback={pageFallback}>
               <Dashboard
-                key={dashboardResetKey} // This forces the reset
+                key={dashboardResetKey}
                 user={currentUser}
                 onUpdateBalance={onUpdateBalance}
+                onUpdatePiBalance={onUpdatePiBalance} // 📤 Pass the link down as a prop
                 isGuest={!isAuthenticated}
                 onRequireAuth={promptAuth}
                 onViewChange={setDashboardSeoView}
