@@ -655,8 +655,8 @@ const Dashboard = ({ user, onUpdateBalance, activeTab, isGuest = false, onRequir
 
         if (active && !error && data) {
           setLivePiQuote({
-            rate: Number(data.rateLocked || 0),
-            piAmount: Number(data.calculatedPiAmount || 0)
+            rate: Number(data.rate_ngn_per_pi || data.rateLocked || 0),
+            piAmount: Number(data.pi_amount || data.calculatedPiAmount || 0)
           });
         }
 
