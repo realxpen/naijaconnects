@@ -5,12 +5,11 @@ import { CARRIERS } from "../../constants";
 import { useI18n } from "../../i18n";
 import { useToast } from "../ui/ToastProvider";
 import PinPrompt from "../PinPrompt";
-import ConfirmTransactionModal from "../ConfirmTransactionModal";
 import { verifyPinHash } from "../../utils/pin";
 import { useSuccessScreen } from "../ui/SuccessScreenProvider";
 
 interface AirtimeToCashProps {
-  user: any; // Added user prop
+  user: any;
   onBack: () => void;
   isGuest?: boolean;
   onRequireAuth?: () => void;
@@ -28,31 +27,29 @@ const AirtimeToCash = ({ user, onBack, isGuest = false, onRequireAuth }: Airtime
   const [pinOpen, setPinOpen] = useState(false);
   const [pinError, setPinError] = useState("");
   const [pendingAction, setPendingAction] = useState<null | (() => void)>(null);
-  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // --- 1. PRE-FILL OWNER PHONE ---
   useEffect(() => {
     const fetchUserPhone = async () => {
-        let phoneToUse = user.phone;
+      let phoneToUse = user.phone;
 
-        // If phone not in user object, fetch from DB
-        if (!phoneToUse) {
-            try {
-                const { data } = await supabase
-                    .from('profiles')
-                    .select('phone')
-                    .eq('email', user.email)
-                    .single();
-                
-                if (data?.phone) phoneToUse = data.phone;
-            } catch (e) {
-                console.error("Error fetching user phone:", e);
-            }
-        }
+      if (!phoneToUse) {
+        try {
+          const { data } = await supabase
+            .from('profiles')
+            .select('phone')
+            .eq('email', user.email)
+            .single();
 
-        if (phoneToUse) {
-            setPhone(phoneToUse);
+          if (data?.phone) phoneToUse = data.phone;
+        } catch (e) {
+          console.error("Error fetching user phone:", e);
         }
+      }
+
+      if (phoneToUse) {
+        setPhone(phoneToUse);
+      }
     };
     fetchUserPhone();
   }, [user]);
@@ -93,20 +90,21 @@ const AirtimeToCash = ({ user, onBack, isGuest = false, onRequireAuth }: Airtime
       if (error) throw new Error(error.message);
 
       showSuccess({
-        title: "Transfer successful",
+        title: "Initiated Successfully",
         amount: Number(amount),
-        message: data.message || data.api_response || t("airtime_to_cash.proceed_manual"),
-        subtitle: phone ? `FOR ${phone}` : undefined,
+        message: data?.message || data?.api_response || t("airtime_to_cash.proceed_manual"),
+        subtitle: phone ? `FROM ${phone}` : undefined,
       });
+
       setInfo({
-        message: data.message || data.api_response || t("airtime_to_cash.proceed_manual"),
+        message: data?.message || data?.api_response || t("airtime_to_cash.proceed_manual"),
         amount: amount,
         receive: (Number(amount) * 0.8).toFixed(0)
       });
 
     } catch (e: any) {
       showToast(e.message || t("airtime_to_cash.failed_initiate"), "error");
-    } finally {
+    } {
       setLoading(false);
     }
   };
@@ -139,190 +137,183 @@ const AirtimeToCash = ({ user, onBack, isGuest = false, onRequireAuth }: Airtime
     if (act) act();
   };
 
-  const handleSubmit = () => {
-    setConfirmOpen(true);
+  const handleSubmitClick = () => {
+    if (isGuest) return onRequireAuth?.();
+    if (!amount || Number(amount) <= 0 || phone.length < 11) {
+      showToast("Please complete the sender line details and input an amount value.", "error");
+      return;
+    }
+    requirePin(doSubmit);
   };
 
-  // --- 4. SUCCESS VIEW ---
+  // --- 4. SUCCESS VIEW INSTRUCTIONS PANEL ---
   if (info) {
-      return (
-        <div className="animate-in slide-in-from-right duration-300 pb-20 fixed inset-0 z-50 bg-white flex flex-col">
-            <div className="p-4">
-                <button onClick={onBack} className="flex items-center gap-2 text-slate-500 font-bold text-xs uppercase mb-4">
-                    <ArrowLeft size={16} /> {t("common.back")}
-                </button>
-            </div>
-
-           <div className="flex-1 px-6 flex flex-col items-center justify-center text-center -mt-10">
-              <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-6 shadow-lg shadow-emerald-100 ring-4 ring-emerald-50">
-                 <CheckCircle size={40} />
-              </div>
-              <h3 className="font-black uppercase mb-2 text-2xl text-slate-800">{t("airtime_to_cash.request_initiated")}</h3>
-              <p className="text-slate-500 font-medium mb-8 max-w-xs mx-auto text-sm">
-                  {t("airtime_to_cash.complete_transfer")}
-              </p>
-              
-              <div className="w-full max-w-sm bg-slate-50 p-6 rounded-3xl border border-slate-100 text-left relative overflow-hidden shadow-sm">
-                  <div className="absolute top-0 left-0 w-1 h-full bg-orange-500"></div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">{t("airtime_to_cash.instruction")}</p>
-                  <p className="text-sm font-bold text-slate-800 leading-relaxed mb-6">{info.message}</p>
-                  
-                  <div className="flex justify-between items-center pt-4 border-t border-slate-200">
-                      <div>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase">{t("airtime_to_cash.you_sent")}</p>
-                          <p className="text-lg font-black text-slate-800">₦{Number(info.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                      </div>
-                      <div className="text-right">
-                          <p className="text-[10px] font-bold text-slate-400 uppercase">{t("airtime_to_cash.you_receive")}</p>
-                          <p className="text-lg font-black text-emerald-600">₦{Number(info.receive).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                      </div>
-                  </div>
-              </div>
-           </div>
-
-           <div className="p-6 bg-white border-t border-slate-100">
-              <button onClick={onBack} className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase shadow-lg shadow-emerald-200 active:scale-95 transition-transform">
-                 {t("airtime_to_cash.i_transferred")}
-              </button>
-           </div>
+    return (
+      <div className="animate-in slide-in-from-right duration-300 pb-20 fixed inset-0 z-50 bg-white flex flex-col">
+        <div className="p-4">
+          <button onClick={onBack} className="flex items-center gap-2 text-slate-500 font-bold text-xs uppercase mb-4">
+            <ArrowLeft size={16} /> {t("common.back")}
+          </button>
         </div>
-      )
-  }
 
-  // --- 5. FORM VIEW ---
-  return (
-    <>
-    <div className="animate-in slide-in-from-right duration-300 pb-20">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <button onClick={onBack} className="flex items-center gap-2 text-slate-500 font-bold text-xs uppercase">
-          <ArrowLeft size={16} /> {t("common.back")}
-        </button>
-        <div className="flex items-center gap-2 bg-orange-50 px-3 py-1 rounded-full border border-orange-100">
-            <ArrowLeftRight size={14} className="text-orange-600"/>
-            <span className="text-xs font-black text-orange-600">{t("airtime_to_cash.swap_airtime")}</span>
+        <div className="flex-1 px-6 flex flex-col items-center justify-center text-center -mt-10">
+          <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-6 shadow-lg shadow-emerald-100 ring-4 ring-emerald-50">
+            <CheckCircle size={40} />
+          </div>
+          <h3 className="font-black uppercase mb-2 text-2xl text-slate-800">{t("airtime_to_cash.request_initiated")}</h3>
+          <p className="text-slate-500 font-medium mb-8 max-w-xs mx-auto text-sm">
+            {t("airtime_to_cash.complete_transfer")}
+          </p>
+
+          <div className="w-full max-w-sm bg-slate-50 p-6 rounded-3xl border border-slate-100 text-left relative overflow-hidden shadow-sm">
+            <div className="absolute top-0 left-0 w-1 h-full bg-orange-500"></div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">{t("airtime_to_cash.instruction")}</p>
+            <p className="text-sm font-bold text-slate-800 leading-relaxed mb-6">{info.message}</p>
+
+            <div className="flex justify-between items-center pt-4 border-t border-slate-200">
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase">{t("airtime_to_cash.you_sent")}</p>
+                <p className="text-lg font-black text-slate-800">₦{Number(info.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] font-bold text-slate-400 uppercase">{t("airtime_to_cash.you_receive")}</p>
+                <p className="text-lg font-black text-emerald-600">₦{Number(info.receive).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6 bg-white border-t border-slate-100">
+          <button onClick={onBack} className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase shadow-lg shadow-emerald-200 active:scale-95 transition-transform">
+            {t("airtime_to_cash.i_transferred")}
+          </button>
         </div>
       </div>
+    );
+  }
 
-      <div className="bg-white rounded-[30px] shadow-sm border border-slate-100 overflow-hidden">
-        
-        {/* Top Section (Dark) */}
-        <div className="p-6 bg-slate-900 text-white relative">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">{t("airtime_to_cash.sender_mobile")}</label>
-            
-            <div className="flex items-center gap-3 bg-slate-800/50 p-2 rounded-2xl border border-slate-700 backdrop-blur-sm mb-4">
-                <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shrink-0">
-                    <img 
-                        src={CARRIERS.find(c => c.id === networkId)?.logo} 
-                        className="w-full h-full object-cover rounded-full"
-                        alt="Network Logo"
-                    />
-                </div>
-                <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 11))}
-                    className="bg-transparent w-full text-2xl font-black text-white outline-none placeholder:text-slate-600"
-                    placeholder="080..."
-                />
-            </div>
-
-            {/* Manual Network Selector */}
-            <div className="flex gap-2 justify-end">
-                 {CARRIERS.filter(c => c.name !== "SMILE").map(c => (
-                     <button 
-                        key={c.id}
-                        onClick={() => setNetworkId(c.id)}
-                        className={`w-2 h-2 rounded-full transition-all ${networkId === c.id ? "bg-orange-500 w-6" : "bg-slate-700"}`}
-                     />
-                 ))}
-            </div>
+  // --- 5. SETUP INPUT INITIAL ENTRY VIEW ---
+  return (
+    <>
+      <div className="animate-in slide-in-from-right duration-300 pb-20">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-6">
+          <button onClick={onBack} className="flex items-center gap-2 text-slate-500 font-bold text-xs uppercase">
+            <ArrowLeft size={16} /> {t("common.back")}
+          </button>
+          <div className="flex items-center gap-2 bg-orange-50 px-3 py-1 rounded-full border border-orange-100">
+            <ArrowLeftRight size={14} className="text-orange-600" />
+            <span className="text-xs font-black text-orange-600">{t("airtime_to_cash.swap_airtime")}</span>
+          </div>
         </div>
 
-        {/* Body Section */}
-        <div className="p-5">
-            <h3 className="font-bold text-slate-700 mb-4 text-sm">{t("airtime_to_cash.conversion_details")}</h3>
-            
-            {/* Amount Input */}
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-4">
-                 <label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block">{t("airtime_to_cash.amount_to_sell")}</label>
-                 <div className="flex items-center">
-                    <span className="text-slate-400 font-bold mr-2 text-xl">₦</span>
-                    <input 
-                        type="number" 
-                        value={amount}
-                        onChange={(e) => setAmount(e.target.value)}
-                        className="bg-transparent w-full font-black text-slate-800 outline-none text-3xl placeholder:text-slate-300"
-                        placeholder="0"
-                    />
-                 </div>
+        <div className="bg-white rounded-[30px] shadow-sm border border-slate-100 overflow-hidden">
+
+          {/* Phone Input Section (Dark Theme Accent layout layout style) */}
+          <div className="p-6 bg-slate-900 text-white relative">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">{t("airtime_to_cash.sender_mobile")}</label>
+
+            <div className="flex items-center gap-3 bg-slate-800/50 p-2 rounded-2xl border border-slate-700 backdrop-blur-sm mb-4">
+              <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shrink-0">
+                <img
+                  src={CARRIERS.find(c => c.id === networkId)?.logo}
+                  className="w-full h-full object-cover rounded-full"
+                  alt="Network Logo"
+                />
+              </div>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 11))}
+                className="bg-transparent w-full text-2xl font-black text-white outline-none placeholder:text-slate-600"
+                placeholder="080..."
+              />
             </div>
 
-            {/* Calculation Card */}
+            {/* Manual Network Selector Overrides dot elements */}
+            <div className="flex gap-2 justify-end">
+              {CARRIERS.filter(c => c.name !== "SMILE").map(c => (
+                <button
+                  key={c.id}
+                  onClick={() => setNetworkId(c.id)}
+                  className={`w-2 h-2 rounded-full transition-all ${networkId === c.id ? "bg-orange-500 w-6" : "bg-slate-700"}`}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Conversion Calculation Content Space */}
+          <div className="p-5">
+            <h3 className="font-bold text-slate-700 mb-4 text-sm">{t("airtime_to_cash.conversion_details")}</h3>
+
+            {/* Amount Field Input element */}
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-4">
+              <label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block">{t("airtime_to_cash.amount_to_sell")}</label>
+              <div className="flex items-center">
+                <span className="text-slate-400 font-bold mr-2 text-xl">₦</span>
+                <input
+                  type="number"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="bg-transparent w-full font-black text-slate-800 outline-none text-3xl placeholder:text-slate-300"
+                  placeholder="0"
+                />
+              </div>
+            </div>
+
+            {/* Live Yield Distribution Card element */}
             <div className="bg-orange-50 p-5 rounded-2xl border border-orange-100 relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-4 opacity-10">
-                    <Wallet size={80} className="text-orange-600" />
+              <div className="absolute top-0 right-0 p-4 opacity-10">
+                <Wallet size={80} className="text-orange-600" />
+              </div>
+
+              <div className="flex justify-between items-center relative z-10">
+                <div>
+                  <p className="text-[10px] font-black text-orange-400 uppercase mb-1">{t("airtime_to_cash.you_receive")}</p>
+                  <p className="text-3xl font-black text-orange-600">
+                    ₦{amount ? (Number(amount) * 0.8).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}
+                  </p>
                 </div>
-                
-                <div className="flex justify-between items-center relative z-10">
-                    <div>
-                        <p className="text-[10px] font-black text-orange-400 uppercase mb-1">{t("airtime_to_cash.you_receive")}</p>
-                        <p className="text-3xl font-black text-orange-600">
-                             ₦{amount ? (Number(amount) * 0.8).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0"}
-                        </p>
-                    </div>
-                    <div className="text-right">
-                        <span className="bg-white text-orange-600 text-[10px] font-bold px-2 py-1 rounded-lg shadow-sm border border-orange-100">
-                            {t("airtime_to_cash.rate_80")}
-                        </span>
-                    </div>
+                <div className="text-right">
+                  <span className="bg-white text-orange-600 text-[10px] font-bold px-2 py-1 rounded-lg shadow-sm border border-orange-100">
+                    {t("airtime_to_cash.rate_80")}
+                  </span>
                 </div>
-                <p className="text-[10px] text-orange-400/80 mt-2 relative z-10 font-medium">
-                    {t("airtime_to_cash.funds_after_verification")}
-                </p>
+              </div>
+              <p className="text-[10px] text-orange-400/80 mt-2 relative z-10 font-medium">
+                {t("airtime_to_cash.funds_after_verification")}
+              </p>
             </div>
 
             <div className="mt-4 flex gap-3 items-start bg-blue-50 p-3 rounded-xl border border-blue-100">
-                 <AlertCircle size={16} className="text-blue-500 shrink-0 mt-0.5" />
-                 <p className="text-[10px] text-blue-600 font-medium leading-relaxed">
-                     {t("airtime_to_cash.note_manual_transfer")}
-                 </p>
+              <AlertCircle size={16} className="text-blue-500 shrink-0 mt-0.5" />
+              <p className="text-[10px] text-blue-600 font-medium leading-relaxed">
+                {t("airtime_to_cash.note_manual_transfer")}
+              </p>
             </div>
-        </div>
+          </div>
 
-        {/* Sticky Footer */}
-        <div className="p-4 border-t border-slate-100 bg-white sticky bottom-0 z-10">
-             <button
-                onClick={handleSubmit}
-                disabled={loading || !amount || !phone}
-                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase disabled:opacity-50 flex justify-center items-center gap-2 shadow-lg active:scale-95 transition-transform"
+          {/* Sticky Action Footer element button */}
+          <div className="p-4 border-t border-slate-100 bg-white sticky bottom-0 z-10">
+            <button
+              onClick={handleSubmitClick}
+              disabled={loading || !amount || phone.length < 11}
+              className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase disabled:opacity-50 flex justify-center items-center gap-2 shadow-lg active:scale-95 transition-transform h-14"
             >
-                {loading ? <Loader2 className="animate-spin" /> : t("airtime_to_cash.proceed_swap")}
+              {loading ? <Loader2 className="animate-spin" /> : t("airtime_to_cash.proceed_swap")}
             </button>
-        </div>
+          </div>
 
+        </div>
       </div>
-    </div>
-    <PinPrompt
-      open={pinOpen}
-      requiredLength={user?.pinLength || null}
-      onConfirm={handlePinConfirm}
-      onClose={() => setPinOpen(false)}
-      error={pinError}
-    />
-    <ConfirmTransactionModal
-      open={confirmOpen}
-      title="Confirm Transaction"
-      subtitle={phone ? `FOR ${phone}` : undefined}
-      amountLabel="Total Pay"
-      amount={Number(amount || 0)}
-      confirmLabel="Proceed"
-      onConfirm={() => {
-        setConfirmOpen(false);
-        requirePin(doSubmit);
-      }}
-      onClose={() => setConfirmOpen(false)}
-    />
+
+      <PinPrompt
+        open={pinOpen}
+        requiredLength={user?.pinLength || null}
+        onConfirm={handlePinConfirm}
+        onClose={() => setPinOpen(false)}
+        error={pinError}
+      />
     </>
   );
 };
