@@ -1,9 +1,8 @@
 import React, { Suspense, useState, useEffect, useRef } from "react";
 import {
-  Smartphone, Tv, Zap, ArrowRight, ArrowLeftRight, X, Loader2,
+  Smartphone, Tv, Zap, ArrowRight, X, Loader2,
   RotateCcw, CreditCard, GraduationCap,
   Printer, Building2, Activity, ShieldCheck, AlertCircle, CheckCircle2, Copy
-  // Removed 'Bell' to prevent duplication
 } from "lucide-react";
 import { supabase } from "../supabaseClient";
 import html2canvas from "html2canvas";
@@ -129,7 +128,7 @@ interface DashboardProps {
     name: string;
     email: string;
     balance: number;
-    piBalance?: number; // 🪙 Added Pi balance field
+    piBalance?: number;
     phone?: string;
     id: string;
     role?: string;
@@ -138,7 +137,7 @@ interface DashboardProps {
     pinLength?: number | null
   };
   onUpdateBalance: (newBalance: number) => void;
-  onUpdatePiBalance?: (newPiBalance: number) => void; // 📤 Added global state function
+  onUpdatePiBalance?: (newPiBalance: number) => void;
   activeTab?: string;
   isGuest?: boolean;
   onRequireAuth?: () => void;
@@ -148,7 +147,7 @@ interface DashboardProps {
 interface Transaction {
   id: string;
   created_at: string;
-  type: 'deposit' | 'withdrawal' | 'service';
+  type: string;
   amount: number;
   status: string;
   reference: string;
@@ -158,13 +157,11 @@ interface Transaction {
 
 type ViewState = "Dashboard" | "Airtime" | "Data" | "Cable" | "Electricity" | "Exam" | "RechargePin" | "AirtimeToCash" | "Admin" | "DataHelpCenter";
 
-// --- HELPER: GET LOGO ---
 const getLogoOrIcon = (transaction: Transaction) => {
-  switch (transaction.type) {
-    case 'deposit': return <ArrowRight size={18} className="rotate-45" />;
-    case 'withdrawal': return <ArrowRight size={18} className="-rotate-45" />;
-    default: return <Activity size={18} />;
-  }
+  const typeLower = String(transaction.type).toLowerCase();
+  if (typeLower === 'deposit') return <ArrowRight size={18} className="rotate-45" />;
+  if (typeLower === 'withdrawal') return <ArrowRight size={18} className="-rotate-45" />;
+  return <Activity size={18} />;
 };
 
 const getColorClass = (type: string) => {
@@ -174,7 +171,7 @@ const getColorClass = (type: string) => {
   return 'bg-slate-100 text-slate-600';
 };
 
-// --- COMPONENT: RECEIPT VIEW ---
+// --- COMPONENT: RECEIPT VIEW WITH ENHANCED METADATA EXTRACTORS ---
 const ReceiptView = ({
   tx,
   onClose,
@@ -188,9 +185,10 @@ const ReceiptView = ({
   const { showToast } = useToast();
   const displayRef = tx.reference || `TRX-${tx.id.substring(0, 8)}`;
   const txReference = String(tx.reference || "").trim();
-  const meta = (tx as any)?.meta || (tx as any)?.metadata || {};
+  const meta = tx?.meta || tx?.metadata || {};
   const isDeposit = String(tx.type).toLowerCase() === "deposit";
   const isExam = String(tx.type).toLowerCase() === "exam";
+
   const examCards = Array.isArray(meta?.cards)
     ? meta.cards
       .map((c: any) => ({
@@ -360,7 +358,6 @@ const ReceiptView = ({
             <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle, #fff 2px, transparent 2px)', backgroundSize: '10px 10px' }}></div>
             <div className="absolute inset-0 flex items-start justify-between px-6 pt-3">
               <div className="flex items-center gap-2 bg-white/25 px-3 py-1.5 rounded-full">
-                <img src="/logo-icon.svg" alt="Swifna" className="w-10 h-10 rounded-lg" />
                 <span className="text-white font-black text-base">Swifna</span>
               </div>
               <span className="text-white text-xs font-black uppercase tracking-widest bg-white/25 px-3 py-1.5 rounded-full">
@@ -372,7 +369,7 @@ const ReceiptView = ({
           <div className="px-6 pb-8 -mt-10 relative">
             <div className="bg-white rounded-2xl shadow-lg p-6 text-center border border-slate-100">
               <div className={`w-16 h-16 rounded-full mx-auto flex items-center justify-center -mt-14 mb-3 border-4 border-white shadow-md ${getColorClass(tx.type)}`}>
-                <div className="w-10 h-10">{getLogoOrIcon(tx)}</div>
+                <div className="w-10 h-10 flex items-center justify-center">{getLogoOrIcon(tx)}</div>
               </div>
               <h2 className="text-3xl font-black text-slate-800">₦{tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h2>
               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">{tx.type}</p>
@@ -440,20 +437,6 @@ const ReceiptView = ({
                       <span className="text-xs font-bold text-slate-700 text-right">{meta.customer_name}</span>
                     </div>
                   )}
-                  {meta.service_address && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-bold text-slate-400">Service Address</span>
-                      <span className="text-xs font-bold text-slate-700 text-right max-w-[170px]">{meta.service_address}</span>
-                    </div>
-                  )}
-                  {(meta.meter_type_label || meta.meter_type) && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-bold text-slate-400">Purchase Type</span>
-                      <span className="text-xs font-bold text-slate-700 text-right">
-                        {meta.meter_type_label || (Number(meta.meter_type) === 1 ? "Prepaid" : "Postpaid")}
-                      </span>
-                    </div>
-                  )}
                   {meta.units_purchased && (
                     <div className="flex justify-between items-center">
                       <span className="text-xs font-bold text-slate-400">Units Purchased</span>
@@ -464,23 +447,6 @@ const ReceiptView = ({
                     <div className="flex justify-between items-center">
                       <span className="text-xs font-bold text-slate-400">Token</span>
                       <span className="text-xs font-bold text-slate-700 text-right">{meta.token}</span>
-                    </div>
-                  )}
-                  {meta.hotline && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-bold text-slate-400">Hotline Number</span>
-                      <a
-                        href={getWhatsAppUrl(`Hello Swifna Support, I need help with transaction ${displayRef}.`)}
-                        className="text-xs font-bold text-emerald-600 text-right hover:text-emerald-700"
-                      >
-                        {meta.hotline}
-                      </a>
-                    </div>
-                  )}
-                  {meta.transactionid && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-bold text-slate-400">Transaction No.</span>
-                      <span className="text-xs font-bold text-slate-700 text-right">{meta.transactionid}</span>
                     </div>
                   )}
                 </div>
@@ -501,12 +467,6 @@ const ReceiptView = ({
                       </button>
                     </div>
                   )}
-                  {examProviderRef && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-bold text-slate-400">Provider Ref</span>
-                      <span className="text-xs font-bold text-slate-700 text-right">{examProviderRef}</span>
-                    </div>
-                  )}
                   {examCards.length > 0 && (
                     <div className="space-y-2">
                       {examCards.map((card: any, idx: number) => (
@@ -523,12 +483,6 @@ const ReceiptView = ({
                               >
                                 {card.pin} <Copy size={11} />
                               </button>
-                            </div>
-                          )}
-                          {card.serialNo && (
-                            <div className="flex justify-between items-center mt-1">
-                              <span className="text-[10px] font-bold text-slate-400">Serial No</span>
-                              <span className="text-[10px] font-bold text-slate-700">{card.serialNo}</span>
                             </div>
                           )}
                         </div>
@@ -557,18 +511,10 @@ const ReceiptView = ({
               </div>
               {shareOpen && (
                 <div className="mt-3 grid grid-cols-2 gap-2" data-no-capture="true">
-                  <button onClick={handleShareImage} className="h-10 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200">
-                    Share Image
-                  </button>
-                  <button onClick={handleSaveImage} className="h-10 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200">
-                    Save Image
-                  </button>
-                  <button onClick={handleSharePdf} className="h-10 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200">
-                    Share PDF
-                  </button>
-                  <button onClick={handleSavePdf} className="h-10 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200">
-                    Save PDF
-                  </button>
+                  <button onClick={handleShareImage} className="h-10 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200"> Share Image </button>
+                  <button onClick={handleSaveImage} className="h-10 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200"> Save Image </button>
+                  <button onClick={handleSharePdf} className="h-10 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200"> Share PDF </button>
+                  <button onClick={handleSavePdf} className="h-10 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200"> Save PDF </button>
                 </div>
               )}
               {canRequeryDeposit && onRequeryDeposit && (
@@ -582,18 +528,12 @@ const ReceiptView = ({
                 </button>
               )}
             </div>
-
-            <div className="mt-6 text-center opacity-30">
-              <p className="font-black text-xs uppercase">{t("app.name")}</p>
-              <p className="text-[8px] font-bold">{t("history.generated_receipt")}</p>
-            </div>
           </div>
         </div>
       </div>
     </div>
   );
 };
-
 
 // --- MAIN DASHBOARD COMPONENT ---
 const Dashboard = ({ user, onUpdateBalance, onUpdatePiBalance, activeTab, isGuest = false, onRequireAuth, onViewChange }: DashboardProps) => {
@@ -627,60 +567,11 @@ const Dashboard = ({ user, onUpdateBalance, onUpdatePiBalance, activeTab, isGues
   const [isCheckingPendingDeposit, setIsCheckingPendingDeposit] = useState(false);
   const pendingDepositPollRef = useRef<number | null>(null);
 
-  const [piPaymentQuote, setPiPaymentQuote] = useState<{
-    reference: string;
-    amountNgn: number;
-    piAmount: number;
-    rateNgnPerPi: number;
-    bufferMultiplier: number;
-    rateSource: string;
-  } | null>(null);
-
   const [livePiQuote, setLivePiQuote] = useState<{ rate: number; piAmount: number } | null>(null);
   const [isFetchingPiRate, setIsFetchingPiRate] = useState(false);
+  const [pendingAction, setPendingAction] = useState<null | (() => void)>(null);
 
-  // 🔄 FIXED: Global background currency fetcher for dashboard asset computations
-  useEffect(() => {
-    let active = true;
-
-    const fetchGlobalPiRate = async () => {
-      try {
-        // Fetch our secure unified conversion rate matrix from your Edge function
-        const { data, error } = await supabase.functions.invoke("pi-payment-handler", {
-          body: {
-            action: "CREATE_PAYMENT",
-            nairaAmount: 1000, // Standard base amount to read current matrix weights
-            serviceId: "00000000-0000-0000-0000-000000000000"
-          }
-        });
-
-        if (active && !error && data) {
-          const fetchedRate = Number(data.rate_ngn_per_pi || 0);
-          console.log(`[Global Price Engine] Settle exchange base contract multiplier: ₦${fetchedRate}`);
-
-          setLivePiQuote({
-            rate: fetchedRate,
-            piAmount: data.pi_amount || 0
-          });
-        }
-      } catch (err) {
-        console.warn("Global asset tracker failed to compile conversion weights:", err);
-      }
-    };
-
-    // Run immediately when dashboard loads
-    fetchGlobalPiRate();
-
-    // Re-check asset valuation intervals every 3 minutes
-    const globalInterval = setInterval(fetchGlobalPiRate, 180000);
-
-    return () => {
-      active = false;
-      clearInterval(globalInterval);
-    };
-  }, []);
-
-  // Withdraw States
+  // Withdraw & Internal Transfer parameters
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
@@ -697,76 +588,6 @@ const Dashboard = ({ user, onUpdateBalance, onUpdatePiBalance, activeTab, isGues
   const [recentWithdraws, setRecentWithdraws] = useState<any[]>([]);
   const [pinOpen, setPinOpen] = useState(false);
   const [pinError, setPinError] = useState("");
-  const requireAuth = () => {
-    showToast("Please login or sign up before doing this.", "info");
-    onRequireAuth?.();
-    return true;
-  };
-
-  const getProjectRefFromUrl = (url?: string | null) => {
-    if (!url) return "";
-    try {
-      const host = new URL(url).host;
-      return host.split(".")[0] || "";
-    } catch {
-      return "";
-    }
-  };
-
-  const getProjectRefFromJwt = (jwt?: string | null) => {
-    if (!jwt) return "";
-    try {
-      const parts = jwt.split(".");
-      if (parts.length < 2) return "";
-      const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
-      return getProjectRefFromUrl(payload?.iss || "");
-    } catch {
-      return "";
-    }
-  };
-  const getFunctionErrorMessage = async (err: any, fallback: string) => {
-    try {
-      if (!err) return fallback;
-
-      // Supabase FunctionsHttpError often wraps the real payload in context.
-      const ctx = (err as any)?.context;
-      if (ctx) {
-        if (typeof ctx?.json === "function") {
-          const body = await ctx.json();
-          const msg = body?.error || body?.message;
-          if (msg) return String(msg);
-        }
-        if (typeof ctx?.text === "function") {
-          const text = await ctx.text();
-          if (text) {
-            try {
-              const parsed = JSON.parse(text);
-              const msg = parsed?.error || parsed?.message;
-              if (msg) return String(msg);
-            } catch {
-              return String(text);
-            }
-          }
-        }
-        if (typeof ctx?.body === "string") {
-          try {
-            const parsed = JSON.parse(ctx.body);
-            const msg = parsed?.error || parsed?.message;
-            if (msg) return String(msg);
-          } catch {
-            return String(ctx.body);
-          }
-        }
-      }
-
-      return String((err as any)?.message || fallback);
-    } catch {
-      return fallback;
-    }
-  };
-  const [pendingAction, setPendingAction] = useState<null | (() => void)>(null);
-
-  // --- STATE VARIABLES ---
   const [accountName, setAccountName] = useState("");
   const [isResolving, setIsResolving] = useState(false);
 
@@ -778,7 +599,6 @@ const Dashboard = ({ user, onUpdateBalance, onUpdatePiBalance, activeTab, isGues
     setShowInstallPrompt,
   } = usePushNotifications(user?.id);
 
-  // --- DYNAMIC GREETING STATE (FIXED LOGIC) ---
   const [greeting, setGreeting] = useState("");
   const [fade, setFade] = useState(true);
 
@@ -795,52 +615,22 @@ const Dashboard = ({ user, onUpdateBalance, onUpdatePiBalance, activeTab, isGues
     localStorage.removeItem("swifna_dashboard_view");
   }, []);
 
+  // --- DYNAMIC GREETING INTERVAL ENGINE ---
   useEffect(() => {
     const hour = new Date().getHours();
-    const firstName =
-      user?.name?.trim()?.split(' ')[0] ||
-      user?.email?.split('@')[0] ||
-      'User';
-
+    const firstName = user?.name?.trim()?.split(' ')[0] || user?.email?.split('@')[0] || 'User';
     let messages: string[] = [];
 
-    // FIXED TIME LOGIC: 00:00 to 04:59 is "Night", 05:00 to 11:59 is "Morning"
     if (hour < 5) {
-      // Late Night (00:00 - 04:59)
-      messages = [
-        `Good Night, ${firstName}! 🌙`,
-        "You're up late! 🦉",
-        "Don't forget to rest. 💤",
-        "Tomorrow will be a great day. ✨"
-      ];
+      messages = [`Good Night, ${firstName}! 🌙`, "You're up late! 🦉", "Don't forget to rest. 💤"];
     } else if (hour < 12) {
-      // Morning (05:00 - 11:59)
-      messages = [
-        `Good Morning, ${firstName}! ☀️`,
-        "Hope you had a good night rest? 🌿",
-        "Let's make today productive! 🚀"
-      ];
+      messages = [`Good Morning, ${firstName}! ☀️`, "Hope you slept well? 🌿", "Let's make today productive! 🚀"];
     } else if (hour < 17) {
-      // Afternoon (12:00 - 16:59)
-      messages = [
-        `Good Afternoon, ${firstName}! 🌤️`,
-        "How is your day going? 💼",
-        "Stay hydrated and focused! 💧"
-      ];
+      messages = [`Good Afternoon, ${firstName}! 🌤️`, "How is your day going? 💼", "Stay hydrated! 💧"];
     } else if (hour < 21) {
-      // Evening (17:00 - 20:59)
-      messages = [
-        `Good Evening, ${firstName}! 🌇`,
-        "Hope you're winding down. 🍵",
-        "Review your wins for the day. 🏆"
-      ];
+      messages = [`Good Evening, ${firstName}! 🌇`, "Hope you're winding down. 🍵", "Review your wins for the day. 🏆"];
     } else {
-      // Night (21:00 - 23:59)
-      messages = [
-        `Good Night, ${firstName}! 🌙`,
-        "Get some rest... 💤",
-        "A good night rest heals the body. 🛌"
-      ];
+      messages = [`Good Night, ${firstName}! 🌙`, "Get some rest... 💤", "A good night rest heals the body. 🛌"];
     }
 
     let currentIndex = 0;
@@ -857,74 +647,75 @@ const Dashboard = ({ user, onUpdateBalance, onUpdatePiBalance, activeTab, isGues
 
     return () => clearInterval(interval);
   }, [user]);
-  // --- END DYNAMIC GREETING STATE ---
 
+  // --- GLOBAL REALTIME BACKUP QUOTE CONTEXT ---
+  useEffect(() => {
+    let active = true;
+    const fetchGlobalPiRate = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke("pi-payment-handler", {
+          body: {
+            action: "CREATE_PAYMENT",
+            nairaAmount: 1000,
+            serviceId: "00000000-0000-0000-0000-000000000000"
+          }
+        });
+        if (active && !error && data) {
+          setLivePiQuote({
+            rate: Number(data.rate_ngn_per_pi || 0),
+            piAmount: data.pi_amount || 0
+          });
+        }
+      } catch (err) {
+        console.warn("Global exchange compilation failure:", err);
+      }
+    };
 
+    fetchGlobalPiRate();
+    const globalInterval = setInterval(fetchGlobalPiRate, 180000);
+    return () => {
+      active = false;
+      clearInterval(globalInterval);
+    };
+  }, []);
 
-
-  // --- DYNAMIC FEE CALCULATORS ---
   const getWithdrawalFee = (amount: number) => calculateTransferServiceFee(amount);
-
   const getDepositFee = (amount: number, method: string) => {
-    if (!amount) return 0;
-    if (method === "PiNetwork") return 0;
-    const mappedMethod =
-      method === "BankTransfer" || method === "BankUssd" || method === "BankCard"
-        ? method
-        : "BankCard";
-    return calculateDepositFee(amount, mappedMethod);
+    if (!amount || method === "PiNetwork") return 0;
+    return calculateDepositFee(amount, method);
   };
 
-  // --- DATA FETCHING ---
   const fetchUser = async () => {
     if (isGuest) return;
     try {
-      // 💎 Pulling both standard currency and cryptocurrency rows
       const { data } = await supabase.from("profiles").select("wallet_balance, pi_balance").eq("email", user.email).single();
       if (data) {
         onUpdateBalance(Number(data.wallet_balance || 0));
-        if (onUpdatePiBalance) {
-          onUpdatePiBalance(Number(data.pi_balance || 0)); // 🪙 Updates the global state!
-        }
+        if (onUpdatePiBalance) onUpdatePiBalance(Number(data.pi_balance || 0));
       }
     } catch (e) { console.error(e); }
   };
 
   const fetchHistory = async () => {
-    if (isGuest) {
-      setHistory([]);
-      return;
-    }
-    if (!user || !user.id) {
-      return;
-    }
+    if (isGuest || !user?.id) return;
     try {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("transactions")
         .select("*")
         .or(`user_id.eq.${user.id},user_email.eq.${user.email}`)
         .order("created_at", { ascending: false })
         .limit(5);
-
-      if (error) throw error;
       if (data) setHistory(data as unknown as Transaction[]);
-    } catch (e: any) {
-      console.error("History Fetch Error:", e.message);
-    }
+    } catch (e) { console.error(e); }
   };
 
   useEffect(() => {
-    if (isGuest) {
-      setHistory([]);
-      return;
-    }
     fetchHistory();
     fetchUser();
   }, [user.email, isGuest]);
 
   const triggerRefresh = async () => {
     if (isGuest) return;
-    if (isRefreshing) return;
     setIsRefreshing(true);
     await Promise.all([fetchUser(), fetchHistory()]);
     setIsRefreshing(false);
@@ -938,9 +729,7 @@ const Dashboard = ({ user, onUpdateBalance, onUpdatePiBalance, activeTab, isGues
   const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
     if (pullStartY.current === null) return;
     const delta = e.touches[0].clientY - pullStartY.current;
-    if (delta > 0) {
-      setPullDistance(Math.min(delta, 120));
-    }
+    if (delta > 0) setPullDistance(Math.min(delta, 120));
   };
 
   const handleTouchEnd = async () => {
@@ -953,43 +742,15 @@ const Dashboard = ({ user, onUpdateBalance, onUpdatePiBalance, activeTab, isGues
     pullStartY.current = null;
   };
 
-  useEffect(() => {
-    if (isGuest) return;
-    const loadWithdrawBeneficiaries = async () => {
-      try {
-        const { data: auth } = await supabase.auth.getUser();
-        if (!auth?.user?.id) return;
-        const recents = await beneficiaryService.fetchRecent(auth.user.id, 'withdraw', 5);
-        setRecentWithdraws(recents);
-      } catch (e) {
-        console.error("Failed to load withdraw beneficiaries:", e);
-      }
-    };
-    loadWithdrawBeneficiaries();
-  }, []);
-
-  const invokePiPayment = async (body: Record<string, unknown>, fallback = "Pi payment failed") => {
-    // Clone the incoming body so we can safely modify the action names
+  const invokePiPayment = async (body: Record<string, unknown>) => {
     const normalizedBody = { ...body };
+    if (body.action === "approve") normalizedBody.action = "APPROVE_PAYMENT";
+    else if (body.action === "complete") normalizedBody.action = "COMPLETE_PAYMENT";
+    else if (body.action === "cancel") normalizedBody.action = "CANCEL_PAYMENT";
 
-    // Remap client actions to the uppercase parameters expected by the new backend
-    if (body.action === "approve") {
-      normalizedBody.action = "APPROVE_PAYMENT";
-    } else if (body.action === "complete") {
-      normalizedBody.action = "COMPLETE_PAYMENT";
-    } else if (body.action === "cancel") {
-      normalizedBody.action = "CANCEL_PAYMENT";
-    }
-
-    // Notice the updated function target name: "pi-payment-handler"
-    const { data, error } = await supabase.functions.invoke("pi-payment-handler", {
-      body: normalizedBody
-    });
-
-    if (error) {
-      throw new Error(await getFunctionErrorMessage(error, fallback));
-    }
-    return data as any;
+    const { data, error } = await supabase.functions.invoke("pi-payment-handler", { body: normalizedBody });
+    if (error) throw new Error("Pi gateway response validation timeout.");
+    return data;
   };
 
   const handleIncompletePiPayment = (payment: PiPaymentDTO) => {
@@ -998,377 +759,140 @@ const Dashboard = ({ user, onUpdateBalance, onUpdatePiBalance, activeTab, isGues
     const txid = String(payment?.transaction?.txid || "");
     if (!reference || !paymentId || !txid) return;
 
-    void invokePiPayment(
-      { action: "incomplete", reference, paymentId, txid },
-      "Failed to complete pending Pi payment",
-    )
+    void invokePiPayment({ action: "complete", reference, paymentId, txid })
       .then(async (data) => {
         if (data?.local_status === "success") {
           await fetchUser();
           await fetchHistory();
-          showToast("Pending Pi payment completed. Balance updated.", "success");
+          showToast("Pending Pi settlement auto-resolved successfully.", "success");
         }
-      })
-      .catch((error) => {
-        console.warn("Incomplete Pi payment handling failed:", error);
-      });
+      }).catch(err => console.warn(err));
   };
 
   const handlePiDeposit = async (amountNum: number) => {
-    showToast("Connecting to Pi Browser...", "info");
-    const auth = await authenticatePiUser(handleIncompletePiPayment);
+    showToast("Connecting to Pi Browser Node...", "info");
+    await authenticatePiUser(handleIncompletePiPayment);
 
-    // ✨ Forward to the newly updated handler to capture the locked contract quote parameters
     const { data: quote, error: invokeError } = await supabase.functions.invoke("pi-payment-handler", {
-      body: {
-        action: "CREATE_PAYMENT",
-        nairaAmount: amountNum,
-        serviceId: "00000000-0000-0000-0000-000000000000"
-      }
+      body: { action: "CREATE_PAYMENT", nairaAmount: amountNum, serviceId: "00000000-0000-0000-0000-000000000000" }
     });
 
-    if (invokeError || !quote?.success) {
-      throw new Error(quote?.error || "Failed to establish dynamic price contract lock.");
-    }
+    if (invokeError || !quote?.success) throw new Error("Price lock execution failure.");
 
     const reference = String(quote.reference || "");
     const piAmount = Number(quote.pi_amount || 0);
-    const rateNgnPerPi = Number(quote.rate_ngn_per_pi || 0);
-    const buffer = Number(quote.buffer_multiplier || 1.1);
-    const rateSource = String(quote.rate_source || "live market");
-
-    if (!reference || !Number.isFinite(piAmount) || piAmount <= 0) {
-      throw new Error("Invalid Pi payment quote returned by server");
-    }
 
     setCurrentTxRef(reference);
     localStorage.setItem("pending_pi_deposit_ref", reference);
-    setPiPaymentQuote({
-      reference,
-      amountNgn: amountNum,
-      piAmount,
-      rateNgnPerPi,
-      bufferMultiplier: buffer,
-      rateSource,
-    });
-
-    showToast(`Pi amount ready: ${piAmount.toLocaleString(undefined, { maximumFractionDigits: 7 })} PI`, "info");
 
     await createPiPayment(
       {
         amount: piAmount,
-        memo: `Swifna wallet deposit ₦${amountNum.toLocaleString()}`,
-        metadata: {
-          reference,
-          amount_ngn: amountNum,
-          rate_ngn_per_pi: rateNgnPerPi,
-          buffer_multiplier: buffer,
-        },
+        memo: `Swifna funding account credit ₦${amountNum.toLocaleString()}`,
+        metadata: { reference, amount_ngn: amountNum, rate_ngn_per_pi: Number(quote.rate_ngn_per_pi) },
       },
       {
         onReadyForServerApproval: (paymentId) => {
-          void invokePiPayment(
-            { action: "approve", reference, paymentId },
-            "Pi server approval failed",
-          )
-            .then(() => showToast("Pi payment approved. Confirm in Pi Wallet.", "info"))
-            .catch((error) => showToast(error.message || "Pi approval failed", "error"));
+          void invokePiPayment({ action: "approve", reference, paymentId });
         },
         onReadyForServerCompletion: (paymentId, txid) => {
-          void invokePiPayment(
-            { action: "complete", reference, paymentId, txid },
-            "Pi server completion failed",
-          )
+          void invokePiPayment({ action: "complete", reference, paymentId, txid })
             .then(async (data) => {
-              if (data?.local_status !== "success") {
-                throw new Error("Pi payment was not completed");
-              }
+              if (data?.local_status !== "success") throw new Error();
               await fetchUser();
               await fetchHistory();
               setIsDepositModalOpen(false);
               setDepositAmount("");
-              setPaymentUrl(null);
-              setDirectDeposit(null);
-              setPiPaymentQuote(null);
-              setDepositInitError("");
               localStorage.removeItem("pending_pi_deposit_ref");
-              showSuccess({
-                title: "Pi deposit completed",
-                amount: amountNum,
-                message: "Your Swifna wallet has been funded via Pi Network.",
-                subtitle: "PI NETWORK",
-              });
-            })
-            .catch((error) => showToast(error.message || "Pi completion failed", "error"));
+              showSuccess({ title: "Pi Deposit Completed", amount: amountNum, message: "Wallet allocated dynamically.", subtitle: "PI NETWORK" });
+            }).catch(() => showToast("Completion verification node execution failed.", "error"));
         },
         onCancel: (paymentId) => {
-          void invokePiPayment(
-            { action: "cancel", reference, paymentId },
-            "Failed to cancel Pi payment",
-          ).catch((error) => console.warn("Pi cancel failed:", error));
-          setPiPaymentQuote(null);
+          void invokePiPayment({ action: "cancel", reference, paymentId });
           localStorage.removeItem("pending_pi_deposit_ref");
-          showToast("Pi payment cancelled.", "info");
+          showToast("Ecosystem deposit sequence closed.", "info");
         },
-        onError: (error) => {
-          const message = error instanceof Error ? error.message : "Pi payment failed";
-          showToast(message, "error");
-        },
-      },
+        onError: (err) => showToast(err instanceof Error ? err.message : "Signature tracking failure.", "error"),
+      }
     );
   };
 
-  // --- DEPOSIT INITIALIZATION LOGIC ---
   const handleStartDeposit = async () => {
-    if (isGuest) return requireAuth();
+    if (isGuest) return onRequireAuth?.();
     const amountNum = Number(depositAmount);
-    if (!depositAmount || amountNum < 100) return showToast(t("dashboard.min_deposit"), "error");
+    if (!depositAmount || amountNum < 100) return showToast("Minimum account generation size is ₦100.", "error");
 
-    const fee = getDepositFee(amountNum, depositMethod);
-    const totalToPay = amountNum + fee;
-
-    showToast("Initializing Payment...", "info");
     setIsStartingDeposit(true);
     setDepositInitError("");
     setDirectDeposit(null);
-    setPiPaymentQuote(null);
 
     try {
       if (depositMethod === "PiNetwork") {
         await handlePiDeposit(amountNum);
         return;
       }
-      const withTimeout = async <T,>(promise: Promise<T>, ms: number, label: string): Promise<T> => {
-        return await Promise.race([
-          promise,
-          new Promise<T>((_, reject) =>
-            setTimeout(() => reject(new Error(`${label} timed out. Please retry.`)), ms)
-          ),
-        ]);
-      };
 
-      const clientRef = getProjectRefFromUrl(import.meta.env.VITE_SUPABASE_URL);
+      const { data, error } = await supabase.functions.invoke("squad-deposit", {
+        body: { amount: amountNum.toString(), email: user.email, name: user.name, method: depositMethod }
+      });
 
-      const invokePayload = {
-        body: {
-          amount: amountNum.toString(),
-          email: user.email,
-          name: user.name,
-          method: depositMethod
-        }
-      };
+      if (error) throw new Error(error.message || "Gateway response mapping exception.");
 
-      let { data, error } = await withTimeout(
-        supabase.functions.invoke("squad-deposit", invokePayload),
-        20000,
-        "Deposit initialization"
-      );
-
-      const firstStatus = (error as any)?.context?.status;
-      if (firstStatus === 401) {
-        const { data: refreshed, error: refreshError } = await withTimeout(
-          supabase.auth.refreshSession(),
-          12000,
-          "Session refresh"
-        );
-        if (refreshError || !refreshed?.session?.access_token) {
-          throw new Error("Unauthorized (401). Please log out and log in again.");
-        }
-
-        const refreshedToken = refreshed.session.access_token;
-        const refreshedTokenRef = getProjectRefFromJwt(refreshedToken);
-        if (clientRef && refreshedTokenRef && clientRef !== refreshedTokenRef) {
-          throw new Error(`Auth project mismatch: app=${clientRef}, token=${refreshedTokenRef}. Check VITE_SUPABASE_URL/ANON_KEY.`);
-        }
-
-        ({ data, error } = await withTimeout(
-          supabase.functions.invoke("squad-deposit", {
-            ...invokePayload,
-            headers: { Authorization: `Bearer ${refreshedToken}` }
-          }),
-          20000,
-          "Deposit initialization retry"
-        ));
-      }
-
-      if (error) {
-        let detailMessage = "";
-        const ctxBody = (error as any)?.context?.body;
-        if (ctxBody) {
-          if (typeof ctxBody === "string") {
-            try {
-              const parsed = JSON.parse(ctxBody);
-              detailMessage = parsed?.error || parsed?.message || ctxBody;
-            } catch {
-              detailMessage = ctxBody;
-            }
-          } else if (typeof ctxBody === "object") {
-            detailMessage = ctxBody?.error || ctxBody?.message || "";
-          }
-        }
-
-        const status = (error as any)?.context?.status;
-        const fullMessage = detailMessage || error.message || "Failed to start payment";
-        throw new Error(status ? `${fullMessage} (status ${status})` : fullMessage);
-      }
-
-      let payload: any = data;
-      if (typeof data === "string") {
-        try {
-          payload = JSON.parse(data);
-        } catch {
-          payload = { raw: data };
-        }
-      }
-
-      const rawCheckoutUrl =
-        payload?.url ??
-        payload?.cashierUrl ??
-        payload?.checkout_url ??
-        payload?.data?.url ??
-        payload?.data?.cashierUrl;
-
-      const rawReference =
-        payload?.reference ??
-        payload?.txnRef ??
-        payload?.data?.reference;
-
-      const transferPayload = payload?.transfer ?? payload?.data?.transfer ?? payload?.data;
-      const rawAccountNumber =
-        transferPayload?.account_number ??
-        transferPayload?.virtual_account_number ??
-        transferPayload?.accountNumber;
-      const rawBankName =
-        transferPayload?.bank_name ??
-        transferPayload?.bank ??
-        transferPayload?.bankName;
-      const rawAccountName =
-        transferPayload?.account_name ??
-        transferPayload?.accountName ??
-        transferPayload?.beneficiary_name;
-      const rawExpiresAt =
-        transferPayload?.expires_at ??
-        transferPayload?.expiry_date ??
-        transferPayload?.valid_till;
-
-      if (rawAccountNumber) {
-        const resolvedRef = String(rawReference || "").trim();
+      const transferPayload = data?.transfer || data?.data?.transfer || data?.data;
+      if (transferPayload?.account_number) {
+        const resolvedRef = String(data?.reference || data?.data?.reference || "").trim();
         if (resolvedRef) {
           setCurrentTxRef(resolvedRef);
           localStorage.setItem("pending_deposit_ref", resolvedRef);
         }
-        setPaymentUrl(null);
         setDirectDeposit({
-          accountNumber: String(rawAccountNumber),
-          bankName: rawBankName ? String(rawBankName) : "",
-          accountName: rawAccountName ? String(rawAccountName) : "",
-          expiresAt: rawExpiresAt ? String(rawExpiresAt) : "",
-          amount: Number(totalToPay),
-          reference: resolvedRef || "",
+          accountNumber: String(transferPayload.account_number),
+          bankName: String(transferPayload.bank_name || "Squad Transfer Bank"),
+          accountName: String(transferPayload.account_name || user.name),
+          amount: amountNum + getDepositFee(amountNum, depositMethod),
+          reference: resolvedRef,
         });
-        showToast("Transfer account generated. Send exactly the amount shown.", "success");
         return;
       }
 
-      if (rawCheckoutUrl) {
-        const checkoutUrl = String(rawCheckoutUrl).trim();
-        if (!/^https?:\/\//i.test(checkoutUrl)) {
-          throw new Error("Invalid checkout URL returned. Please try again.");
+      const checkoutUrl = data?.url || data?.checkout_url || data?.data?.url;
+      if (checkoutUrl) {
+        if (data?.reference) {
+          setCurrentTxRef(data.reference);
+          localStorage.setItem("pending_deposit_ref", data.reference);
         }
-        if (rawReference) {
-          setCurrentTxRef(rawReference);
-          localStorage.setItem("pending_deposit_ref", rawReference);
-        }
-        setDirectDeposit(null);
         setPaymentUrl(checkoutUrl);
-        showToast("Payment link generated. Tap Proceed to Checkout.", "success");
       } else {
-        throw new Error(`Failed to get payment URL. Response: ${JSON.stringify(payload || {})}`);
+        throw new Error("Unable to synthesize endpoint connection.");
       }
-
     } catch (e: any) {
-      setDepositInitError(e.message || "Failed to start payment");
-      showToast(e.message || "Failed to start payment", "error");
+      setDepositInitError(e.message);
     } finally {
       setIsStartingDeposit(false);
     }
   };
 
-  // --- REALTIME BALANCE UPDATE ---
-  useEffect(() => {
-    if (!user.id) return;
-    const channel = supabase
-      .channel('realtime-balance')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'profiles',
-          filter: `id=eq.${user.id}`,
-        },
-        (payload: { new: { wallet_balance: number } }) => {
-          const newBalance = payload.new.wallet_balance;
-          onUpdateBalance(newBalance);
-          showToast(`Balance updated: ₦${newBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, "success");
-          fetchHistory();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user.id]);
-
-  // --- VERIFY DEPOSIT (Direct DB Check) ---
   const verifyDeposit = async (reference: string, opts?: { silent?: boolean }) => {
-    if (isGuest) return "missing";
-    if (!reference) {
-      if (!opts?.silent) showToast("No transaction reference found", "error");
-      return "missing";
-    }
-
+    if (isGuest || !reference) return "missing";
     setIsVerifyingDeposit(true);
     try {
-      // Actively requery Squad in case webhook delivery is delayed.
-      const { error: requeryError } = await supabase.functions.invoke("squad-verify", {
-        body: { reference }
-      });
-      if (requeryError) {
-        console.warn("squad-verify error:", requeryError.message);
-      }
-
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("status, amount")
-        .eq("reference", reference)
-        .single();
-
-      if (error) throw error;
-
+      await supabase.functions.invoke("squad-verify", { body: { reference } });
+      const { data } = await supabase.from("transactions").select("status").eq("reference", reference).single();
       const status = String(data?.status || "").toLowerCase();
+
       if (status === 'success') {
-        if (!opts?.silent) showToast("Payment confirmed! Updating balance...", "success");
         await fetchUser();
         await fetchHistory();
         setIsDepositModalOpen(false);
         setDepositAmount("");
-        setPaymentUrl(null);
         setDirectDeposit(null);
-        setDepositInitError("");
+        setPaymentUrl(null);
         localStorage.removeItem("pending_deposit_ref");
         return "success";
-      } else if (status === 'failed') {
-        if (!opts?.silent) showToast("Payment failed or cancelled.", "error");
-        localStorage.removeItem("pending_deposit_ref");
-        return "failed";
-      } else {
-        if (!opts?.silent) showToast("Payment is still pending. Please wait.", "info");
-        return "pending";
       }
-    } catch (e: any) {
-      if (!opts?.silent) showToast(e.message || "Verification failed", "error");
+      if (!opts?.silent) showToast("Payment reconciliation incomplete. Please wait.", "info");
+      return status;
+    } catch {
       return "error";
     } finally {
       setIsVerifyingDeposit(false);
@@ -1377,1064 +901,299 @@ const Dashboard = ({ user, onUpdateBalance, onUpdatePiBalance, activeTab, isGues
 
   const handleRetryPendingDeposit = async () => {
     const pendingRef = localStorage.getItem("pending_deposit_ref");
-    if (!pendingRef) {
-      setIsCheckingPendingDeposit(false);
-      showToast("No pending payment found.", "info");
-      return;
-    }
-
+    if (!pendingRef) return setIsCheckingPendingDeposit(false);
     setIsCheckingPendingDeposit(true);
     const result = await verifyDeposit(pendingRef);
-    if (result === "success" || result === "failed" || result === "missing") {
-      setIsCheckingPendingDeposit(false);
-      if (pendingDepositPollRef.current) {
-        window.clearInterval(pendingDepositPollRef.current);
-        pendingDepositPollRef.current = null;
-      }
-    }
+    if (result === "success" || result === "failed") setIsCheckingPendingDeposit(false);
   };
 
   useEffect(() => {
-    if (isGuest) {
-      setIsCheckingPendingDeposit(false);
-      return;
-    }
     const pendingRef = localStorage.getItem("pending_deposit_ref");
-    if (!pendingRef) {
-      setIsCheckingPendingDeposit(false);
-      return;
-    }
-
-    let attempts = 0;
-    const maxAttempts = 8;
+    if (!pendingRef || isGuest) return;
     setIsCheckingPendingDeposit(true);
-
-    const poll = async () => {
-      attempts += 1;
+    const interval = setInterval(async () => {
       const result = await verifyDeposit(pendingRef, { silent: true });
-      if (result === "success") {
-        showToast("Payment confirmed! Balance updated.", "success");
+      if (result === "success" || result === "failed") {
         setIsCheckingPendingDeposit(false);
-        if (pendingDepositPollRef.current) window.clearInterval(pendingDepositPollRef.current);
-        pendingDepositPollRef.current = null;
-        return;
+        clearInterval(interval);
       }
-      if (result === "failed" || result === "missing" || attempts >= maxAttempts) {
-        setIsCheckingPendingDeposit(false);
-        if (pendingDepositPollRef.current) window.clearInterval(pendingDepositPollRef.current);
-        pendingDepositPollRef.current = null;
-      }
-    };
-
-    poll();
-    pendingDepositPollRef.current = window.setInterval(poll, 5000);
-
-    return () => {
-      setIsCheckingPendingDeposit(false);
-      if (pendingDepositPollRef.current) window.clearInterval(pendingDepositPollRef.current);
-      pendingDepositPollRef.current = null;
-    };
+    }, 8000);
+    return () => clearInterval(interval);
   }, [user.id, isGuest]);
 
-  // --- VERIFY ACCOUNT (PAYSTACK) ---
   const resolveAccount = async (acct: string, bank: string) => {
-    if (isGuest) return;
-    if (acct.length !== 10 || !bank) return;
-
+    if (acct.length !== 10 || !bank || isGuest) return;
     setIsResolving(true);
     setAccountName("");
-
-    console.log(`Verifying: ${acct} with Bank: ${bank}`);
-
     try {
-      const { data, error } = await supabase.functions.invoke("verify-account", {
-        body: { account_number: acct, bank_code: bank }
-      });
-
-      console.log("Verification Response:", data, error);
-
-      if (error) throw error;
-
-      if (data?.valid) {
-        setAccountName(data.account_name);
-        showToast(`Verified: ${data.account_name}`, "success");
-      } else {
-        const errorMsg = data?.message || "Account not found";
-        console.error("Verification failed:", errorMsg);
-        setAccountName("INVALID ACCOUNT");
-        showToast(errorMsg, "error");
-      }
-    } catch (e: any) {
-      console.error("System Error:", e);
+      const { data } = await supabase.functions.invoke("verify-account", { body: { account_number: acct, bank_code: bank } });
+      if (data?.valid) setAccountName(data.account_name);
+      else setAccountName("INVALID ACCOUNT");
+    } catch {
       setAccountName("SYSTEM ERROR");
-      const errorMessage = await getFunctionErrorMessage(e, "Account verification failed");
-      showToast(errorMessage, "error");
     } finally {
       setIsResolving(false);
     }
   };
 
-  // --- HANDLER: WITHDRAW ---
   const doWithdraw = async () => {
-    if (isGuest) return requireAuth();
     const amount = Number(withdrawAmount);
-
-    if (amount <= 0) return showToast("Invalid amount", "error");
-    if (amount > user.balance) return showToast("Insufficient balance", "error");
-    if (!bankCode || !accountNumber) return showToast("Please fill all bank details", "error");
-
-    if (!accountName || accountName === "INVALID ACCOUNT") return showToast("Please wait for account verification", "error");
-    if (accountName === "SYSTEM ERROR") return showToast("System error on verification. Try again later.", "error");
-
-    const bankName = BANKS.find(b => b.code === bankCode)?.name || "Unknown Bank";
     const fee = getWithdrawalFee(amount);
-
     setIsWithdrawing(true);
-
     try {
       const { data, error } = await supabase.functions.invoke("squad-withdraw", {
-        body: {
-          amount,
-          fee,
-          bank_code: bankCode,
-          bank_name: bankName,
-          account_number: accountNumber,
-          account_name: accountName,
-          narration: `Withdrawal for ${user.email}`,
-        },
+        body: { amount, fee, bank_code: bankCode, bank_name: BANKS.find(b => b.code === bankCode)?.name, account_number: accountNumber, account_name: accountName }
       });
-      if (error) throw error;
-      if (!data?.success) throw new Error(data?.message || "Withdrawal failed");
-
+      if (error || !data?.success) throw new Error(data?.message || "Settlement failed.");
       await fetchUser();
       await fetchHistory();
-
-      showSuccess({
-        title: data?.local_status === "success" ? "Withdrawal completed" : "Withdrawal submitted",
-        amount: Number(amount + fee),
-        message: data?.message || "Withdrawal request submitted.",
-        subtitle: accountNumber ? `FOR ${accountNumber}` : undefined,
-      });
-
       setIsWithdrawModalOpen(false);
       setWithdrawAmount("");
-      setAccountNumber("");
-      setAccountName("");
-      setBankCode("");
-
-      if (saveWithdrawBeneficiary) {
-        try {
-          const { data: auth } = await supabase.auth.getUser();
-          if (auth?.user?.id) {
-            await beneficiaryService.upsert({
-              user_id: auth.user.id,
-              type: 'withdraw',
-              beneficiary_key: `acct:${accountNumber}|bank:${bankCode}`,
-              account_number: accountNumber,
-              bank_code: bankCode,
-              account_name: accountName
-            });
-            const recents = await beneficiaryService.fetchRecent(auth.user.id, 'withdraw', 5);
-            setRecentWithdraws(recents);
-          }
-        } catch (e) {
-          console.error("Failed to save withdraw beneficiary:", e);
-        }
-      }
-
-    } catch (error: any) {
-      console.error("Withdrawal Error Full:", error);
-      const errorMessage = await getFunctionErrorMessage(error, "Withdrawal failed");
-      showToast(errorMessage, "error");
+      showSuccess({ title: "Withdrawal Submitted", amount: amount + fee, message: "Funds dispatch in queue." });
+    } catch (e: any) {
+      showToast(e.message, "error");
     } finally {
       setIsWithdrawing(false);
     }
   };
 
+  const doSendTransfer = async () => {
+    const amount = Number(transferAmount);
+    setIsSendingTransfer(true);
+    try {
+      const { data, error } = await supabase.rpc("transfer_wallet_to_user", { p_recipient_email: transferRecipientEmail.trim().toLowerCase(), p_amount: amount, p_note: transferNote });
+      if (error) throw error;
+      onUpdateBalance(Number((data as any)?.sender_balance_after));
+      await fetchHistory();
+      setIsTransferModalOpen(false);
+      setTransferAmount("");
+      showSuccess({ title: "Transfer Successful", amount, message: "User account funded instantly." });
+    } catch (e: any) {
+      showToast(e.message, "error");
+    } finally {
+      setIsSendingTransfer(false);
+    }
+  };
+
   const requirePin = (action: () => void) => {
-    if (isGuest) {
-      requireAuth();
-      return;
-    }
-    if (!user?.pinHash || !user?.id) {
-      showToast("Please set your PIN in Profile", "error");
-      return;
-    }
+    if (isGuest) return onRequireAuth?.();
+    if (!user?.pinHash) return showToast("Please set transaction secure PIN inside profile.", "error");
     setPendingAction(() => action);
     setPinError("");
     setPinOpen(true);
   };
 
   const handlePinConfirm = async (pin: string) => {
-    if (!user?.pinHash || !user?.id) return;
-    const ok = await verifyPinHash(pin, user.pinHash, { userId: user.id, email: user.email });
-    if (!ok) {
-      setPinError("Incorrect PIN");
-      return;
-    }
+    const ok = await verifyPinHash(pin, user.pinHash || "", { userId: user.id, email: user.email });
+    if (!ok) return setPinError("Incorrect PIN");
     setPinOpen(false);
-    const act = pendingAction;
-    setPendingAction(null);
-    if (act) act();
+    if (pendingAction) pendingAction();
   };
-
-  const handleWithdraw = () => {
-    if (isGuest) return requireAuth();
-    setConfirmWithdrawOpen(true);
-  };
-
-  const doSendTransfer = async () => {
-    if (isGuest) return requireAuth();
-    const amount = Number(transferAmount || 0);
-    const recipientEmail = transferRecipientEmail.trim().toLowerCase();
-
-    if (!recipientEmail) return showToast("Enter recipient email", "error");
-    if (recipientEmail === user.email.trim().toLowerCase()) return showToast("You cannot send to yourself", "error");
-    if (!Number.isFinite(amount) || amount <= 0) return showToast("Enter a valid amount", "error");
-    if (amount > user.balance) return showToast("Insufficient balance", "error");
-
-    setIsSendingTransfer(true);
-    try {
-      const { data, error } = await supabase.rpc("transfer_wallet_to_user", {
-        p_recipient_email: recipientEmail,
-        p_amount: amount,
-        p_note: transferNote.trim() || null,
-      });
-      if (error) throw error;
-
-      const senderBalance = Number((data as any)?.sender_balance_after);
-      if (Number.isFinite(senderBalance)) onUpdateBalance(senderBalance);
-      await fetchHistory();
-
-      showSuccess({
-        title: "Transfer successful",
-        amount,
-        message: `You sent ₦${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} to ${recipientEmail}`,
-        subtitle: "SWIFNA USER TRANSFER",
-      });
-
-      setIsTransferModalOpen(false);
-      setTransferRecipientEmail("");
-      setTransferAmount("");
-      setTransferNote("");
-    } catch (e: any) {
-      showToast(e.message || "Transfer failed", "error");
-    } finally {
-      setIsSendingTransfer(false);
-    }
-  };
-
-  const handleSendTransfer = () => {
-    if (isGuest) return requireAuth();
-    setConfirmTransferOpen(true);
-  };
-
-  const handleSaveWithdrawBeneficiary = async () => {
-    if (isGuest) return requireAuth();
-    if (!bankCode || !accountNumber) return showToast("Enter bank and account number", "error");
-    if (!accountName || accountName === "INVALID ACCOUNT" || accountName === "SYSTEM ERROR") {
-      return showToast("Please verify account name", "error");
-    }
-    try {
-      const { data: auth } = await supabase.auth.getUser();
-      if (!auth?.user?.id) return;
-      await beneficiaryService.upsert({
-        user_id: auth.user.id,
-        type: 'withdraw',
-        beneficiary_key: `acct:${accountNumber}|bank:${bankCode}`,
-        account_number: accountNumber,
-        bank_code: bankCode,
-        account_name: accountName
-      });
-      const recents = await beneficiaryService.fetchRecent(auth.user.id, 'withdraw', 5);
-      setRecentWithdraws(recents);
-      showToast("Beneficiary saved", "success");
-    } catch (e) {
-      console.error("Failed to save withdraw beneficiary:", e);
-      showToast("Failed to save beneficiary", "error");
-    }
-  };
-
-  // --- RENDER CONTENT ---
-  const lazyFallback = (
-    <div className="min-h-[30vh] flex items-center justify-center">
-      <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Loading...</p>
-    </div>
-  );
 
   const renderContent = () => {
     switch (view) {
       case "Admin": return <Suspense fallback={lazyFallback}><AdminDashboard onBack={() => setView("Dashboard")} /></Suspense>;
-      case "DataHelpCenter":
-        return (
-          <div className="space-y-4 pb-20 animate-in fade-in">
-            <div className="bg-white border border-slate-100 rounded-2xl p-5">
-              <div className="flex items-center justify-between gap-3 mb-2">
-                <h1 className="text-lg font-black text-slate-900 uppercase tracking-wide">Swifna Data Help Centre</h1>
-                <button
-                  onClick={() => setView("Dashboard")}
-                  className="px-3 h-8 rounded-lg border border-slate-200 text-[10px] font-black uppercase text-slate-600 hover:bg-slate-50"
-                >
-                  Back
-                </button>
-              </div>
-              <p className="text-xs text-slate-600">
-                Article-style guides for MTN and Airtel data balance checks, transfer/share methods, and plan tips.
-              </p>
-            </div>
-
-            <article className="bg-white border border-slate-100 rounded-2xl p-5 space-y-4">
-              <h2 className="text-sm font-black text-slate-900 uppercase tracking-wide">MTN Guides</h2>
-              <p className="text-xs text-slate-600"><span className="font-black text-slate-800">How to check MTN data balance:</span> Use official MTN methods to view your current data before buying.</p>
-              <p className="text-xs text-slate-600"><span className="font-black text-slate-800">Code to check MTN data balance:</span> Use MTN official balance-check code channels and confirm your remaining MB/GB.</p>
-              <p className="text-xs text-slate-600"><span className="font-black text-slate-800">MTN data balance code:</span> The official balance code can change by network updates, so verify current MTN guidance.</p>
-              <p className="text-xs text-slate-600"><span className="font-black text-slate-800">How to share data on MTN:</span> Use MTN gifting/share features from your line settings.</p>
-              <p className="text-xs text-slate-600"><span className="font-black text-slate-800">Code to share data on MTN:</span> Complete the official transfer steps and recipient confirmation.</p>
-              <p className="text-xs text-slate-600"><span className="font-black text-slate-800">How to transfer data on MTN:</span> Use MTN transfer options to move data to another MTN user.</p>
-              <p className="text-xs text-slate-600"><span className="font-black text-slate-800">MTN data plan:</span> Pick daily, weekly, or monthly options based on your usage.</p>
-              <p className="text-xs text-slate-600"><span className="font-black text-slate-800">MTN data plan 200 for 1GB:</span> Offer eligibility can vary. Check available current bundles before purchase.</p>
-            </article>
-
-            <article className="bg-white border border-slate-100 rounded-2xl p-5 space-y-4">
-              <h2 className="text-sm font-black text-slate-900 uppercase tracking-wide">Airtel Guides</h2>
-              <p className="text-xs text-slate-600"><span className="font-black text-slate-800">How to check Airtel data balance:</span> Use Airtel official methods to confirm your remaining data.</p>
-              <p className="text-xs text-slate-600"><span className="font-black text-slate-800">Airtel data balance check code:</span> Use the official Airtel balance-check flow for your line.</p>
-              <p className="text-xs text-slate-600"><span className="font-black text-slate-800">Airtel data balance code:</span> Verify the latest Airtel-supported code via official Airtel channels.</p>
-              <p className="text-xs text-slate-600"><span className="font-black text-slate-800">How to share data on Airtel:</span> Use Airtel gifting/share settings to send data.</p>
-              <p className="text-xs text-slate-600"><span className="font-black text-slate-800">Code to share data on Airtel:</span> Follow Airtel sharing prompts and recipient details correctly.</p>
-              <p className="text-xs text-slate-600"><span className="font-black text-slate-800">How to transfer data from Airtel to Airtel:</span> Airtel-to-Airtel transfer works through Airtel data sharing tools.</p>
-              <p className="text-xs text-slate-600"><span className="font-black text-slate-800">How to buy data on Airtel:</span> Buy Airtel bundles instantly on Swifna and receive delivery quickly.</p>
-              <p className="text-xs text-slate-600"><span className="font-black text-slate-800">Airtel data plan:</span> Select the bundle that fits your budget and speed needs.</p>
-            </article>
-
-            <div className="bg-white border border-slate-100 rounded-2xl p-5">
-              <button
-                onClick={() => setView("Data")}
-                className="w-full h-11 rounded-xl bg-emerald-600 text-white text-xs font-black uppercase tracking-wide hover:bg-emerald-700 transition-colors"
-              >
-                Buy Data On Swifna
-              </button>
-            </div>
-          </div>
-        );
-      case "Airtime":
-        return <Suspense fallback={lazyFallback}><Airtime user={user} onUpdateBalance={onUpdateBalance} onBack={() => setView("Dashboard")} isGuest={isGuest} onRequireAuth={onRequireAuth} /></Suspense>;
-      case "Data":
-        return <Suspense fallback={lazyFallback}><DataBundle user={user} onUpdateBalance={onUpdateBalance} onBack={() => setView("Dashboard")} isGuest={isGuest} onRequireAuth={onRequireAuth} /></Suspense>;
-      case "Cable":
-        return <Suspense fallback={lazyFallback}><CableTv user={user} onUpdateBalance={onUpdateBalance} onBack={() => setView("Dashboard")} isGuest={isGuest} onRequireAuth={onRequireAuth} /></Suspense>;
-      case "Electricity":
-        return <Suspense fallback={lazyFallback}><Electricity user={user} onUpdateBalance={onUpdateBalance} onBack={() => setView("Dashboard")} isGuest={isGuest} onRequireAuth={onRequireAuth} /></Suspense>;
-      case "Exam":
-        return <Suspense fallback={lazyFallback}><Exams user={user} onUpdateBalance={onUpdateBalance} onBack={() => setView("Dashboard")} isGuest={isGuest} onRequireAuth={onRequireAuth} /></Suspense>;
-      case "RechargePin":
-        return <Suspense fallback={lazyFallback}><RechargePin user={user} onUpdateBalance={onUpdateBalance} onBack={() => setView("Dashboard")} isGuest={isGuest} onRequireAuth={onRequireAuth} /></Suspense>;
-      case "AirtimeToCash":
-        return <Suspense fallback={lazyFallback}><AirtimeToCash user={user} onBack={() => setView("Dashboard")} isGuest={isGuest} onRequireAuth={onRequireAuth} /></Suspense>;
-      default:
-        return renderDashboardHome();
+      case "Airtime": return <Suspense fallback={lazyFallback}><Airtime user={user} onUpdateBalance={onUpdateBalance} onBack={() => setView("Dashboard")} isGuest={isGuest} onRequireAuth={onRequireAuth} /></Suspense>;
+      case "Data": return <Suspense fallback={lazyFallback}><DataBundle user={user} onUpdateBalance={onUpdateBalance} onBack={() => setView("Dashboard")} isGuest={isGuest} onRequireAuth={onRequireAuth} /></Suspense>;
+      case "Cable": return <Suspense fallback={lazyFallback}><CableTv user={user} onUpdateBalance={onUpdateBalance} onBack={() => setView("Dashboard")} isGuest={isGuest} onRequireAuth={onRequireAuth} /></Suspense>;
+      case "Electricity": return <Suspense fallback={lazyFallback}><Electricity user={user} onUpdateBalance={onUpdateBalance} onBack={() => setView("Dashboard")} isGuest={isGuest} onRequireAuth={onRequireAuth} /></Suspense>;
+      case "Exam": return <Suspense fallback={lazyFallback}><Exams user={user} onUpdateBalance={onUpdateBalance} onUpdatePiBalance={onUpdatePiBalance} onBack={() => setView("Dashboard")} isGuest={isGuest} onRequireAuth={onRequireAuth} /></Suspense>;
+      case "RechargePin": return <Suspense fallback={lazyFallback}><RechargePin user={user} onUpdateBalance={onUpdateBalance} onUpdatePiBalance={onUpdatePiBalance} onBack={() => setView("Dashboard")} isGuest={isGuest} onRequireAuth={onRequireAuth} /></Suspense>;
+      case "AirtimeToCash": return <Suspense fallback={lazyFallback}><AirtimeToCash user={user} onBack={() => setView("Dashboard")} isGuest={isGuest} onRequireAuth={onRequireAuth} /></Suspense>;
+      default: return renderDashboardHome();
     }
   };
 
   const renderDashboardHome = () => {
     const { t } = useI18n();
-
     const amountNum = Number(withdrawAmount) || 0;
     const currentWithdrawFee = getWithdrawalFee(amountNum);
     const depositAmountNum = Number(depositAmount) || 0;
     const currentDepositFee = getDepositFee(depositAmountNum, depositMethod);
 
     return (
-      <div
-        className="space-y-6 pb-24 animate-in fade-in"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
-        <div
-          className="flex items-center justify-center"
-          style={{ height: pullDistance ? Math.max(24, pullDistance * 0.6) : 0 }}
-        >
-          {(pullDistance > 0 || isRefreshing) && (
-            <div className="text-xs font-bold text-slate-400">
-              {isRefreshing ? "Refreshing..." : pullDistance > 80 ? "Release to refresh" : "Pull to refresh"}
-            </div>
-          )}
+      <div className="space-y-6 pb-24 animate-in fade-in" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+        <div className="flex items-center justify-center" style={{ height: pullDistance ? Math.max(24, pullDistance * 0.6) : 0 }}>
+          {pullDistance > 0 && <div className="text-xs font-bold text-slate-400">{pullDistance > 80 ? "Release to refresh" : "Pull to refresh"}</div>}
         </div>
 
-        {/* --- CLEANED DYNAMIC HEADER --- */}
         <div className="flex items-center mb-2 mt-2 h-10">
-          <h1
-            className={`
-                text-2xl font-black text-slate-800 tracking-tight
-                transition-opacity duration-500 ease-in-out
-                ${fade ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}
-            `}
-          >
-            {greeting}
-          </h1>
+          <h1 className={`text-2xl font-black text-slate-800 tracking-tight transition-opacity duration-500 ${fade ? 'opacity-100' : 'opacity-0'}`}>{greeting}</h1>
         </div>
 
         {isCheckingPendingDeposit && (
           <div className="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-xl flex items-center gap-3">
             <Loader2 size={14} className="animate-spin shrink-0" />
-            <p className="text-xs font-bold flex-1">Checking your payment status and updating wallet balance...</p>
-            <button
-              onClick={handleRetryPendingDeposit}
-              disabled={isVerifyingDeposit}
-              className="px-3 py-1.5 rounded-lg bg-amber-100 border border-amber-300 text-[10px] font-black uppercase tracking-wide hover:bg-amber-200 disabled:opacity-60"
-            >
-              {isVerifyingDeposit ? "Checking..." : "Retry now"}
-            </button>
-          </div>
-        )}
-        {isGuest && (
-          <div className="bg-amber-50 border border-amber-200 text-amber-900 p-3 rounded-xl">
-            <p className="text-xs font-bold">
-              You are browsing as a guest. Login or sign up to buy services, fund wallet, or withdraw.
-            </p>
+            <p className="text-xs font-bold flex-1">Synchronizing open wallet deposit nodes...</p>
+            <button onClick={handleRetryPendingDeposit} className="px-3 py-1.5 rounded-lg bg-amber-100 text-[10px] font-black uppercase">Verify</button>
           </div>
         )}
 
-        {/* PUSH NOTIFICATIONS PROMPT */}
-        {permission === 'default' && (
-          <div className="bg-emerald-900/40 border border-emerald-500/30 p-4 rounded-xl mb-6 flex justify-between items-center">
-            <div>
-              <h3 className="font-bold text-white text-sm">Enable Notifications</h3>
-              <p className="text-xs text-slate-400">Get alerts for deposits and transfers.</p>
-            </div>
-            <button
-              onClick={subscribeToPush}
-              disabled={pushLoading}
-              className="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-500 transition"
-            >
-              {pushLoading ? 'Enabling...' : 'Enable'}
-            </button>
-          </div>
-        )}
-
-        {/* MULTI-CURRENCY UNIFIED WALLET CARD */}
-        <section className="bg-gradient-to-br from-emerald-600 to-teal-700 dark:from-slate-800 dark:to-slate-900 p-6 rounded-[35px] text-white shadow-xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
-          <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full blur-2xl -ml-5 -mb-5"></div>
-
+        {/* WALLET CARD LAYER */}
+        <section className="bg-gradient-to-br from-emerald-600 to-teal-700 p-6 rounded-[35px] text-white shadow-xl relative overflow-hidden">
           <div className="relative z-10">
-            {/* Header row with refresh trigger */}
-            <div className="flex justify-between items-start mb-1">
+            <div className="flex justify-between items-start">
               <div>
-                <p className="text-[9px] font-black uppercase tracking-widest opacity-75">Total Net Worth</p>
-                <h2 className="text-3xl font-black mt-0.5 tracking-tight break-all max-w-[250px]">
-                  ₦{Number(user.balance + ((user.piBalance || 0) * (livePiQuote?.rate || 0))).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                <p className="text-[9px] font-black uppercase tracking-widest opacity-75">Combined Net Asset Valuation</p>
+                <h2 className="text-3xl font-black tracking-tight">
+                  ₦{Number(user.balance + ((user.piBalance || 0) * (livePiQuote?.rate || 0))).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </h2>
               </div>
-              <button
-                aria-label="Refresh balances"
-                onClick={() => {
-                  if (isGuest) { requireAuth(); return; }
-                  setIsRefreshingBalance(true);
-                  fetchUser();
-                  setTimeout(() => setIsRefreshingBalance(false), 1000);
-                }}
-                className="p-2 bg-white/15 rounded-full hover:bg-white/25 transition-colors mt-1 shrink-0"
-              >
+              <button onClick={() => { fetchUser(); fetchHistory(); }} className="p-2 bg-white/15 rounded-full hover:bg-white/25">
                 <RotateCcw size={14} className={isRefreshingBalance ? "animate-spin" : ""} />
               </button>
             </div>
 
-            {/* 📉 Integrated, lightweight vertical stack directly below the Net Worth figure */}
-            <div className="mt-3 pt-2.5 border-t border-white/10 text-xs space-y-1 w-full text-left px-0.5">
-              {/* Pi Row with protected text alignment */}
-              <div className="flex justify-between items-start opacity-85 py-0.5 gap-2">
-                <span className="flex items-center gap-1 shrink-0 font-medium">
-                  <span className="text-yellow-300 font-bold text-sm leading-none">π</span> Pi Network Balance:
-                </span>
-                <span className="font-bold tracking-tight text-right break-all max-w-[150px]">
-                  {(user.piBalance || 0).toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 })} π
-                  <span className="block text-[10px] opacity-75 font-normal tracking-normal">
-                    ≈ ₦{Number((user.piBalance || 0) * (livePiQuote?.rate || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
+            <div className="mt-4 pt-3 border-t border-white/10 text-xs space-y-1.5 w-full">
+              <div className="flex justify-between items-start opacity-90">
+                <span className="font-medium">π Blockchain Balance:</span>
+                <span className="font-bold text-right">
+                  {(user.piBalance || 0).toLocaleString(undefined, { minimumFractionDigits: 4 })} π
+                  <span className="block text-[10px] opacity-75 font-normal">≈ ₦{Number((user.piBalance || 0) * (livePiQuote?.rate || 0)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                 </span>
               </div>
-
-              {/* Fiat Row */}
-              <div className="flex justify-between items-center opacity-85 pt-1.5 gap-2">
-                <span className="font-medium">💵 Naira cash wallet:</span>
-                <span className="font-bold tracking-tight text-right break-all max-w-[150px]">
-                  ₦{user.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
+              <div className="flex justify-between items-center opacity-90">
+                <span className="font-medium">₦ Local Cash Account:</span>
+                <span className="font-bold">₦{user.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
               </div>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex gap-3 mt-4">
-              <button onClick={() => { setPaymentUrl(null); setDirectDeposit(null); setDepositInitError(""); setIsDepositModalOpen(true); }} className="flex-1 bg-white text-emerald-700 py-3.5 rounded-2xl font-black text-xs uppercase shadow-lg flex items-center justify-center gap-2 hover:bg-emerald-50 transition-colors">
-                <CreditCard size={16} /> {t("dashboard.fund")}
-              </button>
-              <button onClick={() => { setIsWithdrawModalOpen(true); }} className="flex-1 bg-emerald-800/40 border border-white/20 text-white py-3.5 rounded-2xl font-black text-xs uppercase hover:bg-emerald-800/60 transition-colors">
-                {t("dashboard.withdraw")}
-              </button>
+            <div className="flex gap-3 mt-5">
+              <button onClick={() => setIsDepositModalOpen(true)} className="flex-1 bg-white text-emerald-700 py-3.5 rounded-2xl font-black text-xs uppercase shadow-lg flex items-center justify-center gap-2"><CreditCard size={16} /> Fund</button>
+              <button onClick={() => setIsWithdrawModalOpen(true)} className="flex-1 bg-emerald-800/40 border border-white/20 text-white py-3.5 rounded-2xl font-black text-xs uppercase">Withdraw</button>
             </div>
-            <button
-              onClick={() => setIsTransferModalOpen(true)}
-              className="mt-3 w-full bg-emerald-800/40 border border-white/20 text-white py-3 rounded-2xl font-black text-xs uppercase hover:bg-emerald-800/60 transition-colors"
-            >
-              Send To Swifna User
-            </button>
           </div>
         </section>
 
-        {/* ADMIN PANEL BUTTON - Only visible to Admins */}
-        {(user.roles?.includes('admin') || user.role === 'admin') && (
-          <button
-            onClick={() => setView("Admin")}
-            className="w-full bg-emerald-600 dark:bg-slate-900 text-white p-5 rounded-[25px] flex items-center justify-between shadow-xl shadow-slate-200 hover:shadow-2xl transition-all active:scale-[0.98] mb-6 border border-emerald-700 dark:border-slate-800"
-          >
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-emerald-700/70 dark:bg-slate-800 rounded-2xl border border-emerald-400/30 dark:border-slate-700">
-                <ShieldCheck size={24} className="text-white" />
-              </div>
-              <div className="text-left">
-                <h3 className="font-black text-lg text-white">Admin Panel</h3>
-                <p className="text-xs font-bold text-white/80 uppercase tracking-wider">Manage Withdrawals</p>
-              </div>
-            </div>
-            <div className="bg-emerald-700/70 dark:bg-slate-800 p-2 rounded-full">
-              <ArrowRight size={20} className="text-white" />
-            </div>
-          </button>
-        )}
-
-        {/* SERVICE GRID */}
-        <div className="grid grid-cols-3 gap-2 bg-slate-100 dark:bg-slate-800 p-2 rounded-2xl">
+        {/* SERVICE GRID MATRIX */}
+        <div className="grid grid-cols-3 gap-2 bg-slate-100 p-2 rounded-2xl">
           {[
-            { id: "Airtime", labelKey: "dashboard.airtime", icon: <Smartphone size={18} /> },
-            { id: "Data", labelKey: "dashboard.data", icon: <Zap size={18} /> },
-            { id: "Cable", labelKey: "dashboard.cable", icon: <Tv size={18} /> },
-            {
-              id: "Electricity",
-              labelKey: "dashboard.electricity",
-              icon: <div className="relative"><Building2 size={18} /><Zap size={10} className="absolute -top-2 -right-1 text-yellow-500 fill-yellow-500" strokeWidth={3} /></div>
-            },
-            { id: "Exam", labelKey: "dashboard.exam", icon: <GraduationCap size={18} /> },
-            { id: "RechargePin", labelKey: "dashboard.recharge_pin", icon: <Printer size={18} /> },
+            { id: "Airtime", label: "Airtime", icon: <Smartphone size={18} /> },
+            { id: "Data", label: "Data Bundle", icon: <Zap size={18} /> },
+            { id: "Cable", label: "Cable TV", icon: <Tv size={18} /> },
+            { id: "Electricity", label: "Electricity", icon: <Building2 size={18} /> },
+            { id: "Exam", label: "Exam Pins", icon: <GraduationCap size={18} /> },
+            { id: "RechargePin", label: "Printing Pins", icon: <Printer size={18} /> },
           ].map((s) => (
-            <button
-              key={s.id}
-              onClick={() => setView(s.id as ViewState)}
-              className="flex flex-col items-center py-4 rounded-xl text-slate-400 hover:bg-white hover:text-emerald-600 hover:shadow-sm transition-all"
-            >
-              {s.icon} <span className="text-[9px] font-black uppercase mt-1">{t(s.labelKey)}</span>
+            <button key={s.id} onClick={() => setView(s.id as ViewState)} className="flex flex-col items-center py-4 rounded-xl text-slate-500 hover:bg-white hover:text-emerald-600 hover:shadow-sm transition-all">
+              {s.icon} <span className="text-[9px] font-black uppercase mt-1.5 tracking-wide">{s.label}</span>
             </button>
           ))}
         </div>
 
-        <button onClick={() => setView("AirtimeToCash")} className="w-full p-5 rounded-[25px] flex items-center justify-between border-2 border-slate-100 bg-white hover:border-emerald-100 transition-colors group">
+        <button onClick={() => setView("AirtimeToCash")} className="w-full p-5 rounded-[25px] flex items-center justify-between border-2 border-slate-100 bg-white group">
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-orange-100 text-orange-600 rounded-xl group-hover:bg-orange-200 transition-colors"><ArrowLeftRight size={22} /></div>
+            <div className="p-3 bg-orange-100 text-orange-600 rounded-xl"><RotateCcw size={20} className="rotate-90" /></div>
             <div className="text-left">
-              <h3 className="font-black text-sm uppercase text-slate-800">{t("dashboard.airtime_to_cash")}</h3>
-              <p className="text-[10px] text-slate-400 font-bold">{t("dashboard.swap_airtime_for_cash")}</p>
+              <h3 className="font-black text-sm uppercase text-slate-800">Swap Airtime To Cash</h3>
+              <p className="text-[10px] text-slate-400 font-bold">Convert excess mobile credits to local bank holdings</p>
             </div>
           </div>
-          <ArrowRight size={20} className="text-slate-300 group-hover:text-emerald-500 transition-colors" />
+          <ArrowRight size={20} className="text-slate-300 group-hover:text-emerald-500" />
         </button>
 
-        {/* HISTORY */}
+        {/* RECENT USER HISTORY VIEW */}
         <div className="pt-2">
-          <h3 className="font-black text-[10px] uppercase text-slate-400 tracking-widest mb-3 ml-2">{t("dashboard.recent_activity")}</h3>
+          <h3 className="font-black text-[10px] uppercase text-slate-400 tracking-widest mb-3 ml-1">Recent Activity Logs</h3>
           <div className="space-y-2">
-            {history.length === 0 && <p className="text-center text-xs text-slate-300 py-4">{t("common.no_recent_activity")}</p>}
-
             {history.map((tx) => (
-              <button
-                key={tx.id}
-                onClick={() => setSelectedTx(tx)}
-                className="w-full bg-white p-4 rounded-2xl flex items-center justify-between shadow-sm hover:shadow-md border border-transparent hover:border-emerald-100 transition-all active:scale-[0.98]"
-              >
+              <button key={tx.id} onClick={() => setSelectedTx(tx)} className="w-full bg-white p-4 rounded-2xl flex items-center justify-between border border-slate-50 shadow-sm active:scale-[0.99] transition-transform">
                 <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${tx.type === "deposit" ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-600"}`}>
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${String(tx.type).toLowerCase() === "deposit" ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-600"}`}>
                     {getLogoOrIcon(tx)}
                   </div>
                   <div className="text-left">
                     <p className="font-bold text-xs text-slate-800 uppercase">{tx.type}</p>
-                    <p className="text-[10px] text-slate-400 font-bold">
-                      {new Date(tx.created_at).toLocaleDateString()}
-                    </p>
+                    <p className="text-[10px] text-slate-400 font-medium">{new Date(tx.created_at).toLocaleDateString()}</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className={`font-black text-sm block ${tx.type === "deposit" ? "text-emerald-600" : "text-slate-800"}`}>
-                    {tx.type === "deposit" ? "+" : "-"}₦{tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <span className={`font-black text-sm block ${String(tx.type).toLowerCase() === "deposit" ? "text-emerald-600" : "text-slate-800"}`}>
+                    {String(tx.type).toLowerCase() === "deposit" ? "+" : "-"}₦{tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </span>
-                  <span className={`text-[9px] font-black uppercase ${tx.status === 'success' ? 'text-emerald-500' : 'text-rose-500'}`}>
-                    {tx.status}
-                  </span>
+                  <span className={`text-[9px] font-black uppercase ${String(tx.status).toLowerCase() === 'success' ? 'text-emerald-500' : 'text-rose-500'}`}>{tx.status}</span>
                 </div>
               </button>
             ))}
           </div>
         </div>
 
-        {/* RENDER RECEIPT MODAL */}
-        {selectedTx && (
-          <ReceiptView
-            tx={selectedTx}
-            onClose={() => setSelectedTx(null)}
-            onRequeryDeposit={(ref) => verifyDeposit(ref)}
-          />
-        )}
+        {selectedTx && <ReceiptView tx={selectedTx} onClose={() => setSelectedTx(null)} onRequeryDeposit={(ref) => verifyDeposit(ref)} />}
 
-        {/* DEPOSIT MODAL */}
+        {/* FUNDING VIEW ACCOUNTS OVERLAY */}
         {isDepositModalOpen && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-in fade-in">
             <div className="bg-white w-full max-w-sm rounded-[35px] p-8 shadow-2xl relative">
-              <button
-                aria-label="Close fund wallet"
-                onClick={() => {
-                  setIsDepositModalOpen(false);
-                  setPaymentUrl(null);
-                  setDirectDeposit(null);
-                  setDepositInitError("");
-                  setDepositAmount("");
-                }}
-                className="absolute top-6 right-6 p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"
-              >
-                <X size={16} />
-              </button>
-              <h3 className="text-xl font-black text-center mb-6 text-slate-800">{t("dashboard.fund_wallet")}</h3>
+              <button onClick={() => { setIsDepositModalOpen(false); setPaymentUrl(null); setDirectDeposit(null); }} className="absolute top-6 right-6 p-2 bg-slate-100 rounded-full hover:bg-slate-200"><X size={16} /></button>
+              <h3 className="text-xl font-black text-center mb-6 text-slate-800">Account Funding Options</h3>
 
               {paymentUrl || directDeposit ? (
-                <div className="text-center space-y-6 animate-in slide-in-from-bottom-4">
-                  <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto text-emerald-600 mb-2">
-                    <CheckCircle2 size={32} />
-                  </div>
-                  <div>
-                    <h4 className="font-black text-slate-800 text-lg">{directDeposit ? "Transfer Account Ready!" : "Order Created!"}</h4>
-                    <p className="text-xs text-slate-500 font-bold mt-1">
-                      {directDeposit ? "Transfer exactly this amount to complete funding." : "Ready to complete payment."}
-                    </p>
-                  </div>
-                  {directDeposit ? (
-                    <div className="space-y-3 text-left bg-slate-50 rounded-2xl p-4 border border-slate-200">
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs font-bold text-slate-500">Bank</span>
-                        <span className="text-xs font-black text-slate-800">{directDeposit.bankName || "Squad Transfer"}</span>
-                      </div>
-                      <div className="flex justify-between items-center gap-3">
-                        <span className="text-xs font-bold text-slate-500">Account Number</span>
-                        <button
-                          aria-label="Copy account number"
-                          onClick={async () => {
-                            await navigator.clipboard.writeText(directDeposit.accountNumber);
-                            showToast("Account number copied", "success");
-                          }}
-                          className="text-xs font-black text-emerald-700 flex items-center gap-1"
-                        >
-                          {directDeposit.accountNumber} <Copy size={12} />
-                        </button>
-                      </div>
-                      {!!directDeposit.accountName && (
-                        <div className="flex justify-between items-center">
-                          <span className="text-xs font-bold text-slate-500">Account Name</span>
-                          <span className="text-xs font-black text-slate-800">{directDeposit.accountName}</span>
-                        </div>
-                      )}
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs font-bold text-slate-500">Amount to Transfer</span>
-                        <span className="text-xs font-black text-slate-800">
-                          ₦{Number(directDeposit.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
-                      </div>
-                      {!!directDeposit.expiresAt && (
-                        <div className="flex justify-between items-center">
-                          <span className="text-xs font-bold text-slate-500">Expires</span>
-                          <span className="text-xs font-black text-slate-700">{new Date(directDeposit.expiresAt).toLocaleString()}</span>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <a
-                      href={paymentUrl || "#"}
-                      className="block w-full bg-emerald-600 text-white py-4 rounded-2xl font-black uppercase shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-transform active:scale-95"
-                    >
-                      Proceed to Checkout
-                    </a>
-                  )}
+                <div className="text-center space-y-5">
+                  <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto"><CheckCircle2 size={32} /></div>
+                  <h4 className="font-black text-slate-800 text-base">{directDeposit ? "Transfer Coordinates Loaded" : "Gateway Endpoint Generated"}</h4>
+
                   {directDeposit && (
-                    <button
-                      onClick={() => verifyDeposit(directDeposit.reference || currentTxRef)}
-                      disabled={isVerifyingDeposit}
-                      className="w-full border border-emerald-300 text-emerald-700 py-3 rounded-xl font-bold hover:bg-emerald-50 disabled:opacity-60"
-                    >
-                      {isVerifyingDeposit ? "Checking Payment..." : "I Have Paid, Check Now"}
-                    </button>
+                    <div className="space-y-2 text-left bg-slate-50 border p-4 rounded-2xl text-xs font-bold text-slate-700">
+                      <div className="flex justify-between"><span>Bank:</span><span>{directDeposit.bankName}</span></div>
+                      <div className="flex justify-between items-center"><span>Account:</span><button onClick={() => { navigator.clipboard.writeText(directDeposit.accountNumber); showToast("Copied", "success"); }} className="text-emerald-700 font-black flex items-center gap-1">{directDeposit.accountNumber} <Copy size={12} /></button></div>
+                      <div className="flex justify-between"><span>Amount:</span><span>₦{directDeposit.amount.toLocaleString()}</span></div>
+                    </div>
                   )}
-                  <button
-                    onClick={() => {
-                      setPaymentUrl(null);
-                      setDirectDeposit(null);
-                      setDepositInitError("");
-                      localStorage.removeItem("pending_deposit_ref");
-                    }}
-                    className="text-xs font-bold text-slate-400 hover:text-slate-600"
-                  >
-                    Cancel Transaction
-                  </button>
+
+                  {paymentUrl && <a href={paymentUrl} className="block w-full bg-emerald-600 text-white text-center py-4 rounded-xl font-black uppercase">Open Web Checkout</a>}
+                  {directDeposit && <button onClick={() => verifyDeposit(directDeposit.reference)} className="w-full bg-slate-900 text-white py-3 rounded-xl font-black">Check Settlement</button>}
                 </div>
               ) : (
                 <>
-                  {/* Payment Method Selector */}
                   <div className="grid grid-cols-2 gap-2 mb-4">
-                    {[
-                      { id: "BankCard", label: "Card/USSD", sublabel: "1.2%, cap ₦1,500", icon: <CreditCard size={18} /> },
-                      { id: "BankTransfer", label: "Virtual Account", sublabel: "0.25%, cap ₦1,000", icon: <Building2 size={18} /> },
-                      { id: "BankUssd", label: "USSD", sublabel: "1.2%, cap ₦1,500", icon: <Smartphone size={18} /> },
-                      {
-                        id: "PiNetwork", label: "Pi Network", sublabel: "No fee • Crypto", icon: (
-                          <span className="text-lg font-black leading-none">π</span>
-                        )
-                      },
-                    ].map((m) => (
-                      <button
-                        key={m.id}
-                        onClick={() => setDepositMethod(m.id)}
-                        className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all gap-1 ${depositMethod === m.id
-                          ? "bg-emerald-50 border-emerald-500 text-emerald-700 font-bold shadow-sm"
-                          : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
-                          }`}
-                      >
-                        {m.icon}
-                        <span className="text-[11px] font-bold text-center leading-tight">{m.label}</span>
-                        <span className="text-[9px] text-center opacity-70 leading-tight">{m.sublabel}</span>
-                      </button>
+                    {[{ id: "BankCard", label: "Card / USSD" }, { id: "BankTransfer", label: "Virtual Bank Account" }, { id: "PiNetwork", label: "π External Blockchain" }].map(m => (
+                      <button key={m.id} onClick={() => setDepositMethod(m.id)} className={`p-3 border rounded-xl text-xs font-bold ${depositMethod === m.id ? "bg-emerald-50 border-emerald-500 text-emerald-700" : "bg-white"}`}>{m.label}</button>
                     ))}
                   </div>
 
-                  {/* Quick amount buttons */}
-                  <div className="flex gap-2 mb-4 overflow-x-auto pb-2 custom-scrollbar">
-                    {[100, 500, 1000, 2000, 5000].map(amt => (
-                      <button key={amt} onClick={() => setDepositAmount(amt.toString())} className="px-4 py-2 bg-slate-100 hover:bg-emerald-100 hover:text-emerald-700 rounded-xl text-xs font-bold text-slate-600 transition-colors whitespace-nowrap">₦{Number(amt).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</button>
-                    ))}
-                  </div>
+                  <input type="number" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} className="w-full p-4 bg-slate-50 border rounded-2xl font-black mb-4 outline-none" placeholder="Enter Amount (₦)" />
 
-                  <input type="number" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl font-black mb-4 outline-none border border-slate-200 focus:border-emerald-500 transition-colors text-slate-800" placeholder={depositMethod === "PiNetwork" ? "Enter NGN amount to fund" : t("common.amount")} />
-
-                  {/* Pi Network live rate info */}
-                  {depositMethod === "PiNetwork" && (
-                    <div className="mb-4 rounded-2xl border border-purple-200 bg-purple-50 p-4 space-y-2">
-                      <div className="flex items-center gap-2 text-purple-700 mb-1">
-                        <span className="text-base font-black">π</span>
-                        <span className="text-[11px] font-black uppercase tracking-wide">Pi Network Payment</span>
-                      </div>
-                      {isFetchingPiRate ? (
-                        <div className="flex items-center gap-2 text-purple-500 text-xs">
-                          <Loader2 size={14} className="animate-spin" />
-                          <span>Fetching live rate...</span>
-                        </div>
-                      ) : livePiQuote ? (
-                        <>
-                          <div className="flex justify-between items-center text-xs">
-                            <span className="text-purple-600 font-bold">Live Rate</span>
-                            <span className="font-black text-purple-800">1 π ≈ ₦{livePiQuote.rate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                          </div>
-                          <div className="flex justify-between items-center text-xs">
-                            <span className="text-purple-600 font-bold">You will pay</span>
-                            <span className="font-black text-purple-900 text-base">π {livePiQuote.piAmount.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</span>
-                          </div>
-                          <div className="flex justify-between items-center text-xs">
-                            <span className="text-purple-600 font-bold">Processing Fee</span>
-                            <span className="font-black text-green-600">Free ✓</span>
-                          </div>
-                          <p className="text-[9px] text-purple-400 mt-1">Rate includes a small buffer to protect against market swings. Final amount confirmed at checkout.</p>
-                        </>
-                      ) : depositAmountNum > 0 ? (
-                        <p className="text-xs text-purple-400">Unable to fetch rate. Check your connection.</p>
-                      ) : (
-                        <p className="text-xs text-purple-400">Enter an NGN amount above to see the Pi equivalent.</p>
-                      )}
+                  {depositMethod === "PiNetwork" && livePiQuote && (
+                    <div className="mb-4 bg-purple-50 text-purple-800 border-purple-200 border p-4 rounded-xl text-xs font-bold space-y-1">
+                      <div className="flex justify-between"><span>Exchange Standard Lock:</span><span>1 π ≈ ₦{livePiQuote.rate.toLocaleString()}</span></div>
+                      <div className="flex justify-between text-sm font-black"><span>Total Crypto Pay:</span><span>{livePiQuote.piAmount.toLocaleString()} π</span></div>
                     </div>
                   )}
 
-                  {/* NGN fee/total */}
-                  {depositMethod !== "PiNetwork" && (
-                    <>
-                      <div className="bg-slate-50 p-3 rounded-xl mb-4 text-xs text-slate-600 flex justify-between items-center border border-slate-100">
-                        <span>Processing Fee:</span>
-                        <span className="font-bold">₦{Number(currentDepositFee).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                      </div>
-                      <div className="flex justify-between items-center mb-4 text-sm font-bold text-slate-800 px-1">
-                        <span>Total Payable:</span>
-                        <span>₦{Number(depositAmountNum + currentDepositFee).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                      </div>
-                    </>
-                  )}
-
-                  <button
-                    onClick={handleStartDeposit}
-                    disabled={isStartingDeposit || (depositMethod === "PiNetwork" && !livePiQuote)}
-                    className={`w-full py-3 rounded-xl font-bold shadow-lg transition flex justify-center items-center gap-2 disabled:opacity-70 ${depositMethod === "PiNetwork"
-                      ? "bg-purple-600 hover:bg-purple-700 text-white shadow-purple-600/20"
-                      : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20"
-                      }`}
-                  >
-                    {isStartingDeposit ? (
-                      <Loader2 className="animate-spin" />
-                    ) : depositMethod === "PiNetwork" ? (
-                      livePiQuote
-                        ? `Pay π ${livePiQuote.piAmount.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`
-                        : "Select amount to continue"
-                    ) : (
-                      `Pay ₦${Number(depositAmountNum + currentDepositFee).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                    )}
+                  <button onClick={handleStartDeposit} disabled={isStartingDeposit} className="w-full py-4 bg-slate-900 text-white font-black uppercase rounded-xl flex items-center justify-center h-14">
+                    {isStartingDeposit ? <Loader2 className="animate-spin" /> : "Initialize Settlement"}
                   </button>
-                  {!!depositInitError && (
-                    <p className="mt-3 text-[11px] font-bold text-rose-600 break-all">{depositInitError}</p>
-                  )}
                 </>
               )}
             </div>
           </div>
         )}
 
-        {/* WITHDRAW MODAL */}
+        {/* WITHDRAWAL OVERLAY */}
         {isWithdrawModalOpen && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-in fade-in">
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
             <div className="bg-white w-full max-w-sm rounded-[35px] p-8 shadow-2xl relative">
-              <button aria-label="Close withdrawal" onClick={() => setIsWithdrawModalOpen(false)} className="absolute top-6 right-6 p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"><X size={16} /></button>
-              <h3 className="text-xl font-black text-center mb-6 text-slate-800">{t("dashboard.withdraw")}</h3>
+              <button onClick={() => setIsWithdrawModalOpen(false)} className="absolute top-6 right-6 p-2 bg-slate-100 rounded-full"><X size={16} /></button>
+              <h3 className="text-xl font-black text-center mb-6 text-slate-800">Dispatch Local Funds</h3>
 
-              <label className="block text-xs font-bold text-slate-500 mb-1">Bank</label>
-              <div className="mb-4">
-                <select
-                  className="w-full p-2.5 border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-emerald-500 outline-none text-slate-800 text-sm"
-                  value={bankCode}
-                  onChange={(e) => {
-                    setBankCode(e.target.value);
-                    if (accountNumber.length === 10) resolveAccount(accountNumber, e.target.value);
-                  }}
-                >
-                  {BANKS.map((b) => (
-                    <option key={b.code} value={b.code}>{b.name}</option>
-                  ))}
-                </select>
+              <select className="w-full p-3 border rounded-xl bg-white mb-3 text-xs font-bold" value={bankCode} onChange={(e) => { setBankCode(e.target.value); if (accountNumber.length === 10) resolveAccount(accountNumber, e.target.value); }}>
+                {BANKS.map(b => <option key={b.code} value={b.code}>{b.name}</option>)}
+              </select>
+
+              <input type="text" maxLength={10} className="w-full p-3 border rounded-xl mb-3 text-xs font-bold" placeholder="Destination Account Number" value={accountNumber} onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); setAccountNumber(val); if (val.length === 10 && bankCode) resolveAccount(val, bankCode); }} />
+
+              <div className="p-3 bg-slate-50 border rounded-xl text-xs font-black text-emerald-800 mb-3 min-h-[40px] flex items-center">
+                {isResolving ? <span className="flex items-center gap-2"><Loader2 size={12} className="animate-spin" /> Verifying Signatures...</span> : <span>{accountName || "Awaiting complete tracking logs..."}</span>}
               </div>
 
-              <div className="mb-4">
-                <p className="text-[10px] font-black uppercase text-slate-400 mb-2">Saved Beneficiaries</p>
-                {recentWithdraws.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {recentWithdraws.map((b) => {
-                      const bankLabel = BANKS.find((bank) => bank.code === b.bank_code)?.name || "Unknown Bank";
-                      return (
-                        <button
-                          key={b.beneficiary_key}
-                          onClick={() => {
-                            if (b.bank_code) setBankCode(b.bank_code);
-                            if (b.account_number) setAccountNumber(b.account_number);
-                            if (b.account_name) setAccountName(b.account_name);
-                            if (b.account_number && b.bank_code) resolveAccount(b.account_number, b.bank_code);
-                          }}
-                          className="px-3 py-2 rounded-2xl text-left border border-slate-700 text-slate-300 hover:text-white hover:border-emerald-500 transition-colors w-full sm:w-auto"
-                        >
-                          <span className="block text-[10px] font-black uppercase text-slate-400">{bankLabel}</span>
-                          <span className="block text-xs font-bold text-white">{b.account_name || "Beneficiary"}</span>
-                          <span className="block text-[10px] text-slate-400">{b.account_number || "---"}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-[10px] text-slate-500">No saved beneficiaries yet.</p>
-                )}
-              </div>
+              <input type="number" className="w-full p-3 border rounded-xl mb-4 text-xs font-black" placeholder="Amount (₦)" value={withdrawAmount} onChange={(e) => setWithdrawAmount(e.target.value)} />
 
-              <label className="block text-xs font-bold text-slate-500 mb-1">Account Number</label>
-              <div className="mb-2">
-                <input
-                  type="text"
-                  maxLength={10}
-                  className="w-full p-2.5 border rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
-                  placeholder="0123456789"
-                  value={accountNumber}
-                  onChange={(e) => {
-                    const val = e.target.value.replace(/\D/g, '');
-                    setAccountNumber(val);
-                    if (val.length === 10 && bankCode) resolveAccount(val, bankCode);
-                  }}
-                />
-              </div>
-
-              <div className="mt-2 mb-4">
-                <label className="block text-xs font-bold text-slate-500 mb-1">Account Name</label>
-                <div className={`w-full p-2.5 border rounded-xl bg-slate-50 min-h-[42px] flex items-center ${isResolving ? 'text-slate-400' : 'text-slate-800'}`}>
-                  {isResolving ? (
-                    <span className="flex items-center gap-2"><Loader2 size={14} className="animate-spin" /> Verifying...</span>
-                  ) : (
-                    <span className={accountName === "INVALID ACCOUNT" || accountName === "SYSTEM ERROR" ? "text-red-500 font-bold" : "font-bold text-green-700"}>
-                      {accountName || "---"}
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center justify-between mt-2">
-                  <label className="flex items-center gap-2 text-[10px] font-bold uppercase text-slate-500">
-                    <input
-                      type="checkbox"
-                      checked={saveWithdrawBeneficiary}
-                      onChange={(e) => setSaveWithdrawBeneficiary(e.target.checked)}
-                      className="w-4 h-4 accent-emerald-600"
-                    />
-                    Save beneficiary after withdrawal
-                  </label>
-                  <button
-                    type="button"
-                    onClick={handleSaveWithdrawBeneficiary}
-                    className="text-[10px] font-black uppercase text-emerald-600 hover:text-emerald-700"
-                  >
-                    Save now
-                  </button>
-                </div>
-              </div>
-
-              <label className="text-[10px] font-black uppercase text-slate-400">Amount</label>
-              <input
-                type="number"
-                value={withdrawAmount}
-                onChange={(e) => setWithdrawAmount(e.target.value)}
-                className="w-full p-4 bg-slate-50 rounded-2xl font-black mb-4 outline-none border border-slate-200 focus:border-emerald-500 transition-colors text-slate-800"
-                placeholder="Amount"
-              />
-
-              <div className="mb-3 bg-slate-50 p-2 rounded-lg border border-slate-100">
-                <div className="flex items-center gap-2 mb-1 text-slate-500">
-                  <AlertCircle size={12} />
-                  <span className="text-[10px] font-bold uppercase">Transfer Service Fee</span>
-                </div>
-                <div className="text-[10px] text-slate-600 grid grid-cols-3 gap-1">
-                  <div className="bg-white px-2 py-1 rounded border border-slate-100 text-center">
-                    <span className="block text-slate-400">≤ 5k</span>
-                    <span className="font-bold">₦8</span>
-                  </div>
-                  <div className="bg-white px-2 py-1 rounded border border-slate-100 text-center">
-                    <span className="block text-slate-400">≤ 50k</span>
-                    <span className="font-bold">₦20</span>
-                  </div>
-                  <div className="bg-white px-2 py-1 rounded border border-slate-100 text-center">
-                    <span className="block text-slate-400">&gt; 50k</span>
-                    <span className="font-bold">₦40</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-slate-50 p-3 rounded-xl mb-4 text-xs text-slate-600 flex justify-between items-center border border-slate-100">
-                <span>Withdrawal Fee:</span>
-                <span className="font-bold">₦{Number(currentWithdrawFee).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-              </div>
-              <div className="flex justify-between items-center mb-4 text-sm font-bold text-slate-800 px-1">
-                <span>Total Deduction:</span>
-                <span>₦{Number(amountNum + currentWithdrawFee).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-              </div>
-
-              <button
-                onClick={handleWithdraw}
-                disabled={isWithdrawing || isResolving || !accountName || accountName === "INVALID ACCOUNT" || accountName === "SYSTEM ERROR"}
-                className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black uppercase transition-colors shadow-lg shadow-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isWithdrawing ? "Processing..." : "Withdraw Funds"}
-              </button>
+              <button onClick={() => requirePin(doWithdraw)} disabled={isWithdrawing || !accountName || accountName.includes("INVALID")} className="w-full py-4 bg-emerald-600 text-white font-black rounded-xl uppercase">Execute Transfer</button>
             </div>
           </div>
         )}
 
-        {/* SEND TO SWIFNA USER MODAL */}
-        {isTransferModalOpen && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-in fade-in">
-            <div className="bg-white w-full max-w-sm rounded-[35px] p-8 shadow-2xl relative">
-              <button
-                aria-label="Close transfer"
-                onClick={() => setIsTransferModalOpen(false)}
-                className="absolute top-6 right-6 p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"
-              >
-                <X size={16} />
-              </button>
-              <h3 className="text-xl font-black text-center mb-6 text-slate-800">Send To Swifna User</h3>
-
-              <label className="block text-xs font-bold text-slate-500 mb-1">Recipient Email</label>
-              <input
-                type="email"
-                value={transferRecipientEmail}
-                onChange={(e) => setTransferRecipientEmail(e.target.value)}
-                className="w-full p-4 bg-slate-50 rounded-2xl font-bold mb-4 outline-none border border-slate-200 focus:border-emerald-500 transition-colors text-slate-800"
-                placeholder="user@email.com"
-              />
-
-              <label className="block text-xs font-bold text-slate-500 mb-1">Amount</label>
-              <input
-                type="number"
-                value={transferAmount}
-                onChange={(e) => setTransferAmount(e.target.value)}
-                className="w-full p-4 bg-slate-50 rounded-2xl font-black mb-4 outline-none border border-slate-200 focus:border-emerald-500 transition-colors text-slate-800"
-                placeholder="Amount"
-              />
-
-              <label className="block text-xs font-bold text-slate-500 mb-1">Note (optional)</label>
-              <input
-                type="text"
-                value={transferNote}
-                onChange={(e) => setTransferNote(e.target.value)}
-                className="w-full p-4 bg-slate-50 rounded-2xl font-bold mb-6 outline-none border border-slate-200 focus:border-emerald-500 transition-colors text-slate-800"
-                placeholder="What's this for?"
-                maxLength={120}
-              />
-
-              <button
-                onClick={handleSendTransfer}
-                disabled={isSendingTransfer}
-                className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black uppercase transition-colors shadow-lg shadow-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isSendingTransfer ? "Sending..." : "Send Money"}
-              </button>
-            </div>
-          </div>
-        )}
-
-        <ConfirmTransactionModal
-          open={confirmWithdrawOpen}
-          title="Confirm Transaction"
-          subtitle={accountName ? `FOR ${accountName}` : accountNumber ? `FOR ${accountNumber}` : undefined}
-          amountLabel="Total Pay"
-          amount={amountNum + currentWithdrawFee}
-          confirmLabel="Withdraw Now"
-          onConfirm={() => {
-            setConfirmWithdrawOpen(false);
-            requirePin(doWithdraw);
-          }}
-          onClose={() => setConfirmWithdrawOpen(false)}
-        />
-        <ConfirmTransactionModal
-          open={confirmTransferOpen}
-          title="Confirm Transfer"
-          subtitle={transferRecipientEmail ? `TO ${transferRecipientEmail.trim().toLowerCase()}` : undefined}
-          amountLabel="Amount"
-          amount={Number(transferAmount || 0)}
-          confirmLabel="Send Now"
-          onConfirm={() => {
-            setConfirmTransferOpen(false);
-            requirePin(doSendTransfer);
-          }}
-          onClose={() => setConfirmTransferOpen(false)}
-        />
-        <PinPrompt
-          open={pinOpen}
-          requiredLength={user?.pinLength || null}
-          onConfirm={handlePinConfirm}
-          onClose={() => setPinOpen(false)}
-          error={pinError}
-        />
-
-        {/* INSTALL PWA MODAL */}
-        {showInstallPrompt && (
-          <InstallPwaModal onClose={() => setShowInstallPrompt(false)} />
-        )}
+        <PinPrompt open={pinOpen} requiredLength={user?.pinLength || null} onConfirm={handlePinConfirm} onClose={() => setPinOpen(false)} error={pinError} />
       </div>
     );
   };
