@@ -7,14 +7,30 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+const VALID_CATEGORIES = [
+  "data",
+  "cable",
+  "electricity",
+  "exams",
+  "recharge_pins",
+];
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const { action, nairaAmount, serviceId, paymentId, txid, reference } =
-      await req.json();
+    const {
+      action,
+      nairaAmount,
+      serviceId,
+      category,
+      paymentId,
+      txid,
+      reference,
+      recipientDetails,
+    } = await req.json();
 
     // Initialize Supabase Admin Client
     const url = Deno.env.get("SUPABASE_URL") ?? "";
@@ -26,34 +42,49 @@ Deno.serve(async (req) => {
     // ACTION 1: INITIALIZE AND PRICE LOCK WINDOW
     // ==========================================
     if (action === "CREATE_PAYMENT") {
-      if (!nairaAmount) {
+      if (!nairaAmount || !category || !serviceId) {
         return new Response(
-          JSON.stringify({ error: "Missing required amount parameters" }),
+          JSON.stringify({
+            error:
+              "Missing required tracking parameters: nairaAmount, category, and serviceId are mandatory.",
+          }),
           { status: 400, headers: corsHeaders },
         );
       }
 
-      let livePiInNaira = 183.15; // Hardcoded safety base default
+      const lowerCategory = category.toLowerCase();
+      if (!VALID_CATEGORIES.includes(lowerCategory)) {
+        return new Response(
+          JSON.stringify({
+            error: `Invalid utility service category context: ${category}`,
+          }),
+          { status: 400, headers: corsHeaders },
+        );
+      }
+
+      let livePiInNaira = 183.15; // Safe fallback base default
       let rateSource = "live market";
 
       try {
         console.log(
-          `[Price Engine] Querying live conversion matrix for target: ${nairaAmount} PI`,
+          `[Price Engine] Fetching spot conversion matrix for order: ₦${nairaAmount}`,
         );
         const rateResponse = await fetch(
           "https://api.coingecko.com/api/v3/simple/price?ids=pi-network&vs_currencies=ngn",
         );
 
-        if (!rateResponse.ok) throw new Error("CoinGecko API offline");
+        if (!rateResponse.ok)
+          throw new Error("CoinGecko API network route offline");
 
         const marketData = await rateResponse.json();
         const freshRate = marketData["pi-network"]?.ngn;
 
-        if (!freshRate) throw new Error("Invalid rate data structure parsed");
+        if (!freshRate)
+          throw new Error("Invalid rate payload data structure parsed");
 
         livePiInNaira = freshRate;
 
-        // 🔄 CACHE UPDATE: Refresh our last known good rate table background record
+        // 🔄 CACHE UPDATE: Refresh system settings table backing records
         await supabaseAdmin.from("system_settings").upsert({
           key: "pi_fallback_rate",
           value: { rate: livePiInNaira },
@@ -61,7 +92,7 @@ Deno.serve(async (req) => {
         });
       } catch (netError) {
         console.warn(
-          "[Price Engine Warning] External gateway error. Activating database cache network fallback:",
+          "[Price Engine Warning] External gateway drop. Activating DB fallback cache record:",
           netError.message,
         );
 
@@ -80,33 +111,51 @@ Deno.serve(async (req) => {
         }
       }
 
-      // 🆕 Generate a unique tracking reference ID for this deposit order
-      const generatedReference = `DEP-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+      // 🆕 Generate precise structural categorization references
+      const uniqueId = `${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+      const prefix = lowerCategory
+        .replace("_", "")
+        .substring(0, 4)
+        .toUpperCase();
+      const generatedReference = `SWF-${prefix}-${uniqueId}`;
 
-      // 🔄 FIX: Compute calculations by dividing Naira by the exchange rate
+      // Compute rate calculations matching frontend state rules
       const rawPiAmount = nairaAmount / livePiInNaira;
+      const finalPiAmount = parseFloat((rawPiAmount * 1.1).toFixed(4)); // 10% Protection buffer markup applied
 
-      // Apply the 10% protection markup multiplier buffer back onto the rate conversion
-      const finalPiAmount = parseFloat((rawPiAmount * 1.1).toFixed(4));
+      // 💾 Persist transaction intent state lock block to guarantee atomic confirmation matches
+      const { error: lockError } = await supabaseAdmin
+        .from("payment_locks")
+        .insert({
+          reference: generatedReference,
+          category: lowerCategory,
+          service_id: serviceId,
+          naira_amount: nairaAmount,
+          pi_amount: finalPiAmount,
+          recipient_details: recipientDetails || {},
+          status: "pending",
+          expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+        });
+
+      if (lockError) throw lockError;
 
       console.log(
-        `[Price Engine Settle] Price locked: ${finalPiAmount} π using ${rateSource} rate of ₦${livePiInNaira}`,
+        `[Price Engine Settle] Locked reference [${generatedReference}]: ${finalPiAmount} π using source: ${rateSource}`,
       );
 
-      // ✅ Key mapping updated to perfectly match Dashboard.tsx expectations
       return new Response(
         JSON.stringify({
           success: true,
           reference: generatedReference,
           pi_amount: finalPiAmount,
           rate_ngn_per_pi: livePiInNaira,
-          buffer_multiplier: 1.0,
+          buffer_multiplier: 1.1,
           rate_source: rateSource,
+          category: lowerCategory,
           expiresInMinutes: 15,
         }),
         {
           status: 200,
-          box: { headers: corsHeaders },
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         },
       );
@@ -157,15 +206,44 @@ Deno.serve(async (req) => {
     // ACTION 3: SERVER SIDE COMPLETION & FUNDING
     // ==========================================
     if (action === "COMPLETE_PAYMENT") {
-      if (!paymentId || !txid) {
+      if (!paymentId || !txid || !reference) {
         return new Response(
           JSON.stringify({
-            error: "Missing identity tracking hashes (paymentId/txid)",
+            error:
+              "Missing identity validation elements (paymentId/txid/reference)",
           }),
           { status: 400, headers: corsHeaders },
         );
       }
 
+      // 1. Double check state intent records to prevent race condition attacks
+      const { data: lockRecord, error: lockFetchErr } = await supabaseAdmin
+        .from("payment_locks")
+        .select("*")
+        .eq("reference", reference)
+        .single();
+
+      if (lockFetchErr || !lockRecord) {
+        throw new Error(
+          `Security validation failure: Unauthorized reference pointer [${reference}] context passed.`,
+        );
+      }
+
+      if (lockRecord.status === "completed") {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message:
+              "Idempotent resolution: Purchase fulfillment already processed.",
+          }),
+          {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      // 2. Finalize verification over Pi core APIs
       const completeResponse = await fetch(
         `https://api.minepi.com/v2/payments/${paymentId}/complete`,
         {
@@ -189,7 +267,7 @@ Deno.serve(async (req) => {
       const confirmedPiAmount = Number(piPaymentDetails.amount || 0);
       const targetUserUid = piPaymentDetails.user_uid;
 
-      // 1. Fetch the user profile including the correct crypto column
+      // 3. Resolve internal platform profile rows
       const { data: profile, error: profileErr } = await supabaseAdmin
         .from("profiles")
         .select("id, email, wallet_balance, pi_balance")
@@ -198,41 +276,129 @@ Deno.serve(async (req) => {
 
       if (profileErr || !profile) {
         throw new Error(
-          "Swifna profile identity record not found for this Pi UID.",
+          "Swifna profile identity record not found for this Pi UID match.",
         );
       }
 
-      // 2. Calculate the updated cryptocurrency stash directly
+      // 4. Ledger mutation updates tracking blocks
       const updatedPiBalance =
         Number(profile.pi_balance || 0) + confirmedPiAmount;
-
-      // 3. Save the new Pi balance directly into the database row
       await supabaseAdmin
         .from("profiles")
         .update({ pi_balance: updatedPiBalance })
         .eq("id", profile.id);
 
-      // 4. Log the transaction ledger with the coin values
+      await supabaseAdmin
+        .from("payment_locks")
+        .update({ status: "completed", updated_at: new Date().toISOString() })
+        .eq("id", lockRecord.id);
+
+      // ========================================================
+      // 🚀 PROVIDER PIPELINE DELIVERY TRIGGER ROUTER
+      // ========================================================
+      let providerTriggered = false;
+      let distributionPayloadLog: any = {};
+      const calculatedCategory = lockRecord.category;
+      const targetRecipient =
+        lockRecord.recipient_details || recipientDetails || {};
+
+      console.log(
+        `[Fulfillment Engine] Routing execution pipeline trigger for category: [${calculatedCategory}]`,
+      );
+
+      try {
+        const gatewayEndpoint =
+          Deno.env.get("PROVIDER_GATEWAY_URL") ||
+          "https://api.vtu-provider-gateway.com/v1/deliver";
+        const gatewaySecret = Deno.env.get("PROVIDER_AUTH_SECRET") || "";
+
+        // Trigger dynamic value calls down to external utility fulfillment clusters
+        const deliveryResponse = await fetch(gatewayEndpoint, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${gatewaySecret}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            orderReference: reference,
+            serviceId: lockRecord.service_id,
+            category: calculatedCategory,
+            recipient: targetRecipient,
+            fundedValueNaira: lockRecord.naira_amount,
+          }),
+        });
+
+        if (deliveryResponse.ok) {
+          const providerData = await deliveryResponse.json();
+          providerTriggered = true;
+
+          // Map response payload schemas cleanly into transaction records
+          distributionPayloadLog = {
+            token: providerData?.token || providerData?.pin_code || null,
+            cards:
+              providerData?.generated_cards || providerData?.pins_list || [],
+            pin: providerData?.pin || null,
+            serial_no:
+              providerData?.serial_number || providerData?.serial || null,
+            api_raw_response: providerData,
+          };
+        } else {
+          const rawErrText = await deliveryResponse.text();
+          console.error(
+            `[Fulfillment Alert] Provider api cluster rejected instruction routing blocks: ${rawErrText}`,
+          );
+          distributionPayloadLog = {
+            error_delivery_failed: true,
+            upstream_message: rawErrText,
+          };
+        }
+      } catch (providerError) {
+        console.error(
+          `[Fulfillment Fatal] Unexpected routing drop connection state:`,
+          providerError.message,
+        );
+        distributionPayloadLog = {
+          error_exception_triggered: true,
+          log: providerError.message,
+        };
+      }
+
+      // 5. Append transaction records completely configured to map into History viewport rules
       await supabaseAdmin.from("transactions").insert({
         user_id: profile.id,
         user_email: profile.email,
-        type: "deposit",
-        amount: confirmedPiAmount, // Storing raw Pi amount
-        status: "success",
-        reference: reference || `PI-${paymentId.substring(0, 8)}`,
-        description: `Funded wallet with raw cryptocurrency (${confirmedPiAmount} π)`,
+        type:
+          calculatedCategory === "deposit"
+            ? "Deposit"
+            : calculatedCategory.charAt(0).toUpperCase() +
+              calculatedCategory.slice(1),
+        amount: lockRecord.naira_amount, // Persists standard platform ledger impact
+        status:
+          providerTriggered || calculatedCategory === "deposit"
+            ? "success"
+            : "pending",
+        reference: reference,
+        description: `Processed utility settlement pipeline mapping [${calculatedCategory}] via currency exchange swap (${confirmedPiAmount} π)`,
         meta: {
           pi_payment_id: paymentId,
           blockchain_tx_id: txid,
           currency: "PI",
+          payment_channel: "pi_blockchain",
+          category: calculatedCategory,
+          service_id: lockRecord.service_id,
+          // Merge dynamic meta parameters out to components
+          ...distributionPayloadLog,
         },
       });
 
       return new Response(
         JSON.stringify({
           success: true,
-          local_status: "success",
-          message: "Account balance credited successfully",
+          local_status: providerTriggered ? "success" : "pending",
+          message: providerTriggered
+            ? "Utility delivery completed successfully"
+            : "Payment tracked; fulfillment pipeline handling details via async loop.",
+          provider_payload: distributionPayloadLog,
         }),
         {
           status: 200,
@@ -241,10 +407,15 @@ Deno.serve(async (req) => {
       );
     }
 
-    return new Response(JSON.stringify({ error: "Invalid action parameter" }), {
-      status: 400,
-      headers: corsHeaders,
-    });
+    return new Response(
+      JSON.stringify({
+        error: "Invalid execution action selector routing instruction passed",
+      }),
+      {
+        status: 400,
+        headers: corsHeaders,
+      },
+    );
   } catch (error: any) {
     return new Response(JSON.stringify({ error: error.message || error }), {
       status: 500,

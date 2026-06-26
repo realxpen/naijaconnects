@@ -1,48 +1,62 @@
 export const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS, GET",
 };
 
 export const AFFATECH_CONFIG = {
-    // UPDATED: Added 'www.' back as per documentation
-    BASE_URL: "https://www.affatech.com.ng/api", 
-    
-    getHeaders: () => {
-        const apiKey = Deno.env.get("AFFATECH_API_KEY");
-        if (!apiKey) throw new Error("Server Config Error: Missing AFFATECH_API_KEY");
-        
-        return {
-            "Content-Type": "application/json",
-            "Authorization": `Token ${apiKey}` 
-        };
-    }
+  // Standard secure base URL as per vendor specification
+  BASE_URL: "https://www.affatech.com.ng/api",
+
+  getHeaders: () => {
+    const apiKey = Deno.env.get("AFFATECH_API_KEY");
+    if (!apiKey)
+      throw new Error(
+        "Server Config Error: Missing AFFATECH_API_KEY inside edge engine.",
+      );
+
+    return {
+      "Content-Type": "application/json",
+      Authorization: `Token ${apiKey}`,
+    };
+  },
 };
 
-export const makeAffatechRequest = async (endpoint: string, payload: any = {}, method = 'POST') => {
-    const url = `${AFFATECH_CONFIG.BASE_URL}${endpoint}`;
-    
-    console.log(`[Affatech] ${method} -> ${url}`);
+export const makeAffatechRequest = async (
+  endpoint: string,
+  payload: any = {},
+  method = "POST",
+) => {
+  // 🧼 URL Sanitation: Ensure a single slash exists between the base API URL and endpoint paths
+  const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+  const url = `${AFFATECH_CONFIG.BASE_URL}${cleanEndpoint}`;
 
-    const options: any = {
-        method: method,
-        headers: AFFATECH_CONFIG.getHeaders(),
-    };
+  console.log(`[Affatech Request] ${method} -> ${url}`);
 
-    if (method === 'POST') {
-        options.body = JSON.stringify(payload);
-    }
+  const options: any = {
+    method: method,
+    headers: AFFATECH_CONFIG.getHeaders(),
+  };
+
+  // Include payload body if request isn't an explicit GET fetch call
+  if (method !== "GET") {
+    options.body = JSON.stringify(payload);
+  }
+
+  try {
+    const response = await fetch(url, options);
+    const rawText = await response.text();
 
     try {
-        const response = await fetch(url, options);
-        const rawText = await response.text();
-        
-        try {
-            return JSON.parse(rawText);
-        } catch {
-            // Log the raw text if parsing fails (helps debug HTML error pages)
-            throw new Error(`Affatech Error (Non-JSON): ${rawText.substring(0, 100)}`);
-        }
-    } catch (e: any) {
-        throw new Error(`Network Error: ${e.message}`);
+      return JSON.parse(rawText);
+    } catch {
+      // Catches any 502 Bad Gateway or raw HTML cloudflare/vendor crash text gracefully for the frontend logs
+      throw new Error(
+        `Affatech Gateway Error (Non-JSON): ${rawText.substring(0, 150)}`,
+      );
     }
+  } catch (e: any) {
+    throw new Error(`Upstream Network Error: ${e.message}`);
+  }
 };

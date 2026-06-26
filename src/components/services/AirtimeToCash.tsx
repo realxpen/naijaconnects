@@ -104,7 +104,7 @@ const AirtimeToCash = ({ user, onBack, isGuest = false, onRequireAuth }: Airtime
 
     } catch (e: any) {
       showToast(e.message || t("airtime_to_cash.failed_initiate"), "error");
-    } {
+    } finally {
       setLoading(false);
     }
   };
@@ -209,7 +209,7 @@ const AirtimeToCash = ({ user, onBack, isGuest = false, onRequireAuth }: Airtime
 
         <div className="bg-white rounded-[30px] shadow-sm border border-slate-100 overflow-hidden">
 
-          {/* Phone Input Section (Dark Theme Accent layout layout style) */}
+          {/* Phone Input Section */}
           <div className="p-6 bg-slate-900 text-white relative">
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">{t("airtime_to_cash.sender_mobile")}</label>
 

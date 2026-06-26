@@ -1,32 +1,41 @@
 import { makeAffatechRequest } from "../config.ts";
 
 export const buyEducation = async (payload: any) => {
-    // 1. Prepare Body
-    const body = {
-        exam_name: payload.exam_group, // "WAEC" or "NECO"
-        quantity: payload.quantity     // "1", "2", etc.
-    };
+  // Map service fields if passing from explicit automated selection contexts
+  const examGroup =
+    payload.exam_group || payload.service_id || payload.exam_name;
+  const qty = payload.quantity || 1;
 
-    try {
-        // 2. Use the Helper (Handles Auth, Headers, and URL automatically)
-        const data = await makeAffatechRequest("/epin/", body, "POST");
+  const body = {
+    exam_name: examGroup, // "WAEC" or "NECO"
+    quantity: String(qty),
+  };
 
-        // 3. Check Success (Affatech uses 'Status' or 'status')
-        if (data.Status === "successful" || data.status === "success") {
-             return {
-                success: true,
-                message: "Transaction Successful",
-                pin: data.pin || data.pins || "Check Receipt",
-                data: data,
-                reference: `AFF_${Date.now()}`
-            };
-        } else {
-            // Throw specific API error if available
-            throw new Error(data.api_response || data.error || "Affatech Transaction Failed");
-        }
+  try {
+    const data = await makeAffatechRequest("/epin/", body, "POST");
 
-    } catch (e: any) {
-        console.error("Affatech Education Error:", e.message);
-        throw e;
+    if (data.Status === "successful" || data.status === "success") {
+      return {
+        success: true,
+        message: "Transaction Successful",
+        // Aligning field formats for frontend components consumption layout
+        pin: data.pin || data.pins || "Check Receipt",
+        // Support multiple cards array mappings if returned by vendor
+        pins_list:
+          data.pins_list ||
+          (data.pin
+            ? [{ pin: data.pin, serial_number: data.serial_number || "" }]
+            : []),
+        data: data,
+        reference: data.id || `AFF_EDU_${Date.now()}`,
+      };
+    } else {
+      throw new Error(
+        data.api_response || data.error || "Affatech Transaction Failed",
+      );
     }
+  } catch (e: any) {
+    console.error("Affatech Education Error:", e.message);
+    throw e;
+  }
 };

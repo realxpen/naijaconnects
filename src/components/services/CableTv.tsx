@@ -68,6 +68,7 @@ const CableTv = ({ user, onUpdateBalance, onUpdatePiBalance, onBack, isGuest = f
       setLoadingPlans(true);
       setPlans([]);
       setSelectedPlan(null);
+      setActiveTab("All");
       try {
         const { data, error } = await supabase.functions.invoke("clubkonnect-proxy", {
           body: { action: "fetch_cable_plans" },
@@ -80,7 +81,7 @@ const CableTv = ({ user, onUpdateBalance, onUpdatePiBalance, onBack, isGuest = f
         }
       } catch (e) {
         console.error("Cable Plan Error", e);
-      } finally {
+      } finaly {
         setLoadingPlans(false);
       }
     };
@@ -216,9 +217,9 @@ const CableTv = ({ user, onUpdateBalance, onUpdatePiBalance, onBack, isGuest = f
       }
     } catch (e: any) {
       showToast(e.message || "Transaction Failed", "error");
-    } .finally(() => {
+    } finally {
       setLoading(false);
-    });
+    }
   };
 
   const executeInternalPiPurchase = async () => {
@@ -398,12 +399,10 @@ const CableTv = ({ user, onUpdateBalance, onUpdatePiBalance, onBack, isGuest = f
                   key={p.id}
                   onClick={() => { setProvider(p.id); setPlans([]); setSelectedPlan(null); setActiveTab("All"); setCustomerName(""); }}
                   className={`flex-1 min-w-[80px] py-3 px-4 rounded-xl font-bold text-xs border-2 whitespace-nowrap transition-all ${provider === p.id
-                      ? "border-emerald-600 bg-emerald-600 text-white shadow-md"
-                      : "border-slate-200 bg-white text-slate-500 hover:border-emerald-300"
+                    ? "border-emerald-600 bg-emerald-600 text-white shadow-md"
+                    : "border-slate-200 bg-white text-slate-500 hover:border-emerald-300"
                     }`}
-                >
-                  {p.name}
-                </button>
+                />
               ))}
             </div>
           </div>
@@ -498,8 +497,8 @@ const CableTv = ({ user, onUpdateBalance, onUpdatePiBalance, onBack, isGuest = f
                     key={p.id}
                     onClick={() => setSelectedPlan(p)}
                     className={`relative p-4 rounded-2xl text-left border-2 transition-all flex flex-col justify-between min-h-[100px] group ${selectedPlan?.id === p.id
-                        ? "border-emerald-600 bg-emerald-50 shadow-sm"
-                        : "border-slate-100 bg-slate-50 hover:border-emerald-200"
+                      ? "border-emerald-600 bg-emerald-50 shadow-sm"
+                      : "border-slate-100 bg-slate-50 hover:border-emerald-200"
                       }`}
                   >
                     {selectedPlan?.id === p.id && <CheckCircle2 size={16} className="absolute top-2 right-2 text-emerald-600" />}

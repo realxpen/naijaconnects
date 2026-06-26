@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { 
+import {
   Moon, Sun, Monitor, Lock, LogOut, ChevronRight, Mail, Bell,
   User, Phone, Save, Loader2, KeyRound, Zap, BookOpen, Sparkles, CheckCircle2
 } from 'lucide-react';
 import { dbService } from '../services/dbService';
-import { supabase } from "../supabaseClient"; 
+import { supabase } from "../supabaseClient";
 import { useI18n } from '../i18n';
 import { hashPin, isValidPin, verifyPinHash } from '../utils/pin';
 import { usePushNotifications } from '../hooks/usePushNotifications';
@@ -16,12 +16,12 @@ import { linkPiUserAccount } from '../services/piNetworkService';
 import { useToast } from '../components/ui/ToastProvider';
 
 interface ProfileProps {
-  user: { 
-    name: string; 
-    email: string; 
-    phone?: string; 
+  user: {
+    name: string;
+    email: string;
+    phone?: string;
     avatar_url?: string;
-    tier?: 'Starter' | 'Gold' | 'Platinum'; 
+    tier?: 'Starter' | 'Gold' | 'Platinum';
     id?: string;
     pinHash?: string | null;
     pinLength?: number | null;
@@ -32,7 +32,7 @@ interface ProfileProps {
     piWalletAddress?: string | null;
   };
   onLogout: () => void;
-  onUpdateUser: (updatedData: any) => Promise<void>; 
+  onUpdateUser: (updatedData: any) => Promise<void>;
 }
 
 const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
@@ -62,7 +62,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
 
       showToast("Linking Pi account with your profile...", "info");
       const piUser = await linkPiUserAccount(auth.accessToken);
-      
+
       // Update local user state
       await onUpdateUser({
         piUid: piUser.uid,
@@ -80,15 +80,15 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
   };
 
   type ThemeMode = 'light' | 'dark' | 'system';
-  
+
   const getInitialTheme = (): ThemeMode => {
     const stored = localStorage.getItem('theme');
     if (stored === 'light' || stored === 'dark' || stored === 'system') return stored;
     return 'system';
   };
-  
+
   const [themeMode, setThemeMode] = useState<ThemeMode>(getInitialTheme);
-  
+
   // Accordion States
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [showEditProfile, setShowEditProfile] = useState(false);
@@ -201,70 +201,70 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
   const handleUpdateProfile = async () => {
     setIsLoading(true);
     try {
-        if (!formData.firstName.trim()) {
-            setMsg({ text: t("profile.fill_all_fields"), type: 'error' });
-            setIsLoading(false);
-            return;
-        }
-        await dbService.updateProfile(user.email, {
-            first_name: formData.firstName.trim(),
-            last_name: formData.lastName.trim() || null,
-            phone: formData.phone
-        });
-        
-        const fullName = `${formData.firstName} ${formData.lastName}`.trim();
-        await onUpdateUser({ name: fullName, phone: formData.phone }); 
-        setMsg({ text: t("profile.updated"), type: 'success' });
-        setTimeout(() => {
-            setMsg({ text: '', type: '' });
-            setShowEditProfile(false);
-        }, 1500);
-    } catch (e) {
-        setMsg({ text: t("profile.update_failed"), type: 'error' });
-    } finally {
+      if (!formData.firstName.trim()) {
+        setMsg({ text: t("profile.fill_all_fields"), type: 'error' });
         setIsLoading(false);
+        return;
+      }
+      await dbService.updateProfile(user.email, {
+        first_name: formData.firstName.trim(),
+        last_name: formData.lastName.trim() || null,
+        phone: formData.phone
+      });
+
+      const fullName = `${formData.firstName} ${formData.lastName}`.trim();
+      await onUpdateUser({ name: fullName, phone: formData.phone });
+      setMsg({ text: t("profile.updated"), type: 'success' });
+      setTimeout(() => {
+        setMsg({ text: '', type: '' });
+        setShowEditProfile(false);
+      }, 1500);
+    } catch (e) {
+      setMsg({ text: t("profile.update_failed"), type: 'error' });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   // --- PASSWORD CHANGE LOGIC ---
   const handleChangePassword = async () => {
-      if (!passwords.current || !passwords.new || !passwords.confirm) {
-        return setMsg({ text: t("profile.fill_all_fields"), type: 'error' });
-      }
-      if (passwords.new !== passwords.confirm) {
-        return setMsg({ text: t("profile.passwords_no_match"), type: 'error' });
-      }
-      if (passwords.new.length < 6) {
-        return setMsg({ text: t("profile.password_min"), type: 'error' });
-      }
-      
-      setIsLoading(true);
-      setMsg({ text: '', type: '' }); 
+    if (!passwords.current || !passwords.new || !passwords.confirm) {
+      return setMsg({ text: t("profile.fill_all_fields"), type: 'error' });
+    }
+    if (passwords.new !== passwords.confirm) {
+      return setMsg({ text: t("profile.passwords_no_match"), type: 'error' });
+    }
+    if (passwords.new.length < 6) {
+      return setMsg({ text: t("profile.password_min"), type: 'error' });
+    }
 
-      try {
-        const { error: loginError } = await supabase.auth.signInWithPassword({
-          email: user.email,
-          password: passwords.current
-        });
+    setIsLoading(true);
+    setMsg({ text: '', type: '' });
 
-        if (loginError) throw new Error(t("profile.incorrect_current_password"));
+    try {
+      const { error: loginError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: passwords.current
+      });
 
-        const { error: updateError } = await supabase.auth.updateUser({
-          password: passwords.new
-        });
+      if (loginError) throw new Error(t("profile.incorrect_current_password"));
 
-        if (updateError) throw new Error(updateError.message);
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: passwords.new
+      });
 
-        setMsg({ text: t("profile.password_updated"), type: 'success' });
-        setPasswords({ current: '', new: '', confirm: '' });
-        setTimeout(() => setShowPasswordForm(false), 2000);
+      if (updateError) throw new Error(updateError.message);
 
-      } catch (e: any) {
-        console.error("Password Error:", e);
-        setMsg({ text: e.message || t("profile.password_update_failed"), type: 'error' });
-      } finally {
-        setIsLoading(false);
-      }
+      setMsg({ text: t("profile.password_updated"), type: 'success' });
+      setPasswords({ current: '', new: '', confirm: '' });
+      setTimeout(() => setShowPasswordForm(false), 2000);
+
+    } catch (e: any) {
+      console.error("Password Error:", e);
+      setMsg({ text: e.message || t("profile.password_update_failed"), type: 'error' });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleUpdatePin = async () => {
@@ -272,10 +272,10 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
     try {
       if (!user.id) throw new Error("Missing user id");
       const len = pinForm.length;
-      
+
       if (!pinForm.length || (pinForm.length !== 4 && pinForm.length !== 6)) {
-          // Default fallback
-          setPinForm(prev => ({ ...prev, length: 4 }));
+        // Default fallback
+        setPinForm(prev => ({ ...prev, length: 4 }));
       }
 
       if (!isValidPin(pinForm.next, len || 4)) {
@@ -301,9 +301,10 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
           return;
         }
       }
+
       const nextHash = await hashPin(pinForm.next, user.id);
       await dbService.updateProfile(user.email, {
-        pin_hash: nextHash,
+        pin_hash: nextHash, //  CORRECT KEY NAME
         pin_length: len
       });
       await onUpdateUser({ pinHash: nextHash, pinLength: len });
@@ -319,7 +320,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
   // --- NOTIFICATION TOGGLE ---
   const handleToggleNotifications = async () => {
     if (pushLoading) return;
-    
+
     if (isSubscribed) {
       await unsubscribeFromPush();
     } else {
@@ -387,138 +388,138 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-24">
-      
+
       {/* 1. HEADER CARD */}
       <div className="bg-emerald-900 p-8 rounded-[35px] text-white shadow-xl text-center relative overflow-hidden group">
-         <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-emerald-400/10 to-transparent pointer-events-none"></div>
+        <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-emerald-400/10 to-transparent pointer-events-none"></div>
 
-         <div className="relative w-24 h-24 mx-auto mb-4">
-            <div className="w-full h-full rounded-[26px] bg-emerald-600/80 p-2 shadow-2xl flex items-center justify-center -rotate-6">
-              <img 
-                  src={getAvatar()} 
-                  alt="Profile" 
-                  onError={(e) => { (e.currentTarget as HTMLImageElement).src = buildDefaultAvatar(user.name); }}
-                  className="w-full h-full rounded-[20px] object-cover rotate-6"
-              />
-            </div>
-            <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg border border-emerald-200">
-              <img src="/logo-icon.svg" alt="Swifna" className="w-4 h-4" />
-            </div>
-         </div>
+        <div className="relative w-24 h-24 mx-auto mb-4">
+          <div className="w-full h-full rounded-[26px] bg-emerald-600/80 p-2 shadow-2xl flex items-center justify-center -rotate-6">
+            <img
+              src={getAvatar()}
+              alt="Profile"
+              onError={(e) => { (e.currentTarget as HTMLImageElement).src = buildDefaultAvatar(user.name); }}
+              className="w-full h-full rounded-[20px] object-cover rotate-6"
+            />
+          </div>
+          <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg border border-emerald-200">
+            <img src="/logo-icon.svg" alt="Swifna" className="w-4 h-4" />
+          </div>
+        </div>
 
-         <h2 className="text-2xl font-black tracking-tight">{user.name}</h2>
-         <p className="text-emerald-100 text-xs font-bold tracking-widest uppercase mt-1">{user.email}</p>
+        <h2 className="text-2xl font-black tracking-tight">{user.name}</h2>
+        <p className="text-emerald-100 text-xs font-bold tracking-widest uppercase mt-1">{user.email}</p>
 
-         <div className="mt-4 flex items-center justify-center gap-3">
-           <span className="px-4 py-2 rounded-full bg-emerald-800/70 border border-emerald-500/40 text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
-             Verified <Zap size={10} className="text-emerald-200" />
-           </span>
-           <span className="px-4 py-2 rounded-full bg-emerald-800/70 border border-emerald-500/40 text-[10px] font-black uppercase tracking-widest">
-             {user.tier || 'Starter'}
-           </span>
-         </div>
+        <div className="mt-4 flex items-center justify-center gap-3">
+          <span className="px-4 py-2 rounded-full bg-emerald-800/70 border border-emerald-500/40 text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
+            Verified <Zap size={10} className="text-emerald-200" />
+          </span>
+          <span className="px-4 py-2 rounded-full bg-emerald-800/70 border border-emerald-500/40 text-[10px] font-black uppercase tracking-widest">
+            {user.tier || 'Starter'}
+          </span>
+        </div>
 
-         <button
-           onClick={onLogout}
-           className="mt-5 w-full py-3 rounded-2xl border border-rose-400/40 text-rose-200 font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 hover:bg-rose-500/10 transition-colors"
-         >
-           <LogOut size={14} /> Sign Out from Swifna
-         </button>
+        <button
+          onClick={onLogout}
+          className="mt-5 w-full py-3 rounded-2xl border border-rose-400/40 text-rose-200 font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 hover:bg-rose-500/10 transition-colors"
+        >
+          <LogOut size={14} /> Sign Out from Swifna
+        </button>
       </div>
 
       {/* 2. PERSONAL INFO SECTION */}
       <div className="bg-white dark:bg-slate-800 rounded-[25px] shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
-         <button onClick={() => setShowEditProfile(!showEditProfile)} className="w-full p-5 flex items-center justify-between active:bg-slate-50 dark:active:bg-slate-700">
-            <div className="flex items-center gap-4">
-               <div className="p-3 bg-emerald-100 text-emerald-600 rounded-xl dark:bg-emerald-900/30 dark:text-emerald-300"><User size={20}/></div>
-               <div className="text-left">
-                  <h4 className="font-black text-sm dark:text-white">{t("profile.personal_details")}</h4>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase">{t("profile.name_phone")}</p>
-               </div>
+        <button onClick={() => setShowEditProfile(!showEditProfile)} className="w-full p-5 flex items-center justify-between active:bg-slate-50 dark:active:bg-slate-700">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-emerald-100 text-emerald-600 rounded-xl dark:bg-emerald-900/30 dark:text-emerald-300"><User size={20} /></div>
+            <div className="text-left">
+              <h4 className="font-black text-sm dark:text-white">{t("profile.personal_details")}</h4>
+              <p className="text-[10px] text-slate-400 font-bold uppercase">{t("profile.name_phone")}</p>
             </div>
-            <ChevronRight size={18} className={`text-slate-300 transition-transform ${showEditProfile ? 'rotate-90' : ''}`}/>
-         </button>
-         
-         {showEditProfile && (
-            <div className="px-5 pb-5 animate-in slide-in-from-top-2">
-               <div className="space-y-3 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700">
-                  <div className="relative">
-                      <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
-                      <input type="text" placeholder="First Name" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} className="w-full pl-9 p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500"/>
-                  </div>
-                  <div className="relative">
-                      <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
-                      <input type="text" placeholder="Last Name" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} className="w-full pl-9 p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500"/>
-                  </div>
-                  <div className="relative">
-                      <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
-                      <input type="tel" placeholder={t("profile.phone_number")} value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value.replace(/\D/g,'')})} className="w-full pl-9 p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500"/>
-                  </div>
-                  {msg.text && !showPasswordForm && <p className={`text-[10px] font-black uppercase text-center ${msg.type === 'error' ? 'text-rose-500' : 'text-emerald-500'}`}>{msg.text}</p>}
-                  <button onClick={handleUpdateProfile} disabled={isLoading} className="w-full py-3 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2">
-                      {isLoading ? <Loader2 className="animate-spin" size={14}/> : <Save size={14}/>} {t("profile.save_changes")}
-                  </button>
-               </div>
+          </div>
+          <ChevronRight size={18} className={`text-slate-300 transition-transform ${showEditProfile ? 'rotate-90' : ''}`} />
+        </button>
+
+        {showEditProfile && (
+          <div className="px-5 pb-5 animate-in slide-in-from-top-2">
+            <div className="space-y-3 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700">
+              <div className="relative">
+                <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input type="text" placeholder="First Name" value={formData.firstName} onChange={e => setFormData({ ...formData, firstName: e.target.value })} className="w-full pl-9 p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500" />
+              </div>
+              <div className="relative">
+                <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input type="text" placeholder="Last Name" value={formData.lastName} onChange={e => setFormData({ ...formData, lastName: e.target.value })} className="w-full pl-9 p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500" />
+              </div>
+              <div className="relative">
+                <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input type="tel" placeholder={t("profile.phone_number")} value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '') })} className="w-full pl-9 p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500" />
+              </div>
+              {msg.text && !showPasswordForm && <p className={`text-[10px] font-black uppercase text-center ${msg.type === 'error' ? 'text-rose-500' : 'text-emerald-500'}`}>{msg.text}</p>}
+              <button onClick={handleUpdateProfile} disabled={isLoading} className="w-full py-3 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2">
+                {isLoading ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />} {t("profile.save_changes")}
+              </button>
             </div>
-         )}
+          </div>
+        )}
       </div>
 
-       {/* 2.5. PI NETWORK ASSOCIATION */}
-       <div className="bg-white dark:bg-slate-800 rounded-[25px] shadow-sm border border-slate-100 dark:border-slate-700 p-5 space-y-4">
-         <div className="flex items-center gap-4">
-           <div className="p-3 bg-indigo-100 text-indigo-600 rounded-xl dark:bg-indigo-900/30 dark:text-indigo-300">
-             <Sparkles size={20} />
-           </div>
-           <div className="text-left flex-grow">
-             <h4 className="font-black text-sm dark:text-white">Pi Network Account</h4>
-             <p className="text-[10px] text-slate-400 font-bold uppercase">Enable frictionless login & fast deposits</p>
-           </div>
-         </div>
+      {/* 2.5. PI NETWORK ASSOCIATION */}
+      <div className="bg-white dark:bg-slate-800 rounded-[25px] shadow-sm border border-slate-100 dark:border-slate-700 p-5 space-y-4">
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-indigo-100 text-indigo-600 rounded-xl dark:bg-indigo-900/30 dark:text-indigo-300">
+            <Sparkles size={20} />
+          </div>
+          <div className="text-left flex-grow">
+            <h4 className="font-black text-sm dark:text-white">Pi Network Account</h4>
+            <p className="text-[10px] text-slate-400 font-bold uppercase">Enable frictionless login & fast deposits</p>
+          </div>
+        </div>
 
-         {user.piUsername ? (
-           <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 flex flex-col gap-2 animate-in slide-in-from-bottom-2">
-             <div className="flex items-center justify-between">
-               <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Connection Status</span>
-               <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                 <CheckCircle2 size={14} /> Linked
-               </span>
-             </div>
-             <div className="flex items-center justify-between">
-               <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Pi Username</span>
-               <span className="text-xs font-black dark:text-white">@{user.piUsername}</span>
-             </div>
-             {user.piWalletAddress && (
-               <div className="flex flex-col gap-1 pt-1 border-t border-slate-100 dark:border-slate-800">
-                 <span className="text-[10px] font-black text-slate-400 uppercase">Wallet Address</span>
-                 <span className="text-[10px] font-bold text-slate-500 dark:text-slate-300 break-all bg-white dark:bg-slate-950 p-2 rounded-lg border border-slate-100 dark:border-slate-850">
-                   {user.piWalletAddress}
-                 </span>
-               </div>
-             )}
-           </div>
-         ) : (
-           <div className="space-y-3">
-             <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-semibold">
-               Link your Swifna account to your Pi Network identity to log in instantly inside the Pi Browser and confirm deposits securely.
-             </p>
-             <button
-               onClick={handleLinkPi}
-               disabled={isLinkingPi}
-               className="w-full py-3.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-widest active:scale-95 transition-all shadow-md flex items-center justify-center gap-2"
-             >
-               {isLinkingPi ? (
-                 <>
-                   <Loader2 className="animate-spin" size={14} /> Linking Account...
-                 </>
-               ) : (
-                 <>
-                   <Sparkles size={14} className="text-yellow-300 animate-pulse" /> Link Pi Network Account
-                 </>
-               )}
-             </button>
-           </div>
-         )}
-       </div>
+        {user.piUsername ? (
+          <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 flex flex-col gap-2 animate-in slide-in-from-bottom-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Connection Status</span>
+              <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                <CheckCircle2 size={14} /> Linked
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Pi Username</span>
+              <span className="text-xs font-black dark:text-white">@{user.piUsername}</span>
+            </div>
+            {user.piWalletAddress && (
+              <div className="flex flex-col gap-1 pt-1 border-t border-slate-100 dark:border-slate-800">
+                <span className="text-[10px] font-black text-slate-400 uppercase">Wallet Address</span>
+                <span className="text-[10px] font-bold text-slate-500 dark:text-slate-300 break-all bg-white dark:bg-slate-950 p-2 rounded-lg border border-slate-100 dark:border-slate-850">
+                  {user.piWalletAddress}
+                </span>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-semibold">
+              Link your Swifna account to your Pi Network identity to log in instantly inside the Pi Browser and confirm deposits securely.
+            </p>
+            <button
+              onClick={handleLinkPi}
+              disabled={isLinkingPi}
+              className="w-full py-3.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-widest active:scale-95 transition-all shadow-md flex items-center justify-center gap-2"
+            >
+              {isLinkingPi ? (
+                <>
+                  <Loader2 className="animate-spin" size={14} /> Linking Account...
+                </>
+              ) : (
+                <>
+                  <Sparkles size={14} className="text-yellow-300 animate-pulse" /> Link Pi Network Account
+                </>
+              )}
+            </button>
+          </div>
+        )}
+      </div>
 
       {(hasRole('admin') || hasRole('founder') || hasRole('ceo') || hasRole('investor')) && (
         <div className="bg-white dark:bg-slate-800 rounded-[25px] shadow-sm border border-slate-100 dark:border-slate-700 p-5 space-y-3">
@@ -573,122 +574,120 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
         className="w-full bg-white dark:bg-slate-800 p-5 rounded-[25px] flex items-center justify-between shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-all"
       >
         <div className="flex items-center gap-4">
-          <div className="p-3 bg-emerald-100 text-emerald-600 rounded-xl dark:bg-emerald-900/30 dark:text-emerald-300"><BookOpen size={20}/></div>
+          <div className="p-3 bg-emerald-100 text-emerald-600 rounded-xl dark:bg-emerald-900/30 dark:text-emerald-300"><BookOpen size={20} /></div>
           <div className="text-left">
             <h4 className="font-black text-sm dark:text-white">Data Help Centre</h4>
             <p className="text-[10px] text-slate-400 font-bold uppercase">MTN & Airtel article guides</p>
           </div>
         </div>
-        <ChevronRight size={18} className="text-slate-300"/>
+        <ChevronRight size={18} className="text-slate-300" />
       </button>
 
       {/* 3. SETTINGS & SECURITY */}
       <div className="space-y-4">
-         
-         {/* Theme Toggle */}
-         <button onClick={cycleThemeMode} className="w-full bg-white dark:bg-slate-800 p-5 rounded-[25px] flex items-center justify-between shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-all">
+
+        {/* Theme Toggle */}
+        <button onClick={cycleThemeMode} className="w-full bg-white dark:bg-slate-800 p-5 rounded-[25px] flex items-center justify-between shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-all">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-purple-100 text-purple-600 rounded-xl dark:bg-purple-900/30 dark:text-purple-300">
+              {themeMode === 'dark' ? <Moon size={20} /> : themeMode === 'light' ? <Sun size={20} /> : <Monitor size={20} />}
+            </div>
+            <div className="text-left">
+              <h4 className="font-black text-sm dark:text-white">{t("profile.appearance")}</h4>
+              <p className="text-[10px] text-slate-400 font-bold uppercase">
+                {themeMode === 'dark' ? t("profile.dark_mode") : themeMode === 'light' ? t("profile.light_mode") : 'System'}
+              </p>
+            </div>
+          </div>
+          <div className={`w-12 h-6 rounded-full p-1 transition-colors ${themeMode === 'dark' ? 'bg-emerald-500' : themeMode === 'light' ? 'bg-slate-200' : 'bg-amber-200'}`}>
+            <div className={`w-4 h-4 bg-white rounded-full shadow-md transition-transform ${themeMode === 'dark' ? 'translate-x-6' : themeMode === 'light' ? 'translate-x-0' : 'translate-x-3'}`}></div>
+          </div>
+        </button>
+
+        {/* Change Password Section */}
+        <div className="bg-white dark:bg-slate-800 rounded-[25px] shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
+          <button onClick={() => { setShowPasswordForm(!showPasswordForm); setMsg({ text: '', type: '' }); }} className="w-full p-5 flex items-center justify-between active:bg-slate-50 dark:active:bg-slate-700">
             <div className="flex items-center gap-4">
-               <div className="p-3 bg-purple-100 text-purple-600 rounded-xl dark:bg-purple-900/30 dark:text-purple-300">
-                  {themeMode === 'dark' ? <Moon size={20}/> : themeMode === 'light' ? <Sun size={20}/> : <Monitor size={20}/>}
-               </div>
-               <div className="text-left">
-                  <h4 className="font-black text-sm dark:text-white">{t("profile.appearance")}</h4>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase">
-                    {themeMode === 'dark' ? t("profile.dark_mode") : themeMode === 'light' ? t("profile.light_mode") : 'System'}
-                  </p>
-               </div>
+              <div className="p-3 bg-blue-100 text-blue-600 rounded-xl dark:bg-blue-900/30 dark:text-blue-300"><Lock size={20} /></div>
+              <div className="text-left">
+                <h4 className="font-black text-sm dark:text-white">{t("profile.security")}</h4>
+                <p className="text-[10px] text-slate-400 font-bold uppercase">{t("profile.change_password")}</p>
+              </div>
             </div>
-            <div className={`w-12 h-6 rounded-full p-1 transition-colors ${themeMode === 'dark' ? 'bg-emerald-500' : themeMode === 'light' ? 'bg-slate-200' : 'bg-amber-200'}`}>
-               <div className={`w-4 h-4 bg-white rounded-full shadow-md transition-transform ${themeMode === 'dark' ? 'translate-x-6' : themeMode === 'light' ? 'translate-x-0' : 'translate-x-3'}`}></div>
-            </div>
-         </button>
+            <ChevronRight size={18} className={`text-slate-300 transition-transform ${showPasswordForm ? 'rotate-90' : ''}`} />
+          </button>
 
-         {/* Change Password Section */}
-         <div className="bg-white dark:bg-slate-800 rounded-[25px] shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
-            <button onClick={() => { setShowPasswordForm(!showPasswordForm); setMsg({text:'', type:''}); }} className="w-full p-5 flex items-center justify-between active:bg-slate-50 dark:active:bg-slate-700">
-               <div className="flex items-center gap-4">
-                  <div className="p-3 bg-blue-100 text-blue-600 rounded-xl dark:bg-blue-900/30 dark:text-blue-300"><Lock size={20}/></div>
-                  <div className="text-left">
-                     <h4 className="font-black text-sm dark:text-white">{t("profile.security")}</h4>
-                     <p className="text-[10px] text-slate-400 font-bold uppercase">{t("profile.change_password")}</p>
-                  </div>
-               </div>
-               <ChevronRight size={18} className={`text-slate-300 transition-transform ${showPasswordForm ? 'rotate-90' : ''}`}/>
-            </button>
-            
-            {showPasswordForm && (
-               <div className="px-5 pb-5 animate-in slide-in-from-top-2">
-                  <div className="space-y-3 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700">
-                     <input type="password" placeholder={t("profile.current_password")} value={passwords.current} onChange={e => setPasswords({...passwords, current: e.target.value})} className="w-full p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500"/>
-                     <input type="password" placeholder={t("profile.new_password")} value={passwords.new} onChange={e => setPasswords({...passwords, new: e.target.value})} className="w-full p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500"/>
-                     <input type="password" placeholder={t("profile.confirm_new_password")} value={passwords.confirm} onChange={e => setPasswords({...passwords, confirm: e.target.value})} className="w-full p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500"/>
-                     {msg.text && showPasswordForm && <p className={`text-[10px] font-black uppercase text-center ${msg.type === 'error' ? 'text-rose-500' : 'text-emerald-500'}`}>{msg.text}</p>}
-                     <button onClick={handleChangePassword} disabled={isLoading} className="w-full py-3 bg-slate-900 dark:bg-white dark:text-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-800 transition-colors flex justify-center">
-                        {isLoading ? <Loader2 className="animate-spin" size={14}/> : t("profile.update_password")}
-                     </button>
-                  </div>
-               </div>
-            )}
-         </div>
-
-         {/* PIN Section */}
-         <div className="bg-white dark:bg-slate-800 rounded-[25px] shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
-            <button onClick={() => { setShowPasswordForm(false); setMsg({text:'', type:''}); }} className="w-full p-5 flex items-center justify-between active:bg-slate-50 dark:active:bg-slate-700">
-               <div className="flex items-center gap-4">
-                  <div className="p-3 bg-emerald-100 text-emerald-600 rounded-xl dark:bg-emerald-900/30 dark:text-emerald-300"><KeyRound size={20}/></div>
-                  <div className="text-left">
-                     <h4 className="font-black text-sm dark:text-white">PIN</h4>
-                     <p className="text-[10px] text-slate-400 font-bold uppercase">Set or Change PIN</p>
-                  </div>
-               </div>
-               <ChevronRight size={18} className="text-slate-300 rotate-90"/>
-            </button>
-
+          {showPasswordForm && (
             <div className="px-5 pb-5 animate-in slide-in-from-top-2">
-               <div className="space-y-3 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700">
-                  {user.pinHash && (
-                    <input type="password" placeholder="Current PIN" value={pinForm.current} onChange={e => setPinForm({ ...pinForm, current: e.target.value.replace(/\D/g, '').slice(0, pinForm.length) })} className="w-full p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500"/>
-                  )}
-                  <div className="flex gap-2">
-                    <button type="button" onClick={() => setPinForm({ ...pinForm, length: 4 })} className={`flex-1 py-2 rounded-xl text-xs font-bold ${pinForm.length === 4 ? 'bg-emerald-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-500'}`}>4 Digits</button>
-                    <button type="button" onClick={() => setPinForm({ ...pinForm, length: 6 })} className={`flex-1 py-2 rounded-xl text-xs font-bold ${pinForm.length === 6 ? 'bg-emerald-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-500'}`}>6 Digits</button>
-                  </div>
-                  <input type="password" placeholder={`New ${pinForm.length}-digit PIN`} value={pinForm.next} onChange={e => setPinForm({ ...pinForm, next: e.target.value.replace(/\D/g, '').slice(0, pinForm.length) })} className="w-full p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500"/>
-                  <input type="password" placeholder="Confirm PIN" value={pinForm.confirm} onChange={e => setPinForm({ ...pinForm, confirm: e.target.value.replace(/\D/g, '').slice(0, pinForm.length) })} className="w-full p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500"/>
-                  {msg.text && !showPasswordForm && <p className={`text-[10px] font-black uppercase text-center ${msg.type === 'error' ? 'text-rose-500' : 'text-emerald-500'}`}>{msg.text}</p>}
-                  <button onClick={handleUpdatePin} disabled={isLoading} className="w-full py-3 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2">
-                      {isLoading ? <Loader2 className="animate-spin" size={14}/> : <Save size={14}/>} Save PIN
-                  </button>
-               </div>
+              <div className="space-y-3 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700">
+                <input type="password" placeholder={t("profile.current_password")} value={passwords.current} onChange={e => setPasswords({ ...passwords, current: e.target.value })} className="w-full p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500" />
+                <input type="password" placeholder={t("profile.new_password")} value={passwords.new} onChange={e => setPasswords({ ...passwords, new: e.target.value })} className="w-full p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500" />
+                <input type="password" placeholder={t("profile.confirm_new_password")} value={passwords.confirm} onChange={e => setPasswords({ ...passwords, confirm: e.target.value })} className="w-full p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500" />
+                {msg.text && showPasswordForm && <p className={`text-[10px] font-black uppercase text-center ${msg.type === 'error' ? 'text-rose-500' : 'text-emerald-500'}`}>{msg.text}</p>}
+                <button onClick={handleChangePassword} disabled={isLoading} className="w-full py-3 bg-slate-900 dark:bg-white dark:text-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-800 transition-colors flex justify-center">
+                  {isLoading ? <Loader2 className="animate-spin" size={14} /> : t("profile.update_password")}
+                </button>
+              </div>
             </div>
-         </div>
+          )}
+        </div>
 
-         {/* Push Notifications Toggle */}
-         <div className="bg-white dark:bg-slate-800 rounded-[25px] shadow-sm border border-slate-100 dark:border-slate-700 p-5 flex justify-between items-center">
+        {/* PIN Section */}
+        <div className="bg-white dark:bg-slate-800 rounded-[25px] shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
+          <button onClick={() => { setShowPasswordForm(false); setMsg({ text: '', type: '' }); }} className="w-full p-5 flex items-center justify-between active:bg-slate-50 dark:active:bg-slate-700">
             <div className="flex items-center gap-4">
-               <div className="p-3 bg-emerald-100 text-emerald-600 rounded-xl dark:bg-emerald-900/30 dark:text-emerald-300">
-                 <Bell size={20} />
-               </div>
-               <div className="text-left">
-                  <h4 className="font-black text-sm dark:text-white">Push Notifications</h4>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase">Receive alerts for transactions</p>
-               </div>
+              <div className="p-3 bg-emerald-100 text-emerald-600 rounded-xl dark:bg-emerald-900/30 dark:text-emerald-300"><KeyRound size={20} /></div>
+              <div className="text-left">
+                <h4 className="font-black text-sm dark:text-white">PIN</h4>
+                <p className="text-[10px] text-slate-400 font-bold uppercase">Set or Change PIN</p>
+              </div>
             </div>
-            
-            <button
-              onClick={handleToggleNotifications}
-              disabled={pushLoading}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
-                isSubscribed ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'
+            <ChevronRight size={18} className="text-slate-300 rotate-90" />
+          </button>
+
+          <div className="px-5 pb-5 animate-in slide-in-from-top-2">
+            <div className="space-y-3 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700">
+              {user.pinHash && (
+                <input type="password" placeholder="Current PIN" value={pinForm.current} onChange={e => setPinForm({ ...pinForm, current: e.target.value.replace(/\D/g, '').slice(0, pinForm.length) })} className="w-full p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500" />
+              )}
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setPinForm({ ...pinForm, length: 4 })} className={`flex-1 py-2 rounded-xl text-xs font-bold ${pinForm.length === 4 ? 'bg-emerald-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-500'}`}>4 Digits</button>
+                <button type="button" onClick={() => setPinForm({ ...pinForm, length: 6 })} className={`flex-1 py-2 rounded-xl text-xs font-bold ${pinForm.length === 6 ? 'bg-emerald-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-500'}`}>6 Digits</button>
+              </div>
+              <input type="password" placeholder={`New ${pinForm.length}-digit PIN`} value={pinForm.next} onChange={e => setPinForm({ ...pinForm, next: e.target.value.replace(/\D/g, '').slice(0, pinForm.length) })} className="w-full p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500" />
+              <input type="password" placeholder="Confirm PIN" value={pinForm.confirm} onChange={e => setPinForm({ ...pinForm, confirm: e.target.value.replace(/\D/g, '').slice(0, pinForm.length) })} className="w-full p-3 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 outline-none focus:border-emerald-500" />
+              {msg.text && !showPasswordForm && <p className={`text-[10px] font-black uppercase text-center ${msg.type === 'error' ? 'text-rose-500' : 'text-emerald-500'}`}>{msg.text}</p>}
+              <button onClick={handleUpdatePin} disabled={isLoading} className="w-full py-3 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2">
+                {isLoading ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />} Save PIN
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Push Notifications Toggle */}
+        <div className="bg-white dark:bg-slate-800 rounded-[25px] shadow-sm border border-slate-100 dark:border-slate-700 p-5 flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-emerald-100 text-emerald-600 rounded-xl dark:bg-emerald-900/30 dark:text-emerald-300">
+              <Bell size={20} />
+            </div>
+            <div className="text-left">
+              <h4 className="font-black text-sm dark:text-white">Push Notifications</h4>
+              <p className="text-[10px] text-slate-400 font-bold uppercase">Receive alerts for transactions</p>
+            </div>
+          </div>
+
+          <button
+            onClick={handleToggleNotifications}
+            disabled={pushLoading}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${isSubscribed ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'
               } ${pushLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ease-in-out ${
-                  isSubscribed ? 'translate-x-6' : 'translate-x-1'
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ease-in-out ${isSubscribed ? 'translate-x-6' : 'translate-x-1'
                 }`}
-              />
-            </button>
-         </div>
+            />
+          </button>
+        </div>
 
       </div>
 
@@ -697,15 +696,15 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout, onUpdateUser }) => {
         onClick={() => window.open('https://wa.me/2349151618451', '_blank')}
         className="w-full bg-white dark:bg-slate-800 p-5 rounded-[25px] flex items-center justify-between shadow-sm border border-slate-100 dark:border-slate-700 active:scale-95 transition-all"
       >
-            <div className="flex items-center gap-4">
-               <div className="p-3 bg-orange-100 text-orange-600 rounded-xl dark:bg-orange-900/30 dark:text-orange-300"><Mail size={20}/></div>
-               <div className="text-left">
-                  <h4 className="font-black text-sm dark:text-white">{t("profile.help_support")}</h4>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase">{t("profile.contact_us")}</p>
-               </div>
-            </div>
-            <ChevronRight size={18} className="text-slate-300"/>
-        </button>
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-orange-100 text-orange-600 rounded-xl dark:bg-orange-900/30 dark:text-orange-300"><Mail size={20} /></div>
+          <div className="text-left">
+            <h4 className="font-black text-sm dark:text-white">{t("profile.help_support")}</h4>
+            <p className="text-[10px] text-slate-400 font-bold uppercase">{t("profile.contact_us")}</p>
+          </div>
+        </div>
+        <ChevronRight size={18} className="text-slate-300" />
+      </button>
 
       <p className="text-center text-[9px] text-slate-300 font-black uppercase tracking-[0.2em] pt-2">Swifna v1.0.0</p>
     </div>
