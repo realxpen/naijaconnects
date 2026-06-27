@@ -201,7 +201,7 @@ const RechargePin = ({ user, onUpdateBalance, onUpdatePiBalance, onBack, isGuest
           },
           onReadyForServerCompletion: (paymentId, txid) => {
             void supabase.functions.invoke("pi-payment-handler", { body: { action: "COMPLETE_PAYMENT", reference, paymentId, txid } })
-              .then(async (data) => {
+              .then(async ({ data }) => {
                 if (data?.local_status !== "success") throw new Error("Contract resolution pipeline dropped.");
 
                 await supabase.functions.invoke("affatech-proxy", {
@@ -299,12 +299,12 @@ const RechargePin = ({ user, onUpdateBalance, onUpdatePiBalance, onBack, isGuest
                   key={net.id}
                   onClick={() => setNetworkId(net.id)}
                   className={`p-3 rounded-2xl border transition-all flex flex-col items-center justify-center gap-2 ${networkId === net.id
-                      ? "bg-slate-800 border-emerald-500 ring-1 ring-emerald-500"
-                      : "bg-slate-800/50 border-slate-700 hover:bg-slate-800"
+                    ? "bg-slate-800 border-emerald-500 ring-1 ring-emerald-500"
+                    : "bg-slate-800/50 border-slate-700 hover:bg-slate-800"
                     }`}
                 >
                   <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden">
-                    <img src={net.logo} className="w-full h-full object-cover" />
+                    <img src={net.logo} alt={`${net.name} carrier network logo`} className="w-full h-full object-cover" />
                   </div>
                   <span className="text-[10px] font-bold uppercase">{net.name}</span>
                 </button>
@@ -330,8 +330,8 @@ const RechargePin = ({ user, onUpdateBalance, onUpdatePiBalance, onBack, isGuest
                   key={amt}
                   onClick={() => setAmount(amt.toString())}
                   className={`min-w-[80px] py-3 px-2 rounded-xl text-xs font-black border-2 transition-all ${amount === amt.toString()
-                      ? "border-emerald-600 bg-emerald-50 text-emerald-800 shadow-md"
-                      : "border-slate-100 bg-white text-slate-500 hover:border-emerald-200"
+                    ? "border-emerald-600 bg-emerald-50 text-emerald-800 shadow-md"
+                    : "border-slate-100 bg-white text-slate-500 hover:border-emerald-200"
                     }`}
                 >
                   ₦{Number(amt).toLocaleString(undefined, { minimumFractionDigits: 2 })}
@@ -342,7 +342,10 @@ const RechargePin = ({ user, onUpdateBalance, onUpdatePiBalance, onBack, isGuest
             <h3 className="font-bold text-slate-700 mb-3 text-sm">Quantity</h3>
             <div className="bg-slate-50 p-4 rounded-2xl flex items-center justify-between border border-slate-100">
               <button
+                type="button"
                 onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                title="Decrease pin quantity"
+                aria-label="Decrease pin quantity"
                 className="w-12 h-12 bg-white shadow-sm rounded-xl flex items-center justify-center text-slate-600 hover:bg-slate-100 transition-colors"
               >
                 <span className="text-2xl font-black">-</span>
@@ -354,7 +357,10 @@ const RechargePin = ({ user, onUpdateBalance, onUpdatePiBalance, onBack, isGuest
               </div>
 
               <button
+                type="button"
                 onClick={() => setQuantity(Math.min(10, quantity + 1))}
+                title="Increase pin quantity"
+                aria-label="Increase pin quantity"
                 className="w-12 h-12 bg-white shadow-sm rounded-xl flex items-center justify-center text-emerald-600 hover:bg-emerald-50 transition-colors"
               >
                 <span className="text-2xl font-black">+</span>
@@ -390,6 +396,8 @@ const RechargePin = ({ user, onUpdateBalance, onUpdatePiBalance, onBack, isGuest
           <div className="bg-white w-full max-w-sm rounded-t-[35px] sm:rounded-[35px] p-6 shadow-2xl relative animate-in slide-in-from-bottom duration-200">
             <button
               onClick={() => setCheckoutOpen(false)}
+              title="Close modal"
+              aria-label="Close modal"
               className="absolute top-5 right-5 p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"
             >
               <X size={16} />

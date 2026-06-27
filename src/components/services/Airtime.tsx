@@ -286,9 +286,12 @@ const Airtime = ({ user, onUpdateBalance, onUpdatePiBalance, onBack, isGuest = f
             void supabase.functions.invoke("pi-payment-handler", {
               body: { action: "COMPLETE_PAYMENT", reference, paymentId, txid }
             })
-              .then(async (data) => {
+              .then(async ({ data }) => {
                 if (data?.local_status !== "success") throw new Error("Contract resolution sequence timed out.");
 
+                const newBal = user.balance - airtimeAmountNgn;
+                onUpdateBalance(newBal);
+                await dbService.updateBalance(user.email, newBal);
                 const isAffatechSpecial = networkId === 1 && (airtimeType === "Share and Sell" || airtimeType === "awuf4U");
                 const proxyFunc = isAffatechSpecial ? "affatech-proxy" : "clubkonnect-proxy";
 
@@ -468,8 +471,8 @@ const Airtime = ({ user, onUpdateBalance, onUpdatePiBalance, onBack, isGuest = f
                   key={amt}
                   onClick={() => setAmount(amt.toString())}
                   className={`relative p-3 rounded-2xl border-2 flex flex-col items-center justify-center transition-all ${amount === amt.toString()
-                      ? "border-emerald-600 bg-emerald-50 shadow-md"
-                      : "border-slate-100 bg-slate-50 hover:border-emerald-200"
+                    ? "border-emerald-600 bg-emerald-50 shadow-md"
+                    : "border-slate-100 bg-slate-50 hover:border-emerald-200"
                     }`}
                 >
                   {amt === 50 && (

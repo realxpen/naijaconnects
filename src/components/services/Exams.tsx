@@ -304,7 +304,7 @@ const Exams = ({ user, onUpdateBalance, onUpdatePiBalance, onBack, isGuest = fal
           },
           onReadyForServerCompletion: (paymentId, txid) => {
             void supabase.functions.invoke("pi-payment-handler", { body: { action: "COMPLETE_PAYMENT", reference, paymentId, txid } })
-              .then(async (data) => {
+              .then(async ({ data }) => {
                 if (data?.local_status !== "success") throw new Error("Contract tracking sequence mapping dropped.");
 
                 let proxyFunc = "affatech-proxy";
@@ -413,13 +413,13 @@ const Exams = ({ user, onUpdateBalance, onUpdatePiBalance, onBack, isGuest = fal
                   key={e.id}
                   onClick={() => { setSelectedExam(e); setCustomerName(""); }}
                   className={`relative p-3 rounded-2xl border transition-all flex flex-col items-center justify-center gap-2 h-20 ${selectedExam?.id === e.id
-                      ? "bg-slate-800 border-emerald-500 ring-1 ring-emerald-500"
-                      : "bg-slate-800/50 border-slate-700 hover:bg-slate-800"
+                    ? "bg-slate-800 border-emerald-500 ring-1 ring-emerald-500"
+                    : "bg-slate-800/50 border-slate-700 hover:bg-slate-800"
                     }`}
                 >
                   {selectedExam?.id === e.id && <div className="absolute top-2 right-2 w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>}
                   <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center">
-                    {e.logo ? <img src={e.logo} className="w-6 h-6 object-contain" /> : <BookOpen size={18} className="text-slate-400" />}
+                    {e.logo ? <img src={e.logo} alt={`${e.id} exam logo`} className="w-6 h-6 object-contain" /> : <BookOpen size={18} className="text-slate-400" />}
                   </div>
                   <span className="text-xs font-bold">{e.id}</span>
                 </button>
@@ -477,8 +477,8 @@ const Exams = ({ user, onUpdateBalance, onUpdatePiBalance, onBack, isGuest = fal
                       key={v.id}
                       onClick={() => setJambType(v.id)}
                       className={`flex-1 p-4 rounded-2xl border-2 text-left transition-all ${jambType === v.id
-                          ? "border-emerald-600 bg-emerald-50"
-                          : "border-slate-100 bg-white"
+                        ? "border-emerald-600 bg-emerald-50"
+                        : "border-slate-100 bg-white"
                         }`}
                     >
                       <div className="flex justify-between items-start mb-1">
@@ -523,6 +523,8 @@ const Exams = ({ user, onUpdateBalance, onUpdatePiBalance, onBack, isGuest = fal
                   <button
                     type="button"
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                    title="Decrease quantity"
+                    aria-label="Decrease quantity"
                     className="w-12 h-12 bg-white shadow-sm rounded-xl flex items-center justify-center text-slate-600 hover:bg-slate-100 transition-colors"
                   >
                     <span className="text-2xl font-black">-</span>
@@ -536,6 +538,8 @@ const Exams = ({ user, onUpdateBalance, onUpdatePiBalance, onBack, isGuest = fal
                   <button
                     type="button"
                     onClick={() => setQuantity(Math.min(5, quantity + 1))}
+                    title="Increase quantity"
+                    aria-label="Increase quantity"
                     className="w-12 h-12 bg-white shadow-sm rounded-xl flex items-center justify-center text-emerald-600 hover:bg-emerald-50 transition-colors"
                   >
                     <span className="text-2xl font-black">+</span>
@@ -571,6 +575,8 @@ const Exams = ({ user, onUpdateBalance, onUpdatePiBalance, onBack, isGuest = fal
             <button
               type="button"
               onClick={() => setCheckoutOpen(false)}
+              title="Close modal"
+              aria-label="Close modal"
               className="absolute top-5 right-5 p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"
             >
               <X size={16} />

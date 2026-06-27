@@ -321,7 +321,8 @@ const Auth: React.FC<AuthProps> = ({
             view === "login" &&
             (piAuthStep === "initializing" ||
               piAuthStep === "verifying" ||
-              piAuthStep === "success") ? (
+              piAuthStep === "success" ||
+              piAuthStep === "error") ? (
             <div className="bg-white dark:bg-slate-950 p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-2xl text-center space-y-6 animate-in slide-in-from-bottom-4 duration-500">
               <div className="relative w-24 h-24 mx-auto">
                 <div className="absolute inset-0 bg-yellow-400 rounded-full opacity-10 animate-ping duration-1000"></div>
@@ -518,6 +519,8 @@ const Auth: React.FC<AuthProps> = ({
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
+                    title={showPassword ? "Hide password" : "Show password"}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-600 transition-colors"
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -614,6 +617,8 @@ const Auth: React.FC<AuthProps> = ({
               </div>
               <button
                 onClick={() => setShowCopyModal(false)}
+                title="Close copy link modal"
+                aria-label="Close copy link modal"
                 className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm font-bold p-1"
               >
                 ✕

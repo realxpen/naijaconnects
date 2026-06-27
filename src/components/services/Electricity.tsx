@@ -304,7 +304,7 @@ const Electricity = ({ user, onUpdateBalance, onUpdatePiBalance, onBack, isGuest
             void supabase.functions.invoke("pi-payment-handler", {
               body: { action: "COMPLETE_PAYMENT", reference, paymentId, txid }
             })
-              .then(async (data) => {
+              .then(async ({ data }) => {
                 if (data?.local_status !== "success") throw new Error("Ecosystem node signature contract validation dropped.");
 
                 const { data: finalVendorRes } = await supabase.functions.invoke("clubkonnect-proxy", {
@@ -408,12 +408,14 @@ const Electricity = ({ user, onUpdateBalance, onUpdatePiBalance, onBack, isGuest
             {/* Disco Selector Card */}
             <button
               onClick={() => setShowDiscoModal(true)}
+              title="Select electricity provider"
+              aria-label="Select electricity provider"
               className="w-full flex items-center justify-between bg-slate-800 p-4 rounded-2xl border border-slate-700 hover:border-slate-500 transition-colors mb-6"
             >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center">
                   {selectedDiscoObj?.logo ? (
-                    <img src={selectedDiscoObj.logo} className="w-6 h-6 object-contain" />
+                    <img src={selectedDiscoObj.logo} alt={`${selectedDiscoObj.name} logo`} className="w-6 h-6 object-contain" />
                   ) : (
                     <Building2 size={20} className="text-slate-400" />
                   )}
@@ -528,8 +530,8 @@ const Electricity = ({ user, onUpdateBalance, onUpdatePiBalance, onBack, isGuest
                     validateAmount(v);
                   }}
                   className={`p-3 rounded-2xl border-2 flex flex-col items-center justify-center transition-all py-4 ${amount === amt.toString()
-                      ? "border-emerald-600 bg-emerald-50 shadow-md"
-                      : "border-slate-100 bg-slate-50 hover:border-emerald-200"
+                    ? "border-emerald-600 bg-emerald-50 shadow-md"
+                    : "border-slate-100 bg-slate-50 hover:border-emerald-200"
                     }`}
                 >
                   <span className="text-lg font-black text-slate-800">₦{amt.toLocaleString()}</span>
@@ -577,7 +579,7 @@ const Electricity = ({ user, onUpdateBalance, onUpdatePiBalance, onBack, isGuest
             <div className="bg-white w-full max-w-sm rounded-[30px] overflow-hidden shadow-2xl">
               <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                 <h3 className="font-black text-slate-800">Select Provider</h3>
-                <button onClick={() => setShowDiscoModal(false)} className="p-2 bg-slate-200 rounded-full"><ArrowLeft size={16} /></button>
+                <button onClick={() => setShowDiscoModal(false)} title="Close modal" aria-label="Close modal" className="p-2 bg-slate-200 rounded-full"><ArrowLeft size={16} /></button>
               </div>
               <div className="max-h-[60vh] overflow-y-auto p-2">
                 {DISCOS.map((d: any) => (
@@ -607,6 +609,8 @@ const Electricity = ({ user, onUpdateBalance, onUpdatePiBalance, onBack, isGuest
           <div className="bg-white w-full max-w-sm rounded-t-[35px] sm:rounded-[35px] p-6 shadow-2xl relative animate-in slide-in-from-bottom duration-200">
             <button
               onClick={() => setCheckoutOpen(false)}
+              title="Close checkout"
+              aria-label="Close checkout"
               className="absolute top-5 right-5 p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"
             >
               <X size={16} />

@@ -181,7 +181,7 @@ const ReceiptView = ({ tx, onClose, onRequeryDeposit }: { tx: Transaction; onClo
   const { showToast } = useToast();
   const displayRef = tx.reference || `TRX-${tx.id.substring(0, 8)}`;
   const txReference = String(tx.reference || "").trim();
-  const meta = tx?.meta || tx?.metadata || {};
+  const meta = tx?.meta || (tx as any)?.meta || (tx as any)?.metadata || {};
   const isDeposit = String(tx.type).toLowerCase() === "deposit";
   const isExam = String(tx.type).toLowerCase() === "exam";
 
@@ -835,7 +835,7 @@ const Dashboard = ({ user, onUpdateBalance, onUpdatePiBalance, activeTab, isGues
           accountNumber: String(transferPayload.account_number),
           bankName: String(transferPayload.bank_name || "Squad Transfer Bank"),
           accountName: String(transferPayload.account_name || user.name),
-          amount: amountNum + getDepositFee(amountNum, depositMethod),
+          amount: amountNum + getDepositFee(amountNum, depositMethod as any),
           reference: resolvedRef,
         });
         return;
@@ -1426,11 +1426,11 @@ const Dashboard = ({ user, onUpdateBalance, onUpdatePiBalance, activeTab, isGues
                   <>
                     <div className="bg-slate-50 p-3 rounded-xl mb-4 text-xs text-slate-600 flex justify-between items-center border border-slate-100">
                       <span>Processing Fee:</span>
-                      <span className="font-bold">₦{Number(getDepositFee(Number(depositAmount || 0), depositMethod)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                      <span className="font-bold">₦{Number(getDepositFee(Number(depositAmount || 0), depositMethod as any)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                     </div>
                     <div className="flex justify-between items-center mb-4 text-sm font-bold text-slate-800 px-1">
                       <span>Total Payable:</span>
-                      <span>₦{Number(Number(depositAmount || 0) + getDepositFee(Number(depositAmount || 0), depositMethod)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                      <span>₦{Number(Number(depositAmount || 0) + getDepositFee(Number(depositAmount || 0), depositMethod as any)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                     </div>
                   </>
                 )}
@@ -1553,7 +1553,7 @@ const Dashboard = ({ user, onUpdateBalance, onUpdatePiBalance, activeTab, isGues
               <button
                 type="button"
                 onClick={() => requirePin(doWithdraw)}
-                disabled={isWithdrawing || !withdrawAmount || !accountNumber || isResolving || (accountName && accountName.includes("INVALID"))}
+                disabled={!!(isWithdrawing || !withdrawAmount || !accountNumber || isResolving || (accountName && accountName.includes("INVALID")))}
                 className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-black rounded-2xl uppercase text-xs tracking-wider shadow-lg shadow-emerald-600/10 active:scale-[0.98] transition-all h-14 flex items-center justify-center"
               >
                 {isWithdrawing ? <Loader2 className="animate-spin" /> : "Confirm & Send Funds"}

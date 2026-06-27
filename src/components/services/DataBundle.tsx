@@ -361,7 +361,7 @@ const DataBundle = ({ user, onUpdateBalance, onUpdatePiBalance, onBack, isGuest 
             void supabase.functions.invoke("pi-payment-handler", {
               body: { action: "COMPLETE_PAYMENT", reference, paymentId, txid }
             })
-              .then(async (data) => {
+              .then(async ({ data }) => {
                 if (data?.local_status !== "success") throw new Error("Contract resolution sequence timed out.");
 
                 await supabase.functions.invoke("affatech-proxy", {

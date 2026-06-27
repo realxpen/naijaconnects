@@ -301,7 +301,7 @@ const CableTv = ({ user, onUpdateBalance, onUpdatePiBalance, onBack, isGuest = f
             void supabase.functions.invoke("pi-payment-handler", {
               body: { action: "COMPLETE_PAYMENT", reference, paymentId, txid }
             })
-              .then(async (data) => {
+              .then(async ({ data }) => {
                 if (data?.local_status !== "success") throw new Error("Contract tracking verification sequence timed out.");
 
                 await supabase.functions.invoke("clubkonnect-proxy", {
