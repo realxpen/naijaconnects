@@ -617,8 +617,8 @@ const Auth: React.FC<AuthProps> = ({
               </div>
               <button
                 onClick={() => setShowCopyModal(false)}
-                title="Close copy link modal"
-                aria-label="Close copy link modal"
+                title="Close modal"
+                aria-label="Close modal"
                 className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm font-bold p-1"
               >
                 ✕

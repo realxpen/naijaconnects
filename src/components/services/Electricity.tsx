@@ -415,7 +415,7 @@ const Electricity = ({ user, onUpdateBalance, onUpdatePiBalance, onBack, isGuest
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center">
                   {selectedDiscoObj?.logo ? (
-                    <img src={selectedDiscoObj.logo} alt={`${selectedDiscoObj.name} logo`} className="w-6 h-6 object-contain" />
+                    <img src={selectedDiscoObj.logo} alt={`${selectedDiscoObj.name || "Provider"} logo`} className="w-6 h-6 object-contain" />
                   ) : (
                     <Building2 size={20} className="text-slate-400" />
                   )}
