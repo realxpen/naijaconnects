@@ -81,7 +81,7 @@ const CableTv = ({ user, onUpdateBalance, onUpdatePiBalance, onBack, isGuest = f
         }
       } catch (e) {
         console.error("Cable Plan Error", e);
-      } finaly {
+      } finally {
         setLoadingPlans(false);
       }
     };
