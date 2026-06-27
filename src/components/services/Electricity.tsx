@@ -589,7 +589,7 @@ const Electricity = ({ user, onUpdateBalance, onUpdatePiBalance, onBack, isGuest
                     className="w-full p-4 flex items-center gap-4 hover:bg-emerald-50 rounded-2xl transition-colors border-b border-slate-50 last:border-0"
                   >
                     <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
-                      {d.logo ? <img src={d.logo} className="w-6 h-6 object-contain" /> : <Building2 size={20} className="text-slate-400" />}
+                      {d.logo ? <img src={d.logo} alt={`${d.name || "Provider"} logo`} className="w-6 h-6 object-contain" /> : <Building2 size={20} className="text-slate-400" />}
                     </div>
                     <div className="text-left">
                       <p className="font-bold text-slate-800">{d.name}</p>

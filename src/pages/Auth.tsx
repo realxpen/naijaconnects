@@ -290,6 +290,8 @@ const Auth: React.FC<AuthProps> = ({
               <button
                 key={i}
                 onClick={() => setActiveSlide(i)}
+                title={`Go to slide ${i + 1}`}
+                aria-label={`Go to slide ${i + 1}`}
                 className={`h-1.5 rounded-full transition-all duration-500 ${i === activeSlide ? "w-10 bg-yellow-400" : "w-2 bg-emerald-900"}`}
               />
             ))}
