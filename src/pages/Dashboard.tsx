@@ -372,6 +372,7 @@ const ReceiptView = ({ tx, onClose, onRequeryDeposit }: { tx: Transaction; onClo
                 <span className="text-xs font-bold text-slate-400">Description</span>
                 <span className="text-xs font-bold text-slate-700 text-right max-w-[150px]">{tx.description || tx.type}</span>
               </div>
+
               {isDeposit && (
                 <>
                   <div className="flex justify-between items-center py-2 border-b border-dashed border-slate-200">
@@ -499,7 +500,7 @@ const ReceiptView = ({ tx, onClose, onRequeryDeposit }: { tx: Transaction; onClo
 
 // --- MAIN DASHBOARD COMPONENT ---
 const Dashboard = ({ user, onUpdateBalance, onUpdatePiBalance, activeTab, isGuest = false, onRequireAuth, onViewChange }: DashboardProps) => {
-  const { t } = useI18n(); // DECLARED AT COMPONENT ROOT TO STOP BROWSER REFERENCEERRORS
+  const { t } = useI18n();
   const { showToast } = useToast();
   const { showSuccess } = useSuccessScreen();
   const [view, setView] = useState<ViewState>("Dashboard");
@@ -509,7 +510,7 @@ const Dashboard = ({ user, onUpdateBalance, onUpdatePiBalance, activeTab, isGues
   const [isRefreshing, setIsRefreshing] = useState(false);
   const pullStartY = useRef<number | null>(null);
 
-  // --- LOCAL STATE VARIABLES (PI WITHDRAWAL DECLARED INSIDE COMPONENT BODY) ---
+  // --- LOCAL STATE VARIABLES ---
   const [isPiWithdrawModalOpen, setIsPiWithdrawModalOpen] = useState(false);
   const [piWithdrawAmount, setPiWithdrawAmount] = useState("");
   const [piWalletAddress, setPiWalletAddress] = useState("");
@@ -646,7 +647,7 @@ const Dashboard = ({ user, onUpdateBalance, onUpdatePiBalance, activeTab, isGues
   const getWithdrawalFee = (amount: number) => calculateTransferServiceFee(amount);
   const getDepositFee = (amount: number, method: string) => {
     if (!amount || method === "PiNetwork") return 0;
-    return calculateDepositFee(amount, method);
+    return calculateDepositFee(amount, method as any);
   };
 
   const fetchUser = async () => {
@@ -1146,7 +1147,12 @@ const Dashboard = ({ user, onUpdateBalance, onUpdatePiBalance, activeTab, isGues
                 ₦{Number(localBalances.balance + (localBalances.piBalance * (livePiQuote?.rate || 0))).toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </h2>
             </div>
-            <button onClick={() => { fetchUser(); fetchHistory(); }} className="p-2 bg-white/15 rounded-full hover:bg-white/25">
+            <button
+              title="Refresh balances"
+              aria-label="Refresh balances"
+              onClick={() => { fetchUser(); fetchHistory(); }}
+              className="p-2 bg-white/15 rounded-full hover:bg-white/25"
+            >
               <RotateCcw size={14} className={isRefreshingBalance ? "animate-spin" : ""} />
             </button>
           </div>
@@ -1426,11 +1432,11 @@ const Dashboard = ({ user, onUpdateBalance, onUpdatePiBalance, activeTab, isGues
                   <>
                     <div className="bg-slate-50 p-3 rounded-xl mb-4 text-xs text-slate-600 flex justify-between items-center border border-slate-100">
                       <span>Processing Fee:</span>
-                      <span className="font-bold">₦{Number(getDepositFee(Number(depositAmount || 0), depositMethod as any)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                      <span className="font-bold">₦{Number(getDepositFee(Number(depositAmount || 0), depositMethod)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                     </div>
                     <div className="flex justify-between items-center mb-4 text-sm font-bold text-slate-800 px-1">
                       <span>Total Payable:</span>
-                      <span>₦{Number(Number(depositAmount || 0) + getDepositFee(Number(depositAmount || 0), depositMethod as any)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                      <span>₦{Number(Number(depositAmount || 0) + getDepositFee(Number(depositAmount || 0), depositMethod)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                     </div>
                   </>
                 )}
@@ -1486,6 +1492,8 @@ const Dashboard = ({ user, onUpdateBalance, onUpdatePiBalance, activeTab, isGues
               <div>
                 <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1.5 ml-1">Destination Bank</label>
                 <select
+                  title="Select destination bank"
+                  aria-label="Select destination bank"
                   className="w-full p-4 border border-slate-200 rounded-2xl bg-white text-xs font-bold text-slate-700 outline-none focus:border-emerald-500 transition-colors"
                   value={bankCode}
                   onChange={(e) => {
@@ -1569,6 +1577,8 @@ const Dashboard = ({ user, onUpdateBalance, onUpdatePiBalance, activeTab, isGues
           <div className="bg-white w-full max-w-sm rounded-[35px] p-8 shadow-2xl relative">
             <button
               type="button"
+              title="Close modal"
+              aria-label="Close modal"
               onClick={() => {
                 setIsPiWithdrawModalOpen(false);
                 setPiWithdrawAmount("");
