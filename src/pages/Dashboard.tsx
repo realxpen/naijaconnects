@@ -348,8 +348,7 @@ const ReceiptView = ({ tx, onClose, onRequeryDeposit }: { tx: Transaction; onClo
 
               <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase ${tx.status.toLowerCase() === 'success' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
                 {tx.status.toLowerCase() === 'success' ? <CheckCircle2 size={12} /> : <X size={12} />}
-                {tx.status
-                }
+                {tx.status}
               </div>
             </div>
 
@@ -500,7 +499,7 @@ const ReceiptView = ({ tx, onClose, onRequeryDeposit }: { tx: Transaction; onClo
 
 // --- MAIN DASHBOARD COMPONENT ---
 const Dashboard = ({ user, onUpdateBalance, onUpdatePiBalance, activeTab, isGuest = false, onRequireAuth, onViewChange }: DashboardProps) => {
-  const { t } = useI18n(); //  DECLARED AT COMPONENT ROOT TO STOP BROWSER REFERENCEERRORS
+  const { t } = useI18n(); // DECLARED AT COMPONENT ROOT TO STOP BROWSER REFERENCEERRORS
   const { showToast } = useToast();
   const { showSuccess } = useSuccessScreen();
   const [view, setView] = useState<ViewState>("Dashboard");
@@ -509,6 +508,12 @@ const Dashboard = ({ user, onUpdateBalance, onUpdatePiBalance, activeTab, isGues
   const [pullDistance, setPullDistance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const pullStartY = useRef<number | null>(null);
+
+  // --- LOCAL STATE VARIABLES (PI WITHDRAWAL DECLARED INSIDE COMPONENT BODY) ---
+  const [isPiWithdrawModalOpen, setIsPiWithdrawModalOpen] = useState(false);
+  const [piWithdrawAmount, setPiWithdrawAmount] = useState("");
+  const [piWalletAddress, setPiWalletAddress] = useState("");
+  const [isProcessingPiWithdrawal, setIsProcessingPiWithdrawal] = useState(false);
 
   const [localPinHash, setLocalPinHash] = useState<string | null>(user?.pinHash || null);
   const [localPinLength, setLocalPinLength] = useState<number | null>(user?.pinLength || null);
@@ -959,7 +964,6 @@ const Dashboard = ({ user, onUpdateBalance, onUpdatePiBalance, activeTab, isGues
 
       if (error) throw error;
 
-      // Optimistically adjust local balance state
       const newBal = localBalances.balance - totalDeduction;
       setLocalBalances(prev => ({ ...prev, balance: newBal }));
       onUpdateBalance(newBal);
@@ -979,6 +983,70 @@ const Dashboard = ({ user, onUpdateBalance, onUpdatePiBalance, activeTab, isGues
       showToast(e.message || "An error occurred while processing withdrawal request", "error");
     } finally {
       setIsWithdrawing(false);
+    }
+  };
+
+  const doPiWithdrawal = async () => {
+    if (isGuest) return onRequireAuth?.();
+
+    const amount = Number(piWithdrawAmount);
+    const cleanAddress = piWalletAddress.trim();
+
+    if (!piWithdrawAmount || amount <= 0) return showToast("Please enter a valid Pi amount", "error");
+    if (amount > localBalances.piBalance) return showToast("Insufficient Pi Network balance", "error");
+
+    if (!cleanAddress || !/^G[A-Z2-7]{55}$/.test(cleanAddress)) {
+      return showToast("Please enter a valid 56-character Pi public wallet address starting with 'G'", "error");
+    }
+
+    setIsProcessingPiWithdrawal(true);
+    try {
+      const { data, error } = await supabase.from("transactions").insert([
+        {
+          user_id: user.id,
+          user_email: user.email,
+          type: "Pi Withdrawal",
+          amount: amount,
+          status: "Pending",
+          reference: `πWTH-${Math.random().toString(36).substring(2, 11).toUpperCase()}`,
+          description: `Direct blockchain withdrawal to external wallet`,
+          meta: {
+            payout_wallet_address: cleanAddress,
+            asset: "PI",
+            estimated_naira_value: amount * (livePiQuote?.rate || 0)
+          }
+        }
+      ]).select().single();
+
+      if (error) throw error;
+
+      const freshPiBalance = localBalances.piBalance - amount;
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({ pi_balance: freshPiBalance })
+        .eq("id", user.id);
+
+      if (profileError) throw profileError;
+
+      setLocalBalances(prev => ({ ...prev, piBalance: freshPiBalance }));
+      if (onUpdatePiBalance) onUpdatePiBalance(freshPiBalance);
+
+      await fetchHistory();
+      setIsPiWithdrawModalOpen(false);
+      setPiWithdrawAmount("");
+      setPiWalletAddress("");
+
+      showSuccess({
+        title: "Pi Payout Initiated",
+        amount: amount,
+        message: "Your on-chain transfer request has been securely queued. It will settle automatically after verification.",
+        subtitle: "PI NETWORK BLOCKCHAIN"
+      });
+
+    } catch (e: any) {
+      showToast(e.message || "On-chain migration request initialization failed", "error");
+    } finally {
+      setIsProcessingPiWithdrawal(false);
     }
   };
 
@@ -1097,9 +1165,29 @@ const Dashboard = ({ user, onUpdateBalance, onUpdatePiBalance, activeTab, isGues
             </div>
           </div>
 
-          <div className="flex gap-3 mt-5">
-            <button onClick={() => setIsDepositModalOpen(true)} className="flex-1 bg-white text-emerald-700 py-3.5 rounded-2xl font-black text-xs uppercase shadow-lg flex items-center justify-center gap-2"><CreditCard size={16} /> Fund</button>
-            <button onClick={() => setIsWithdrawModalOpen(true)} className="flex-1 bg-emerald-800/40 border border-white/20 text-white py-3.5 rounded-2xl font-black text-xs uppercase">Withdraw</button>
+          <div className="flex flex-col gap-2 mt-5">
+            <div className="flex gap-3">
+              <button
+                onClick={() => setIsDepositModalOpen(true)}
+                className="flex-1 bg-white text-emerald-700 py-3.5 rounded-2xl font-black text-xs uppercase shadow-lg flex items-center justify-center gap-2"
+              >
+                <CreditCard size={16} /> Fund Wallet
+              </button>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setIsWithdrawModalOpen(true)}
+                className="flex-1 bg-emerald-800/40 border border-white/20 text-white py-3 rounded-xl font-black text-[11px] uppercase tracking-wider"
+              >
+                Withdraw ₦ (Bank)
+              </button>
+              <button
+                onClick={() => setIsPiWithdrawModalOpen(true)}
+                className="flex-1 bg-purple-900/40 border border-purple-400/30 text-purple-200 py-3 rounded-xl font-black text-[11px] uppercase tracking-wider flex items-center justify-center gap-1"
+              >
+                <span className="text-sm font-black leading-none">π</span> Withdraw Pi
+              </button>
+            </div>
           </div>
 
           <div className="mt-4 pt-4 border-t border-white/10">
@@ -1469,6 +1557,76 @@ const Dashboard = ({ user, onUpdateBalance, onUpdatePiBalance, activeTab, isGues
                 className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-black rounded-2xl uppercase text-xs tracking-wider shadow-lg shadow-emerald-600/10 active:scale-[0.98] transition-all h-14 flex items-center justify-center"
               >
                 {isWithdrawing ? <Loader2 className="animate-spin" /> : "Confirm & Send Funds"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PI BLOCKCHAIN WITHDRAWAL OVERLAY */}
+      {isPiWithdrawModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-sm rounded-[35px] p-8 shadow-2xl relative">
+            <button
+              type="button"
+              onClick={() => {
+                setIsPiWithdrawModalOpen(false);
+                setPiWithdrawAmount("");
+                setPiWalletAddress("");
+              }}
+              className="absolute top-6 right-6 p-2 bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              <X size={16} />
+            </button>
+
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <span className="text-xl font-black text-purple-700 leading-none">π</span>
+              <h3 className="text-xl font-black text-center text-slate-800">Withdraw Native Pi</h3>
+            </div>
+            <p className="text-[11px] font-bold text-center text-slate-400 mb-6 px-4">
+              Transfer assets from Swifna straight back to your private Pi Browser wallet.
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1.5 ml-1">Pi Wallet Address</label>
+                <textarea
+                  rows={2}
+                  className="w-full p-4 border border-slate-200 rounded-2xl text-xs font-mono font-bold text-slate-800 bg-slate-50 outline-none focus:border-purple-500 focus:bg-white transition-all resize-none break-all"
+                  placeholder="Paste your 56-character string starting with G..."
+                  value={piWalletAddress}
+                  onChange={(e) => setPiWalletAddress(e.target.value.replace(/[^A-Za-z0-9]/g, ""))}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1.5 ml-1">Amount to Transfer</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="any"
+                    className="w-full p-4 pr-12 border border-slate-200 rounded-2xl text-sm font-black text-slate-800 outline-none focus:border-purple-500 transition-all"
+                    placeholder="0.00"
+                    value={piWithdrawAmount}
+                    onChange={(e) => setPiWithdrawAmount(e.target.value)}
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-purple-600">π</span>
+                </div>
+                <div className="flex justify-between px-1 mt-1.5">
+                  <span className="text-[10px] font-bold text-slate-400">Available: {localBalances.piBalance.toLocaleString(undefined, { maximumFractionDigits: 4 })} π</span>
+                  {Number(piWithdrawAmount) > 0 && livePiQuote && (
+                    <span className="text-[10px] font-bold text-emerald-600">≈ ₦{(Number(piWithdrawAmount) * livePiQuote.rate).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                  )}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => requirePin(doPiWithdrawal)}
+                disabled={isProcessingPiWithdrawal || !piWithdrawAmount || !piWalletAddress}
+                className="w-full py-4 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-black rounded-2xl uppercase text-xs tracking-wider shadow-lg shadow-purple-600/10 active:scale-[0.98] transition-all h-14 flex items-center justify-center"
+              >
+                {isProcessingPiWithdrawal ? <Loader2 className="animate-spin" /> : "Verify Security PIN & Send"}
               </button>
             </div>
           </div>
